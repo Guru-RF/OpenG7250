@@ -49,5 +49,23 @@ g7250-emu/
 └── tools/   (git-ignored)  renode-1.17.0/   pinned Renode portable (arm64)
 ```
 
+## What M1 adds (stock Main boot — scaffolding)
+
+Image-independent scaffolding, verifiable now with `bash tests/baseline/m1_smoke.sh`:
+
+```
+├── platforms/g7250_main.repl        Main platform (STM32H72x deltas on the H7 base;
+│                                     320 KiB AXI SRAM override, confirmed on Renode)
+├── models/README.md                 model layout, sources/confidence, topology decisions
+├── models/devices/ch394.py          CH394 register-file logic + A1.12 default-IP check
+├── harness/g7250emu/imagemap.py     local image-map loader (hash-verified, no decryption)
+├── harness/g7250emu/observe.py      strict mode + hang detector + MMIO heatmap
+├── harness/g7250emu/m1_run.py       boot runner (refuses cleanly until the image is supplied)
+└── tests/baseline/m1_smoke.sh       the 5-check scaffolding regression gate
+```
+
+The actual stock boot lights up when the decrypted Main image is supplied
+locally (see `SECURITY.md`); until then `m1_run.py` refuses with a clear message.
+
 Directories from §13 not yet populated (`models/`, `tests/`, `matrix/`, `ci/`)
 are created as the milestones that need them begin (see spec §14).

@@ -1,0 +1,61 @@
+// g7250_main.repl — G7250 Main unit (STM32H72x-derived), M1 scaffolding.
+//
+// Clean-room: every value below is traced to the g7250-base RE docs or to ST's
+// public reference manual RM0468 (H72x/H73x), used as DATA. No stock firmware
+// code. Confidence tags mirror the RE docs (VERIFIED/HIGH/HYPOTHESIS).
+//
+// Starts from Renode's own STM32H7 base and overrides the Main-specific facts.
+// H72x differences vs the H743 base that still need modelling for M1 are marked
+// TODO(M1). The image itself is loaded by the harness from the local image-map
+// (never from here); this file only models the reset state the bootloader
+// leaves behind (app vector table at 0x08020000).
+
+using "platforms/cpus/stm32h7.repl"
+
+// --- MCU identity -----------------------------------------------------------
+// STM32H725xG or H735xG, 1 MiB flash (docs: MEDIUM -> HYPOTHESIS; crypto unused
+// so H725/H735 is irrelevant to us). DEV_ID 0x483 expected (HYPOTHESIS,
+// hardware_test_plan T3.1). cortex-m7 + 16 MPU regions come from the base.
+
+// --- Memory map (main_unit/docs/memory_map.md, VERIFIED) --------------------
+// AXI SRAM is 320 KiB on the H72x default TCM/AXI split, NOT the 512 KiB of the
+// H743 base. Override it. Nothing above 0x24050000 exists or is referenced.
+axiSram:
+    size: 0x50000            // 320 KiB @ 0x24000000 (VERIFIED)
+
+// Application image region: 0x08020000..0x0808EA20, vector table @0x08020000
+// (SCB->VTOR), bootloader 0x08000000..0x0801FFFF absent from the image (HIGH).
+// Initial MSP 0x24050000, reset 0x08024554 (VERIFIED). flashBank1 (1 MiB
+// @0x08000000) from the base already covers the app + bootloader regions.
+
+// Backup SRAM 4 KiB @0x38800000 already in the base (backupSram). The app only
+// copies 424 B of settings from it; BKPRAMEN is never enabled (HIGH).
+
+// --- Clock tree (main_unit/docs/flow.md, VERIFIED) --------------------------
+// HSE 25 MHz; PLL1 550/275/275; HCLK 275; PCLK 137.5; PLL2 100 (ADC);
+// I2S_CKIN 12.288 MHz external. SMPS 2.5 V + LDO, VOS0 without overdrive.
+// TODO(M1): model RCC ready/lock flags and PWR SMPS/VOS0 so the boot polling
+// loops pass in strict mode (this is the first polling-loop work of M1).
+
+// --- Peripherals present on Main (M1 inventory, spec §14 M1) ----------------
+// From the base we already get: RCC, PWR, FLASH, GPIO A..K, EXTI/SYSCFG, NVIC,
+// DWT, USART1/2, I2C1, SPI, TIM, ADC, DAC, IWDG, CRC, RTC.
+// TODO(M1) device models to add in models/devices/ and wire here:
+//   - CH394 on SPI6: register-file logic + A1.12 check done in
+//     models/devices/ch394.py (host-testable); wire as an SPI6 slave once the
+//     image drives SPI6 frames. INT on PC13 (VERIFIED). See models/README.md.
+//   - FPGA: GPIOE bit-bang, NOT a sysbus peripheral — the base GPIOE absorbs
+//     the M1 init wiggles; the fused model (M0 finding R3) lands in M3 when the
+//     48 kHz sample stream matters. See models/README.md.
+//   - I2C1 devices: EEPROM24C, AXP223 PMIC, VC6, AIC3204 codec (I2C1 slaves)
+//   - SPI1/SPI2 sinks; I2S3; TIM5/6/7/17; DAC1; ADC1 + bias-trim plant
+//   - PowerModel (PH5/PH9). The hang detector + strict mode + MMIO heatmap are
+//     harness-side in harness/g7250emu/observe.py (driven by m1_run.py), not
+//     peripherals.
+// TODO(M1) H72x-only blocks absent from the H743 base: TIM23/24, UART9/USART10
+//   (at least length-correct vector table + Tag regions).
+
+// --- Faults (main_unit/docs/startup.md, VERIFIED) ---------------------------
+// Default handler 0x080245A4 (loop). HardFault dumps registers on USART1 and
+// stops. Modelled at firmware level; the emulator just needs USART1 to accept
+// the dump without blocking.
