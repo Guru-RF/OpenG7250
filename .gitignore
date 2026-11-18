@@ -1,0 +1,8 @@
+# Local-only, never committed
+firmware/
+images/
+*.bbf
+*.ctl
+*.bin
+local.config*
+.DS_Store
