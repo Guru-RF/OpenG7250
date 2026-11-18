@@ -1,8 +1,22 @@
-# Local-only, never committed
-firmware/
-images/
+# ---- g7250-emu .gitignore (repo-structure logic from spec §13) ----
+
+# Decrypted firmware images NEVER live in the repo: they sit in the local
+# image-map outside any git work tree (see SECURITY.md). These patterns are a
+# second line of defence for vendor blobs and any build blob that slips in.
 *.bbf
 *.ctl
 *.bin
+*.dmg
+
+# Locally installed tooling (Renode portable, cross-toolchains): not committed.
+/tools/
+
+# Generated artifacts (§13 ".private/"): golden sets, recordings, heatmaps,
+# run logs, build output, measurement reports. Everything generated goes here,
+# never in the scratchpad, never tracked.
+/.private/
+
+# Local configuration (image-map path, host-specific settings).
 local.config*
+
 .DS_Store
