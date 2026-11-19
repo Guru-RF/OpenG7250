@@ -1,8 +1,14 @@
-# Pinned snapshot of g7250-base consumed as DATA (docs + CSV: register maps,
-# button tables, CI-V tables, memory maps). A bump is a deliberate change with
-# a regression run. See spec §13.2.
-repo:   fventuri/g7250-base (fork: on8st/g7250-base)
-commit: 18c91642fdd15a0c8d0b07e1428d7d4481dd3f7e
-ref:    re/round5
-date:   2026-11-18
+# Pinned snapshot of re/analysis (the umbrella's own RE work) consumed as DATA
+# (findings docs: memory map, radio overview, protocol coverage). A bump is a
+# deliberate change with a regression run (tests/baseline/acceptance_ae.sh).
+# See spec §13.2.
+path:   re/analysis
+commit: 71382c2fc84845c5554fca3d6c7f00de925ec47d
+tree:   53afb50445553e08b482046ee671293e9ff2b91b   # git rev-parse <commit>:re/analysis
+date:   2026-11-19
 note:   RE knowledge is used here only as data; no stock code is copied.
+
+# History: until 2026-11-19 the pin was g7250-base (fventuri/g7250-base, fork
+# on8st/g7250-base) at 18c91642fdd15a0c8d0b07e1428d7d4481dd3f7e (re/round5).
+# Existing model comments that cite "g7250-base" refer to that snapshot; that
+# project is now an external comparison source (see the umbrella README).

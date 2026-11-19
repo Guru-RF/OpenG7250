@@ -35,10 +35,10 @@ releases:
         app_range:     [0x08020000, 0x0808EA20]
         reset_msp:     0x24050000
         reset_pc:      0x08024554
-        image_sha256:  ""            # <-- user fills in locally
+        image_sha256:  ""            # never filled here: set in local.config
       control:
         load_base:     0x08020000
         app_range:     [0x08020000, 0x080DEC10]
         reset_msp:     0x24080000
         reset_pc:      0x080235AC
-        image_sha256:  ""            # <-- user fills in locally
+        image_sha256:  ""            # never filled here: set in local.config

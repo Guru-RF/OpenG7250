@@ -20,11 +20,13 @@ Verified by the consolidated gate `tests/baseline/acceptance_ae.sh` →
 
 ## How to run the tests (from `re/emu/`)
 Prereqs (all LOCAL, git-ignored — see "Clean-room" below):
-- `tools/renode-1.17.0/` — the pinned Renode portable (osx-arm64). To be moved
-  into the worktree (open point 3).
+- `tools/renode-1.17.0/` — the pinned Renode portable (osx-arm64).
 - Decrypted stock images OUTSIDE any repo; point to them with
-  `image_map = /abs/dir` in `local.config`, and fill `images/manifest.yaml`
-  `image_sha256` for `main`/`control` locally. **Never commit that hash.**
+  `image_map = /abs/dir` in `local.config`, and put their hashes in
+  `local.config` as `image_sha256.main = <hex>` / `image_sha256.control = <hex>`.
+  The tracked `images/manifest.yaml` stays blank. **Never commit that hash.**
+- `his_dir = /abs/path/to/g7250-his` in `local.config` (or env `G7250_HIS`) for
+  the E4 check, until the HIS migrates into the umbrella `his/`.
 
 Commands:
 - Fast gate, no image needed:            `bash tests/baseline/m1_smoke.sh`
@@ -35,13 +37,18 @@ Commands:
 - Two-machine SLIP:                      `python3 harness/g7250emu/slip_run.py`
 All image-driven scripts skip/refuse cleanly (exit 2) with no image-map.
 
-## Open points (this worktree, branch emu/integrate)
-1. Adapt `re/emu/README.md`, `AGENTS.md`, `docs/REPO_LAYOUT.md` to the umbrella:
-   g7250-fw → product/firmware; findings → `re/analysis/docs/`; HIS → `his/`.
-2. Switch the data pin `deps/g7250-base.lock` from g7250-base to `re/analysis`,
-   then run `acceptance_ae.sh` as a regression.
-3. Move the local, git-ignored `local.config`, `.private/` and `tools/` (Renode)
-   into `re/emu/` of this worktree.
+## Integration points (branch emu/integrate) — closed
+1. ✅ `README.md`, `AGENTS.md`, `docs/REPO_LAYOUT.md` (and `CLEANROOM.md`,
+   `SECURITY.md`) adapted to the umbrella: g7250-fw → product/firmware;
+   findings → `re/analysis/docs/`; HIS → `his/`.
+2. ✅ Data pin switched: `deps/g7250-base.lock` → `deps/re-analysis.lock`
+   (re/analysis at 71382c2); regression `acceptance_ae.sh`: **A–E ACCEPTANCE: ALL PASS** (10 of 10, 2026-11-19).
+3. ✅ `local.config`, `.private/`, `tools/` copied (APFS clone) from the former
+   `g7250-emu` checkout, which stays untouched as a read-only backup.
+
+Still open: `docs/architecture/` and the model/platform source comments still
+name `g7250-base`/`g7250-his`/`g7250-fw` (historical; the lock file explains
+the mapping). Re-pointing E4 to `his/` happens automatically once it migrates.
 
 ## Clean-room / policy (must stay true)
 - The emulator does NO decryption; decrypted images live outside any repo.
@@ -50,6 +57,8 @@ All image-driven scripts skip/refuse cleanly (exit 2) with no image-map.
 - Local commits on branches only; no push without an explicit go (umbrella AGENTS.md rule 4).
 - The hardware-interface spec (HIS) lives in the separate `g7250-his` repo
   (sections 00–80); it migrates to `his/` only after review at the gate.
+- `images/manifest.yaml` never carries a decrypted-image hash; it lives only in
+  the git-ignored `local.config`.
 
 ## Key artifacts
 harness/g7250emu: bootcore, m1_run (--fpga), control_run, slip_run, r0_confirm,
@@ -61,5 +70,4 @@ tests/baseline: m1_smoke, boot_milestone, fpga_boot, acceptance_ae.
 docs: M1-status, M2-control-status, M8c-R0-report, EMU-JOB-STATUS, D2-action-plan.
 
 ## Continuation
-ON8ST decides whether this session continues or a fresh `openg7250-emu` session
-takes over the three open points above.
+Taken over by the `openg7250-emu` session, which closed the integration points.

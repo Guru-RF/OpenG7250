@@ -32,7 +32,12 @@ echo "[5/5] Control GUI loop (C/C2) + FPGA fused model (D2, --fpga, slow)"
 python3 harness/g7250emu/control_run.py --timeout 50 >/dev/null 2>&1
 grep -q "GT911 detected" "$OUT/../control/control_console.txt" 2>/dev/null && pass "C/C2 Control GUI-loop init (GT911/codec)" || fail "C/C2 Control"
 bash tests/baseline/fpga_boot.sh >/dev/null 2>&1 && pass "D2 FPGA fused model (Check complete!)" || fail "D2 FPGA"
-[ -f "$REPO/../g7250-his/his/80-rf-fpga.md" ] && pass "E4 g7250-his HIS 00-80 present" || fail "E4 HIS"
+# HIS: umbrella his/ once migrated; until then the separate g7250-his checkout,
+# located via  his_dir = /abs/path  in local.config (git-ignored) or env G7250_HIS.
+HIS="${G7250_HIS:-$(sed -n 's/^[[:space:]]*his_dir[[:space:]]*=[[:space:]]*//p' local.config 2>/dev/null | head -1)}"
+for h in "$REPO/../../his" "$HIS"; do
+  [ -n "$h" ] && { [ -f "$h/80-rf-fpga.md" ] || [ -f "$h/his/80-rf-fpga.md" ]; } && { HISOK=1; break; }; done
+[ "${HISOK:-0}" = 1 ] && pass "E4 HIS 00-80 present" || fail "E4 HIS (umbrella his/ or his_dir)"
 
 echo; echo "===== A–E acceptance tally ====="
 ok=1; for r in "${R[@]}"; do echo "  $r"; [[ $r == FAIL* ]] && ok=0; done

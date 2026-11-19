@@ -10,6 +10,13 @@ the manifest), it refuses — the emulator never runs an unverified image.
 The image-map path comes from local configuration, never from a tracked file:
   1. env  G7250_IMAGE_MAP
   2. repo-root `local.config` (git-ignored), line  image_map = /abs/path
+
+The decrypted-image hashes are user-supplied and must never be committed. Put
+them in `local.config` (git-ignored), not in the tracked manifest:
+  image_sha256.main    = <hex>
+  image_sha256.control = <hex>
+A non-blank value in images/manifest.yaml is still honoured (legacy), but the
+local.config value takes precedence.
 """
 from __future__ import annotations
 import hashlib
@@ -91,11 +98,13 @@ def resolve(unit, release="V1.0.1", filename=None):
     path = os.path.join(d, filename)
     if not os.path.isfile(path):
         raise ImageMapError("image not in image-map: %s" % path)
-    expected = _manifest_images(release)[unit]["image_sha256"]
+    expected = (_read_local_config().get("image_sha256." + unit)
+                or _manifest_images(release)[unit]["image_sha256"])
     if not expected:
         raise ImageMapError(
-            "manifest image_sha256 for %s is blank — fill it in locally first "
-            "(the decrypted-image hash is user-supplied)." % unit)
+            "no image_sha256 for %s — add  image_sha256.%s = <hex>  to "
+            "local.config (git-ignored; the decrypted-image hash is "
+            "user-supplied and never committed)." % (unit, unit))
     got = _sha256(path)
     if got.lower() != expected.lower():
         raise ImageMapError("hash mismatch for %s:\n  expected %s\n  got      %s"
