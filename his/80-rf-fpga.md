@@ -41,3 +41,12 @@ return the 3-byte version, (c) drive PE0–7 on reads and PE10/DRDY at the rate
 index, and (d) source/sink 24-bit I/Q. This needs a C# peripheral wired to the
 GPIOE pins (both the MCU-output→FPGA and FPGA→MCU-input directions) plus the
 exact STB/CMD handshake — the clean-room firmware target for the RF path.
+
+**M3 attempt finding (g7250-emu):** a C# `G7250Fpga` model (loopback 0x00 +
+version 0x08 + DRDY output) is written and compiles, but naively wiring all of
+PE0–PE10 to it breaks the boot right after "System started." — GPIOE is heavily
+multiplexed (EXTI lines, RF band switching), so an FPGA driving those pins
+outside a bus transaction triggers spurious EXTI/behaviour. The correct model
+must drive the data lines only during an active FPGA read strobe and must not
+disturb the other GPIOE uses (EXTI-aware, transaction-scoped). That is the M3
+work; the stock boot is unaffected because the errors are log-only.
