@@ -25,11 +25,11 @@ Covers `network-interface.md` (parts A and B), `part-c-tci-profile.md` (part C),
 |------|-------|--------------|
 | A, B | 1 | M1 sections: transport, discovery, session, RX IQ; annexes for P2 differences, clarifications and tests. |
 | A, B | 2 | Aligned with accepted decisions 0003–0008: capability record, streams, telemetry, safety, management channel. |
-| A, B | 3 | All non-hardware TBDs resolved (0020); B11 error handling written; register addresses. |
+| A, B | 3 | All open points without a HIS dependency resolved (0020); B11 error handling written; register addresses. |
 | A, B | 4 | First independent review and P2 byte check fixed (0022 §1–§21). |
 | A, B | 5 | Second review of the transmit side fixed (0022 §22–§32): key rule, relay switching sequence, ATU tune cycle, CW backstop, fault hold-off, `LIMIT_INHIBIT`. |
 | C | 1 | TCI 2.1 profile: transport, initialization, command subset, `G7250_` extensions, multiple clients, safety. |
-| C | 2 | Non-hardware TBDs resolved (0021 §1–§17). |
+| C | 2 | Open points without a HIS dependency resolved (0021 §1–§17). |
 | C | 3 | First review fixed (0021 §18–§26): keyed liveness without Pong, part B symbols verbatim, arm holder. |
 | C | 4 | Second review fixed, rules referenced from part A/B (0022 §22–§32). |
 | Annex | 1–2 | Changes needed in AetherSDR, from its public source; follow-ups from parts B and C. |
