@@ -109,3 +109,49 @@ For ON8ST:
 
 - Does this change the choice for P2 (0016)? With a CH394Q, P2 just fits (8 of 8 sockets).
   With a CH394L, it only works in MACRAW mode. P1 needs 1 socket.
+
+## Addendum (2026-11-19): required and optional P2 streams, and TCI
+
+Asked by ON8ST: which of the 8 sockets are required, which are optional, and is the socket
+count also a problem for TCI (level 2)?
+
+### The 8 sockets for G7250-P2
+
+| # | Local port | Carries | For the G7250 |
+|---|-----------|---------|---------------|
+| 1 | 1024 | discovery, General packet, programming, command replies [P2] | required |
+| 2 | 1025 | in: DDC-specific packets; out: High Priority status [P2] | required (receiver set-up; status incl. forward/reverse power) |
+| 3 | 1026 | in: DUC-specific packets; out: microphone data [P2] | required for TX set-up; the microphone stream on it is optional |
+| 4 | 1027 | in: High Priority packets (run, PTT, frequencies, drive); out: wideband data [P2] | required; the wideband stream on it is optional (enabled per ADC, General packet byte 23 [P2]) |
+| 5 | 1028 | in: DDC audio (audio for the radio's own DAC/speaker) [P2] | **optional**: only if the G7250 plays host audio itself |
+| 6 | 1029 | in: DUC I&Q (TX IQ) [P2] | required for TX (0012) |
+| 7 | 1035 | out: DDC0 I&Q (RX IQ) [P2] | required |
+| 8 | to be defined | in/out: memory-mapped registers, the G7250 register map (0005) | required for the G7250 (ATU, antenna, TX arm, 0015) |
+
+Optional streams: microphone (on socket 3), wideband (on socket 4) and DDC audio (socket 5).
+Only DDC audio has a socket of its own, so it is the only one whose omission frees a
+socket, for example for the management channel (0008). Whether the G7250 needs DDC audio
+depends on whether it has a usable audio path for host audio (HIS).
+
+### TCI (level 2)
+
+TCI is a WebSocket protocol over TCP, with the transceiver as the server and several clients
+at the same time [TCI] (README). With a socket chip such as the CH394Q, each open TCP
+connection takes a socket of its own. That is how TCP sockets on such chips generally work;
+[CH394] lists 8 sockets "usable at the same time" but does not spell out the TCP server
+behaviour, so this is to be checked in the full CH394 documentation.
+
+Consequences, as far as known now:
+
+- TCI needs one socket per connected client, plus a listening socket if new clients must be
+  able to connect while others are connected. TCI itself uses one port, so per client it is
+  cheaper than P2.
+- The number of TCI clients the G7250 can serve is limited by the 8 sockets minus whatever
+  else runs at the same time (discovery, management channel).
+- With a single owner (0011), level 1 and level 2 do not run at the same time. If both must
+  still be reachable while one is active (for example for discovery or level selection),
+  their sockets add up. That belongs in spec part A and in 0008.
+- The CH394Q carries TCP but not WebSocket: framing, the HTTP upgrade and the TCI commands run
+  on the G7250 processor. Part of the G6 question (compute, network stack).
+- Audio and IQ over TCI also pass the SPI link, so the throughput limit of section 2 applies
+  to level 2 as well.
