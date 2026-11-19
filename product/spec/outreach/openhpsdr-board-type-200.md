@@ -1,7 +1,8 @@
 # Draft — notice to the openHPSDR project: board type 200
 
-- Status: draft, NOT sent. Needs a go from ON8ST for channel, account and text (AGENTS.md
-  rule 6).
+- Status: sent 2026-11-19 with a go from ON8ST, as
+  https://github.com/TAPR/OpenHPSDR-Firmware/issues/6 (account on8st). Text below, with
+  paragraphs unwrapped for GitHub.
 - Decision: 0002.
 - Proposed channel: an issue in github.com/TAPR/OpenHPSDR-Firmware. That repository holds
   the Protocol 2 documentation and is active (last commit 2026-11-13; 4 open issues, checked

@@ -1,7 +1,7 @@
 # 0002 — Board type value of G7250-P2: 200 (0xC8)
 
 - Status: accepted (ON8ST, 2026-11-19: choose a value ourselves and inform the openHPSDR
-  project). The value 200 is proposed and still needs acceptance.
+  project; value 200 accepted)
 - Date: 2026-11-19
 
 ## Context
@@ -79,8 +79,9 @@ openHPSDR project is informed of this value.
   0003 has to solve that.
 - **Informing openHPSDR.** A short notice to the openHPSDR project, stating that G7250-P2
   uses board type 200 and asking them to avoid it. This is an outward action: channel,
-  account and text need a go from ON8ST before anything is sent (AGENTS.md rule 6). A draft
-  is to be prepared.
+  account and text need a go from ON8ST before anything is sent (AGENTS.md rule 6).
+  Sent with that go on 2026-11-19 as https://github.com/TAPR/OpenHPSDR-Firmware/issues/6
+  (text in `outreach/openhpsdr-board-type-200.md`).
 - If the project later assigns 200 anyway, this decision has to be revised.
 - The behaviour of P2 hosts that see an unknown board type is covered in 0015.
 

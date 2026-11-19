@@ -18,7 +18,7 @@ on 2026-11-19, as recorded in `decisions/`.
 | #    | Title | Status |
 |------|-------|--------|
 | 0001 | Structure of the design note and the network-interface spec | accepted |
-| 0002 | Board type of G7250-P2: 200 (0xC8), chosen ourselves; openHPSDR to be informed | approach accepted; value 200 proposed |
+| 0002 | Board type of G7250-P2: 200 (0xC8), chosen ourselves; openHPSDR to be informed | accepted; notice sent as TAPR/OpenHPSDR-Firmware#6 |
 | 0005 | Control fields on P2: standard fields where identical; G7250 functions and TX safety in a G7250 register map (P2 memory-mapped registers) | accepted |
 | 0009 | Stay as close to the standard protocol as possible (now P2, see 0016) | accepted |
 | 0010 | No compatibility modes for now (HL2 rejected, ANAN out of scope for now) | accepted |
@@ -35,9 +35,7 @@ management channel.
 
 ## Open questions for ON8ST
 
-1. Accept the value 200 (0xC8) for the board type (0002).
-2. Go for the notice to openHPSDR: channel, account and text. Draft in
-   `outreach/openhpsdr-board-type-200.md`, not sent.
+None at the moment. Watch TAPR/OpenHPSDR-Firmware#6 for a reply on board type 200.
 
 Level 1 is called G7250-P2 (ON8ST, 2026-11-19).
 
