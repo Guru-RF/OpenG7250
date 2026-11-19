@@ -5,8 +5,9 @@ on 2026-11-19, as recorded in `decisions/`.
 
 ## Where things stand
 
-- Spec release candidate rc1 is being finished on branch `restructure/umbrella` (local only).
-  Files: `spec/network-interface.md` (parts A and B, draft 4), `spec/part-c-tci-profile.md`
+- Spec release candidate rc1 is tagged locally as `spec-rc1` on branch `restructure/umbrella`
+  (not pushed). Two independent reviews and a P2 byte check were done; their fixes are 0022.
+  Files: `spec/network-interface.md` (parts A and B, draft 5), `spec/part-c-tci-profile.md`
   (TCI profile), `spec/annex-aethersdr.md`, `spec/glossary.md`, generated
   `spec/register-map.yaml` and `spec/traceability-auto.md`; `design-note.md` draft 2.
 - Checks: `python3 tools/spec_lint.py` (0 findings required), `python3 tools/trace.py`,
@@ -46,11 +47,19 @@ on 2026-11-19, as recorded in `decisions/`.
 
 All numbers 0001–0018 are now in use.
 
-## Open questions for ON8ST
+## Open questions for ON8ST (rc1 review)
 
-None blocking. 0003–0008 were accepted on 2026-11-19 after an interactive round (answers
-recorded in each file under "Resolved"). Small items still open are listed in those files
-under "Still open".
+1. Review and accept (or change) the proposed decisions 0020 (rc1 detail choices), 0021 (TCI
+   profile choices, incl. `PROTOCOL:ExpertSDR3,2.1`, TX policy `any`, generic TUNE 1 s window)
+   and 0022 (review fixes, incl. §8: management may unkey and disarm, `RESTART`,
+   `FACTORY_RESET`, `SWITCH_LEVEL` unkey and disarm first).
+2. `.claude/settings.json` in the history (local paths, decrypted-folder name): the RE session
+   has put the options to ON8ST; do not change the file or history until decided.
+3. Go for the RE session to push tag `spec-rc1` as branch `spec/rc1` to the fork, and later for
+   the spec PR to Guru-RF.
+4. Go for an AetherSDR RFC issue (annex Q-O1); shared P2 refactor vs. self-contained backend
+   (Q-O2).
+5. Go to create `product/refmodel/` and the `g7250-testbench` submodule (0019).
 
 Watch TAPR/OpenHPSDR-Firmware#6 for a reply on board type 200.
 
