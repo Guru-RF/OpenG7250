@@ -48,9 +48,9 @@ registers:
   - name: TX_ARM_STATE
     address: 0x0202
     access: "RO"
-    content: "[3:0] state 0 disarmed, 1 armed, 2 inhibited (armed, but a limit inhibit is active so TX requests do not key; entered from 1 when an inhibit starts, back to 1 when it lifts, no new generation); [15:8] last reject reason of the owner; [23:16] last drop reason; [31:24] arm generation (+1 per arm, wraps) (Table B8-3)"
+    content: "[3:0] state 0 disarmed, 1 armed, 2 inhibited (armed, but a limit inhibit is active so TX requests do not key; entered from 1 when an inhibit starts, back to 1 when it lifts, no new generation); [15:8] last reject reason of the owner; [23:16] last drop reason, 5 `RESET` after any reset until the next drop (Table A3-1 event 5); [31:24] arm generation (+1 per arm, wraps) (Table B8-3)"
     sent: "on every change"
-    source: "0007 Decision 1; 0006; 0020 §8; 0022 §13"
+    source: "0007 Decision 1; 0006; 0020 §8; 0022 §13, §61"
   - name: TX_STATE
     address: 0x0203
     access: "RO"
@@ -132,9 +132,9 @@ registers:
   - name: LIMIT_FWD_POWER
     address: 0x0231
     access: "W, owner"
-    content: "upper bound on forward power (PEP, A3.4c), mW, all bands and classes"
+    content: "upper bound *L* on forward power, PEP, mW, all bands and classes; enforced through Table A3-3 like every other tier, so with a mean-only detector it bounds the mean (SSB *L* × `P_ssb_mean` / 100 W, AM min(*L* / 4, 25 W), CW and FM *L*); also bounds the tune power (A3.4 rule 5)"
     sent: "answer"
-    source: "0007 Decision 4; 0020 §10; 0022 §17"
+    source: "0007 Decision 4; 0020 §10; 0022 §17, §52, §53"
   - name: LIMIT_SWR
     address: 0x0232
     access: "W, owner"

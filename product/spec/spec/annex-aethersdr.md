@@ -1,7 +1,7 @@
 # Annex — Changes needed in AetherSDR
 
-- Version: rc2 draft, 2026-11-19
-- Status: draft for review by ON8ST. Informative annex to `spec/network-interface.md`
+- Version: rc2, 2026-11-19
+- Status: release candidate rc2, for review by ON8ST. Informative annex to `spec/network-interface.md`
   (0001, spec section 13; 0013, 0014, 0016).
 - © 2026 ON8ST, CC BY 4.0 (see `LICENSE.md`, decision 0018).
 
@@ -12,7 +12,7 @@ github.com/aethersdr/AetherSDR, at commit `9f7cbebcc976b7b798a33dd5a9fc491548d1b
 AetherSDR is GPL-3.0 [AETHER]; this annex quotes no AetherSDR code, only describes it.
 Line numbers are those of that commit and will drift.
 
-Spec sections cited as "B3.4" and similar refer to `spec/network-interface.md` rc2 draft of
+Spec sections cited as "B3.4" and similar refer to `spec/network-interface.md` rc2 of
 2026-11-19.
 
 ---
@@ -337,7 +337,11 @@ These parts of the ANAN P2 code already match the G7250 and need no change, only
   packets; a DUC-specific packet with rate 192 and 24 bits, else DUC I&Q is not accepted and
   TX is refused (0004 points 2 and 7; [P2] DUC I&Q packet, NOTE2). Drive level in High
   Priority byte 345 (0005). General byte 58 bit [0] (PA enable) set: while it is 0 no TX
-  request keys, and clearing it while keyed unkeys (B10.10; Table B7-1; 0022 §14). A DUC FIFO underflow longer than a hardware-dependent time (TBD, HIS-18) unkeys, arm kept (0007 §2; B10.5).
+  request keys, and clearing it while keyed unkeys (B10.10; Table B7-1; 0022 §14). A DUC FIFO
+  underflow longer than a hardware-dependent time (TBD, HIS-18) unkeys, arm kept (0007 §2;
+  B10.5). The underflow is timed from the key if no DUC I&Q has arrived by then, and the
+  radio sends zeros while its FIFO is empty; the underrun time is at least the key latency
+  plus 1.25 ms, so DUC I&Q started together with the PTT edge is in time (B10.5; 0022 §57).
 - **Today.** No DUC code in the P2 backend (`P2Protocol.h:17–20`). The HL2 chain outputs
   48 kHz (`Hl2TxDsp.h:56`) into a P1 queue of 126-sample packets (`MetisProtocol.h:471`;
   `MetisClient.h:421–439`).
@@ -376,9 +380,14 @@ These parts of the ANAN P2 code already match the G7250 and need no change, only
   AetherSDR need not resend them; it must resend the General packet after every session end
   before it arms again (for example after a restart with the run bit only). The capability
   record arrives once, unasked, at the session start (B4.4 item 2).
-- **High Priority sequence numbers** (B11.6a; 0022 §35). Number the High Priority packets
-  from 1 upwards, so that the radio discards a reordered or duplicated packet; with all
-  numbers 0 a PTT edge after less than 10 ms of PTT 0 is ignored.
+- **High Priority sequence numbers** (B11.6a; 0022 §35, §55, §56). Number the High Priority
+  packets from 1 upwards and restart at 1 only with a new session, so that the radio
+  discards a reordered or duplicated packet. The radio engages numbered mode after three
+  increasing non-zero numbers and resynchronises, with a log entry, after five packets in a
+  row that are not newer or a jump back by more than 2¹⁶; a PTT edge in the packet that
+  resynchronises does not key. In unnumbered mode (all numbers 0, and before numbered mode
+  engages) a PTT edge counts only if it arrives 10 ms or more after the latest packet with
+  PTT 1 (or after the arm confirmation).
 
 ##### G-08c High Priority refresh ≤ 100 ms while keyed; 500 ms keyed timeout — S
 
@@ -520,6 +529,15 @@ These parts of the ANAN P2 code already match the G7250 and need no change, only
   code (C5.10). Derive the part C `inhibits` field from the new `LIMIT_INHIBIT` register
   (B8, 0x0221). Never start an ATU tune while keyed, and declare the mode class before arming;
   a class change while keyed unkeys on P2 (A3.9b, A3.9c).
+- **Added by the review of the rc2 draft (0022 §52–§61).** Number High Priority packets so
+  that numbered mode engages, and start DUC I&Q with the PTT edge (B11.6a, B10.5; 0022 §55–§57).
+  Expect the takeover notices at the register destination of General bytes 31–32 (or the
+  session source port), not only at the source port (A2.4; 0022 §58). A `RESTART`,
+  `FACTORY_RESET` or `SWITCH_LEVEL` reply comes only after the unkey; a `RESTART` may be
+  refused with status 59 while RF is present (A1.9; 0022 §59, §61). With CWX, release the
+  paddle bits between characters: a paddle bit held for more than 1 s is cut (B10.5a). A
+  power limit written to `LIMIT_FWD_POWER` also bounds the mean and the tune power (Table
+  A3-3; 0022 §52, §53).
 
 ### 3.3 Summary
 
@@ -693,4 +711,4 @@ None new. G-07, G-08 and G-11 depend on HIS-01, -04, -11, -12 and -18, already o
 - [TCI] Transceiver Control Interface 2.1 (version, `TRX_COUNT`, `PROTOCOL`).
 - [G7250-MAN] Xiegu G7250 Operation Manual rev 0.1 (modes, AM power).
 - Decisions 0002, 0003, 0004, 0005, 0006, 0007, 0008, 0012, 0013, 0014, 0015, 0016, 0017,
-  0018; `spec/network-interface.md` rc2 draft (A, B); `design-note.md`.
+  0018; `spec/network-interface.md` rc2 (A, B); `design-note.md`.

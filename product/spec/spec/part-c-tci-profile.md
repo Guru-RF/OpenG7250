@@ -1,9 +1,9 @@
 # Part C — Level 2 and the G7250 TCI profile
 
-- Version: rc2 draft, 2026-11-19; changes in `spec/CHANGELOG.md`
-- Status: draft for review by ON8ST; the choices it applies are proposed in 0021 (§18–§26
-  added for draft 3) and follow 0022 (proposed; §22–§32 applied in draft 4, §33–§51 in this
-  rc2 draft). This file is part C of the network interface specification;
+- Version: rc2, 2026-11-19; changes in `spec/CHANGELOG.md`
+- Status: release candidate rc2, for review by ON8ST; the choices it applies are proposed in
+  0021 (§18–§26 added for draft 3) and follow 0022 (proposed; §22–§32 applied in draft 4,
+  §33–§51 in the rc2 draft, §52–§61 in rc2). This file is part C of the network interface specification;
   `spec/network-interface.md` points to it ("Part C — Level 2: TCI").
 - © 2026 ON8ST, CC BY 4.0 (see `LICENSE.md`); quoted TCI material © Expert Group LLC under its
   MIT notice.
@@ -11,7 +11,7 @@
   (full functionality), 0013 (AetherSDR), 0014 (one G7250 TCI profile), 0004 (rates), 0006
   (telemetry), 0007 (watchdog and safety), 0008 (management channel, socket budget), 0015 (TX
   arm), 0017 (no audio on the main unit), 0019 (reference model), 0021 (profile choices,
-  proposed), 0022 (rc1 review fixes, proposed), and `spec/network-interface.md` rc2 draft
+  proposed), 0022 (rc1 review fixes, proposed), and `spec/network-interface.md` rc2
   (parts A and B; Table B8-3 is the single list of code names, 0022 §19).
 
 Sources are cited by key (see `sources.md`) or by decision number (see `decisions/`).
@@ -144,7 +144,8 @@ Addendum, "TCI (level 2)"). While level 2 is active:
   socket chips generally work; [CH394] does not spell it out (`analysis/ch394-network-budget.md`,
   Addendum). To be checked in the full CH394 documentation (HIS-14).
 - C2.5.4 DHCP lease renewal borrows the management socket (0008, Socket budget) and does not
-  reduce the number of TCI clients.
+  reduce the number of TCI clients. An address change by DHCP is C5.5.5 row 14 (A1.11a; 0022
+  §54).
 - C2.5.5 **(L1)** AetherSDR runs on the host and is not bound by the CH394Q socket budget. It
   MAY serve any number of clients.
 
@@ -157,13 +158,14 @@ budgets are in C6.4.
 
 C2.7 **Level change.** **(L2)** The TCI server listens only while level 2 is the active level
 (0011 point 2). Level selection is done through the management channel and part A (0011;
-0008, C-2 and I-4; A2.5a), not over TCI. On a switch from level 2 to level 1, after step 2 of
-A2.5a, the server MUST send, in this order (0021 §25; 0022 §9):
+0008, C-2 and I-4; A2.5a), not over TCI. On a switch from level 2 to level 1, after the
+validation of A2.5a step 1, the server MUST send, in this order, items 1 and 2 before the
+management reply of A2.5a step 3 (0021 §25; 0022 §9, §61):
 
 1. if keyed: unkey, and the unkey broadcast of C7.7 (`TRX:0,false;`, `TUNE:0,false;`);
 2. if armed: disarm with reason `LEVEL_CHANGE` (0007, drop event 10), then
    `G7250_TX_ARM_STATE` and the new `G7250_TX_ARM_TOKEN` to opted-in clients, and
-   `TX_ENABLE:0,false;` to all clients (A2.5a step 3);
+   `TX_ENABLE:0,false;` to all clients (A2.5a step 2);
 3. no further stream blocks; `G7250_STREAM_STATE` `stopped`, reason `level_change`, for each
    stream that was running, to the client that had it (A2.5a step 4);
 4. `G7250_PROFILE` with `active` false to opted-in clients (C5.3);
@@ -171,12 +173,13 @@ A2.5a, the server MUST send, in this order (0021 §25; 0022 §9):
    then the listener closes (A2.5a step 6).
 
 **(L1)** On a switch from level 1 to level 2, AetherSDR receives the P2 drop `LEVEL_CHANGE`
-before port 7250 closes (A2.5a step 3), sends items 1–4 to its TCI clients, and keeps its TCI
+before port 7250 closes (A2.5a step 2), sends items 1–4 to its TCI clients, and keeps its TCI
 connections open (0021 §25).
 
 C2.8 **Firmware update while level 2 is active** (L2) (0022 §45; A1.8). `UPDATE_BEGIN` is
-accepted only while unarmed and unkeyed (A1.8, status 50 otherwise). From `UPDATE_BEGIN` on, the
-server MUST:
+accepted only while unarmed and unkeyed (A1.8, status 50 otherwise). A `G7250_TX_ARM` and
+`UPDATE_BEGIN` serialise as A1.8 states: one wins atomically, the other is refused (arm:
+`MAINTENANCE`; update: status 50) (0022 §61). From `UPDATE_BEGIN` on, the server MUST:
 
 1. stop every stream and send `G7250_STREAM_STATE` `stopped`, reason `update`, for each
    stream that was running, to the client that had it;
@@ -190,7 +193,10 @@ server MUST:
    `HW_SENSORS`) continue;
 4. just before the restart (after `UPDATE_ACTIVATE`, `RESTART`, `ROLLBACK` or the
    abandoned-update timeout of A1.8), close every connection with WebSocket status 1001 "going
-   away" (RFC 6455 §7.4.1), then carry out the commanded reset of A1.9.
+   away" (RFC 6455 §7.4.1), then carry out the commanded reset of A1.9. The close comes
+   after RF is gone and the reply is sent (A1.9 steps 2–3); if the reset is refused because
+   RF stays (status 59, A1.9 "RF not gone"; 0022 §59), the connections stay open and
+   `G7250_SAFETY` reports the fault.
 
 The state lasts until the restart, also after `UPDATE_ABORT` (A1.8). After the restart, while
 the new image is an unconfirmed trial boot, RX works and arm requests are rejected with
@@ -314,7 +320,7 @@ C4.2 "trx" is the transceiver number, always 0 (`TRX_COUNT:1`); "ch" is the chan
 | `TX_ENABLE` | MUST | Server-controlled; `true` only if C5.5.6 holds. A client set is ignored and the current state is replied ([TCI] §4.3 note). | §4.3 TX_ENABLE |
 | `TRX` | MUST (M7 on L2) | `TRX:0,true,tci;` keys with TX audio from the client's TCI stream. `TRX:0,true;` (microphone) and `mic1`/`mic2`/`micpc`/`ecoder2`: refused unless a microphone path exists (HIS-17); refused means the server replies `TRX:0,false;`. Every key needs the arm (C5.5) and follows the key rule of A3.1a: a refused `TRX` is not latched (0022 §24). Keyed liveness: C8.2 (in `CW`, a client that has not opted in is bound by the 1 s generic keyed window). | §4.2 TRX |
 | `TUNE` | MUST (M7 on L2) | Tune carrier at `TUNE_DRIVE`, under the arm. It does **not** start the internal ATU: the meaning is not identical (as P2 TUNE, 0007 Sub-decision 6). ATU tuning is `G7250_ATU_TUNE` (C5.7). A client that has not opted in is bound by the 1 s generic keyed window unless it sends application frames (C8.2; 0021 §18). | §4.2 TUNE |
-| `DRIVE` | MUST | 0–100. Mapping to power TBD (HIS-12). A `REDUCE` limit action lowers power on the radio side (A3.3, A3.4a: drive lowered for forward power and supply, fixed caps `P_swr` and `P_temp` for SWR and PA temperature) and does not change the `DRIVE` or `TUNE_DRIVE` value (0007, Sub-decision 4 rule 4; 0021 §21). | §4.2 DRIVE |
+| `DRIVE` | MUST | 0–100. Mapping to power TBD (HIS-12). Whatever the `DRIVE` or `TUNE_DRIVE` value, forward power stays within the bound of the limit in force, built-in, persistent or `G7250_LIMIT`, by the mapping of Table A3-3 for the detector in use (A3.4c; 0022 §52). A `REDUCE` limit action lowers power on the radio side (A3.3, A3.4a: drive lowered for forward power and supply, fixed caps `P_swr` and `P_temp` for SWR and PA temperature) and does not change the `DRIVE` or `TUNE_DRIVE` value (0007, Sub-decision 4 rule 4; 0021 §21). | §4.2 DRIVE |
 | `TUNE_DRIVE` | MUST | 0–100, as `DRIVE`. | §4.2 TUNE_DRIVE |
 | `TX_FOOTSWITCH` | SHOULD | Reports a PTT input that reaches the main unit (controller microphone PTT, HIS-17). It never keys by itself, on either level (0007, Sub-decision 6; 0021 §9; C7.3). | §4.4 TX_FOOTSWITCH |
 | `MON_ENABLE`, `MON_VOLUME` | MAY | TX monitor in the RX audio stream. | §4.2 MON_ENABLE, MON_VOLUME |
@@ -472,7 +478,7 @@ C5.5.3 **Commands.**
 | `G7250_TX_ARM_TOKEN` | notification | `G7250_TX_ARM_TOKEN:0,<hex8>;` | Current token; never `00000000`, `FFFFFFFF` or `ARM_MAGIC` (with the token equal to `ARM_MAGIC` the arm value would be `00000000`, which disarms), different from the previous one (0007 Decision 1; part B B10.2 item 5). Sent on opt-in and whenever it changes. |
 | `G7250_TX_ARM` | unidirectional control | `G7250_TX_ARM:0,<hex8>;` | `token XOR ARM_MAGIC` arms; `00000000` disarms. Any other value is rejected with `BAD_TOKEN`. `ARM_MAGIC` = `47375458` is the constant of part B (B8.6; 0007 Decision 1). A correct arm while already armed is a no-op (C5.5.5.1). |
 | `G7250_TX_ARM_STATE` | notification | `G7250_TX_ARM_STATE:0,<state>,<generation>,<reject>,<drop>,<holder>;` | `state`: `disarmed`, `armed`, `inhibited` (armed, but a limit inhibit is active so TX requests do not key; no new generation; 0022 §13; part B `TX_ARM_STATE`). `generation`: +1 on every arm, 0–255, wraps. `reject`: last arm reject reason (Table B8-3, C5.5.6), `none` if none. `drop`: last drop reason (Table B8-3 or the TCI additions of C5.5.5), `none` if none. `holder`: `true` if this connection is the arm holder. Sent per client on every change. |
-| `G7250_TX_STATE` | notification | `G7250_TX_STATE:0,<keyed>,<source>,<mine>,<inhibits>,<unkey>,<limit>;` | `keyed`: bool (PA actually keyed). `source`: `none`, `trx`, `tune`, `cw`, `keyer`, `atu`. `mine`: `true` if this connection made the current TX request. `inhibits`: hex8, bit *n* set while the limit with limit id *n* of Table B8-3 holds an inhibit (`LIMIT_PA_TEMP` above T3, `LIMIT_SUPPLY_VOLTAGE` over-voltage; Table A3-2), the bit numbering of `LIMIT_STATUS` bits 0–15. `unkey`: last unkey reason, the number of part B `TX_STATE` [23:16] (0 none, 1 TX request released, 2 keyed timeout, 3 TX IQ underrun, 4 limit, 5 arm dropped, 6 retune needs RF-path change, 7 PA disabled by the host, 8 keying client lost, 9 CW key-down longer than 1 s, 10 TX mode class changed while keyed), with the TCI causes of C8.2 (0022 §32). (L1) `inhibits` is the P2 `LIMIT_INHIBIT` register (Table B8-2; 0022 §32). `limit`: the limit id name (Table B8-3) when `unkey` is 4, else `none`. Sent per client on every change. |
+| `G7250_TX_STATE` | notification | `G7250_TX_STATE:0,<keyed>,<source>,<mine>,<inhibits>,<unkey>,<limit>;` | `keyed`: bool (PA actually keyed). `source`: `none`, `trx`, `tune`, `cw`, `keyer`, `atu`. `mine`: `true` if this connection made the current TX request. `inhibits`: hex8, bit *n* set while the limit with limit id *n* of Table B8-3 holds an inhibit (bit 3 `LIMIT_PA_TEMP` above T3; bit 5 `LIMIT_SUPPLY_VOLTAGE` after an over-voltage or under-voltage `UNKEY`, until the supply has been inside the range for 2 s; Table A3-2; 0022 §42, §61), the bit numbering of `LIMIT_STATUS` bits 0–15. `unkey`: last unkey reason, the number of part B `TX_STATE` [23:16] (0 none, 1 TX request released, 2 keyed timeout, 3 TX IQ underrun, 4 limit, 5 arm dropped, 6 retune needs RF-path change, 7 PA disabled by the host, 8 keying client lost, 9 CW key-down longer than 1 s, 10 TX mode class changed while keyed), with the TCI causes of C8.2 (0022 §32). (L1) `inhibits` is the P2 `LIMIT_INHIBIT` register (Table B8-2; 0022 §32). `limit`: the limit id name (Table B8-3) when `unkey` is 4, else `none`. Sent per client on every change. |
 | `G7250_KEEPALIVE` | unidirectional control | `G7250_KEEPALIVE;` | An application frame with no other effect and no reply (C8.2; 0021 §18). MUST be implemented. |
 
 C5.5.4 **Procedure.** (1) The client opts in (C5.2) and receives the token. (2) It sends
@@ -494,7 +500,7 @@ with the reason and `TX_ENABLE:0,false;` (0007 Decision 1 rule 5). Drop events o
 | 2 | Any client sends `STOP;` | `STOP` (Table B8-3 drop reason 13); (L1) the P2 drop is `RUN_CLEARED` (C4, `STOP`) | 2 (RUN cleared) |
 | 3 | The arm holder's connection closes (TCP close or reset, WebSocket close) | `HOLDER_LOST` (Table B8-3 drop reason 14) | 3 (analogue of the watchdog) |
 | 4 | Connection watchdog: no frame of any kind, Pong included, from the arm holder for 1 s while armed (C8.2) | `WATCHDOG` | 3 |
-| 5 | (L1) Any drop of the P2 arm between AetherSDR and the radio, with the P2 reason passed on unchanged | P2 reason | 1–13 |
+| 5 | (L1) Any drop of the P2 arm between AetherSDR and the radio, with the P2 reason passed on unchanged | P2 reason | the P2 drop reasons of Table B8-3 (0022 §61) |
 | 6 | Any reset | `RESET` (state after reset: disarmed) | 5 |
 | 7 | Entry into the fault state, a limit trip with action `FAULT` included; the cause is the `fault_code` of `G7250_SAFETY` (0022 §41) | `FAULT` | 6 |
 | 8 | A limit trip with action `DISARM` (no limit of Table A3-2 has it in this version; 0022 §41) | `LIMIT_<name>` (limit id of Table B8-3) | 7 |
@@ -503,7 +509,7 @@ with the reason and `TX_ENABLE:0,false;` (0007 Decision 1 rule 5). Drop events o
 | 11 | Start of a firmware update, or a change of the persistent limits over the management channel (C-3; built-in limits are never writable, A3.4 rule 2; 0008; 0022 §6, §31) | `MAINTENANCE` | 11 |
 | 12 | A TX path that must be blocked is found not blocked | `FAULT` | 13 |
 | 13 | The arm holder sends `G7250_EXT:false;` | `HOST_DISARM` | 1 |
-| 14 | (L2) A change of the radio's address or netmask (management C-1 or P2 Set IP), applied after RF is gone (A1.6; 0022 §44) | `SESSION_CHANGED` | 9 |
+| 14 | (L2) A change of the radio's address or netmask (management C-1, P2 Set IP, or DHCP: another address or netmask at renewal, end of lease, DHCPNAK, address conflict), applied after RF is gone; the TCI connections on the old address end with it (A1.6, A1.11a; 0022 §44, §54) | `SESSION_CHANGED` | 9 |
 
 0007 drop events 4 (takeover) and 12 (rediscovery) have no TCI equivalent on level 2, because
 TCI has no session takeover; event 9 is row 14. On level 1 all three reach TCI through row 5
@@ -617,12 +623,14 @@ receive and Tune modes"), not an ATU tune cycle.
 | Command | Type | Form | Meaning |
 |---------|------|------|---------|
 | `G7250_ATU` | bidirectional | `G7250_ATU:0,<bypass\|inline>;` (set, reply), `G7250_ATU:0;` (read) | Internal ATU out of or in line ([G7250-MAN], ATU: short press switches the tuner in). Present only with token `atu_select` (C5.1.4); without it a set is answered with the value in force and `G7250_WRITE_STATUS` `READ_ONLY` when token `atu` is present, and ignored otherwise (0021 §23). Refused while keyed with `KEYED` (C7.6). |
-| `G7250_ATU_TUNE` | unidirectional control | `G7250_ATU_TUNE:0;` | Starts a tune cycle (A3.9b; 0022 §22). A TX request under the arm, with its own tune profile and time limit (`LIMIT_ATU_TIME`; 0007 Sub-decision 4 rule 5, Sub-decision 6, "Internal ATU tuning"). Rejections, sent to an opted-in requester in `G7250_WRITE_STATUS` (0022 §51): without the arm `NOT_ARMED`; while keyed by any other source, from any client including the keying client, `KEYED`; armed and unkeyed but with another condition of A3.1a failing (fault, inhibit, effective TX frequency outside the ranges, `WFM`, a non-holder under policy `holder`) `NOT_KEYABLE`; during a firmware update `BUSY`; none is latched (A3.1a). A repeated start while the cycle runs, or within 2 s after the end of the previous cycle, is a no-op (A3.9b item 1; 0022 §39). The tune power is set before RF and before any ATU relay moves; while tuning, a further `TRX`, `TUNE` or CW request neither keys nor ends the tune; the keyed liveness of C8.2 applies and ends the tune as `failed`; the cycle always ends unkeyed (part B B10.9; 0022 §14, §22). After a cycle that did not end `tuned`, the ATU returns to its stored state or bypass once RF is gone, `G7250_ATU_STATE` stays `failed` until the next tune or ATU change, and keying is not blocked (A3.9b item 7; 0022 §38). |
+| `G7250_ATU_TUNE` | unidirectional control | `G7250_ATU_TUNE:0;` | Starts a tune cycle (A3.9b; 0022 §22). A TX request under the arm, with its own tune profile and time limit (`LIMIT_ATU_TIME`; 0007 Sub-decision 4 rule 5, Sub-decision 6, "Internal ATU tuning"). Rejections, sent to an opted-in requester in `G7250_WRITE_STATUS` (0022 §51): without the arm `NOT_ARMED`; while keyed by any other source, from any client including the keying client, `KEYED`; armed and unkeyed but with another condition of A3.1a failing (fault, inhibit, effective TX frequency outside the ranges, `WFM`, a non-holder under policy `holder`) `NOT_KEYABLE`; during a firmware update `BUSY`; none is latched (A3.1a). A repeated start while the cycle runs, or within 2 s after the end of the previous cycle, is a no-op (A3.9b item 1; 0022 §39). The tune power, the lower of the ATU profile's tune power and the forward-power bound in force (A3.4 rule 5, Table A3-3; 0022 §53), is set before RF and before any ATU relay moves; while tuning, a further `TRX`, `TUNE` or CW request neither keys nor ends the tune; the keyed liveness of C8.2 applies and ends the tune as `failed`; the cycle always ends unkeyed (part B B10.9; 0022 §14, §22). After a cycle that did not end `tuned`, the ATU returns to its stored state or bypass once RF is gone, `G7250_ATU_STATE` stays `failed` until the next tune or ATU change, and keying is not blocked (A3.9b item 7; 0022 §38). |
 | `G7250_ATU_STATE` | notification | `G7250_ATU_STATE:0,<state>;` | `bypass`, `inline`, `tuning`, `tuned`, `failed`: part B `ATU_STATE` 0–4 (0006, "ATU state"); `failed` as A3.9b item 7. |
 
 (L1) Mapped to the `ATU_TUNE` and `ATU_STATE` registers of group 4 (Table B8-2; token `atu`
 when group 4 is present, HIS-08). Part B has no register for ATU selection, so `atu_select`
-is absent on level 1 until one exists (0021 §23). Tune power TBD (HIS-08, HIS-12).
+is absent on level 1 until one exists (0021 §23). Tune power of the profile TBD (HIS-08,
+HIS-12); the tune power used is never above the forward-power bound in force (A3.4 rule 5;
+0022 §53), so a `G7250_LIMIT` on `LIMIT_FWD_POWER` below it lowers the tune carrier.
 
 ### C5.8 Antenna
 
@@ -651,7 +659,7 @@ exists (group 6 is reserved, the step attenuator byte 1443 is TBD (HIS-07), part
 |---------|------|------|---------|
 | `G7250_SAFETY` | notification | `G7250_SAFETY:<state>,<fault_code>,<fault_class>,<fault_flags>,<trips>;` | The part B fault registers (Table B8-2; A3.5; 0021 §22). `state`: `normal` or `fault` (`SAFETY_STATE` 0, 1). `fault_code`: first cause, the Table B8-3 name (`SWR_REPEATED`, `PA_OVERTEMP`, `SENSOR_IMPLAUSIBLE`, `RF_NOT_KEYED`, `TX_PATH_NOT_BLOCKED`, `WDT_RESET_AT_START`, `SELFTEST_FAILED`, `INTERNAL_ERROR`), `none` if none (`FAULT_CODE`). `fault_class`: `0` none, `1` host-clearable, `2` latched until reset, the highest class among the flagged codes (`FAULT_CLASS`; 0022 §5). `fault_flags`: hex8, bit *c* set for every fault code *c* since the last clear (`FAULT_FLAGS`). `trips`: decimal, limit trips with action `UNKEY` or stronger since power-on, saturating (`TRIP_COUNT`). Sent on every change. |
 | `G7250_FAULT_CLEAR` | unidirectional control | `G7250_FAULT_CLEAR:<fault_code>;` | `fault_code`: the Table B8-3 name of the current `fault_code` of `G7250_SAFETY`, as part B `FAULT_CLEAR` takes the current code (0022 §32); another name, or none, is rejected with `G7250_WRITE_STATUS` `BAD_VALUE`. Clears all flags only if every flagged code is class 1 (not escalated), its condition is gone and at least 10 s have passed since the latest fault entry (A3.5; 0022 §5, §27); otherwise nothing is cleared and the requester receives `G7250_WRITE_STATUS` `NOT_CLEARABLE`. A clear does not re-arm (0007 Decision 5, option 5D). Any client MAY send it, opted in or not (C5.2); in fault no client holds the arm, because the fault drops it (A3.5), so the holder rule of C5.10.1 item 3 does not arise. Rejections go to an opted-in requester in `G7250_WRITE_STATUS`: `BAD_VALUE`, `NOT_CLEARABLE`, or `BUSY` during a firmware update (0022 §51). (L1) AetherSDR, the P2 owner, writes the code to `FAULT_CLEAR` and passes the P2 answer on. |
-| `G7250_LIMIT` | bidirectional | `G7250_LIMIT:<id>,<value>;` (set, reply), `G7250_LIMIT:<id>;` (read) | TCI session value of a host-tunable limit. `id`: `LIMIT_TX_TIME` (ms), `LIMIT_FWD_POWER` (mW, PEP), `LIMIT_SWR` (1000 × SWR), `LIMIT_PA_TEMP` (m°C): the Table B8-3 limit ids, in the units of their part B registers (Table B8-2; B8.6). Another id: `BAD_VALUE`. Rules C5.10.1. The reply always carries the limit in force. |
+| `G7250_LIMIT` | bidirectional | `G7250_LIMIT:<id>,<value>;` (set, reply), `G7250_LIMIT:<id>;` (read) | TCI session value of a host-tunable limit. `id`: `LIMIT_TX_TIME` (ms), `LIMIT_FWD_POWER` (mW, PEP; enforced through Table A3-3 like every tier, so with a mean-only detector it bounds the mean: SSB value × `P_ssb_mean` / 100 W, AM min(value / 4, 25 W), CW and FM the value; A3.4c; 0022 §52), `LIMIT_SWR` (1000 × SWR), `LIMIT_PA_TEMP` (m°C): the Table B8-3 limit ids, in the units of their part B registers (Table B8-2; B8.6). Another id: `BAD_VALUE`. Rules C5.10.1. The reply always carries the limit in force. |
 | `G7250_KEYED_TIMEOUT` | bidirectional | `G7250_KEYED_TIMEOUT:<ms>;` (set, reply), `G7250_KEYED_TIMEOUT;` (read) | Keyed timeout of C8.2 for opted-in and TX-audio keying clients. Not a limit (0021 §20). 100–500 ms, other values `BAD_VALUE`; default 500 ms (0007 Resolved 2; part B `KEYED_TIMEOUT`). A lower value is accepted from any client; a higher one only as C5.10.1 item 3. Back to 500 ms at TCI session end, on a level change and on reset. (L1) AetherSDR applies it to its TCI-side timer and MAY write it to the P2 `KEYED_TIMEOUT` register. |
 | `G7250_LIMIT_STATUS` | notification | `G7250_LIMIT_STATUS:<hex8>;` | The part B `LIMIT_STATUS` layout: bit *n* limit id *n* limiting (`WARN` or `REDUCE`); bit 16 + *n* limit id *n* tripped (`UNKEY` or stronger) since the last TX request; limit ids of Table B8-3 (0006, "limit status"; 0021 §22). |
 
@@ -671,7 +679,8 @@ C5.10.1 **Limit tiers on TCI** (0021 §20; 0022 §6; A3.4 rules 1–2).
    session values then return to the persistent values (after a reset, the stored ones, A3.6).
 5. A change of the persistent values (C-3) while armed drops the arm with `MAINTENANCE`
    (C5.5.5 row 11) and then applies at once; a session value looser than the new persistent
-   value is replaced by it.
+   value is replaced by it. Every tier of `LIMIT_FWD_POWER` acts through the same bounds of
+   Table A3-3, also with a detector that gives only the mean (A3.4c; 0022 §52).
 6. (L1) AetherSDR writes the strictest TCI session value to the P2 `LIMIT_<name>` register of
    the same name (Table B8-2) and passes the P2 answer (the limit in force, or
    `LOOSER_LIMIT`) on to TCI.
@@ -938,7 +947,8 @@ C8.1 **Limits.** All limits of 0007 Sub-decision 4 apply on both levels with the
 values, actions (WARN, REDUCE, UNKEY, DISARM, FAULT) and recovery (0007 rule 5; 0011 point 3).
 They are reported over TCI by `G7250_LIMIT_STATUS`, `G7250_TX_STATE` and `G7250_SAFETY`, and
 tightened by `G7250_LIMIT` (C5.10). `REDUCE` and the power measurement are those of part A
-(A3.3, A3.4a, A3.4c; 0022 §7, §17; 0021 §21); TCI only reports them. The maximum continuous TX
+(A3.3, A3.4a, A3.4c; 0022 §7, §17; 0021 §21); TCI only reports them. A TCI power limit is
+mapped as every other tier (Table A3-3; 0022 §52) and bounds the tune power (0022 §53). The maximum continuous TX
 time (`LIMIT_TX_TIME`) is 5 min built in, `UNKEY` only, arm kept (0007, Resolved item 3); it
 applies to every TX source, including `CW_TERMINAL` and `TUNE`; "continuous" is as A3.4d (with
 CW break-in, gaps shorter than the hang delay do not end a transmission; 0022 §51).
@@ -1053,6 +1063,8 @@ One line per test; tests run against the reference model on the product side (00
 | T-C2-09 | (L2) `clients_max` in `G7250_PROFILE` is 5 while port 1024 still answers discovery with byte 4 = 0x03. |
 | T-C2-10 | (L2) After `UPDATE_BEGIN`, running streams report `stopped` `update`, `TX_ENABLE` is false, a `VFO` set is answered with the value in force and `BUSY`, `G7250_TX_ARM` is rejected with `MAINTENANCE`, `IQ_START` gets `refused` `update`; before the restart every connection closes with 1001 (C2.8). |
 | T-C2-11 | (L2) On a 10 Mbit/s link connections are accepted, `START` is not followed, `IQ_START` gets `refused` `link`, and an arm is rejected with `NOT_RUNNING` (C2.9). |
+| T-C2-12 | (L2) A `G7250_TX_ARM` and `UPDATE_BEGIN` that reach the radio within 1 ms of each other, repeated 1000 times: either the arm is confirmed and `UPDATE_BEGIN` gets status 50, or the update starts and the arm is rejected with `MAINTENANCE`; never both (C2.8; A1.8). |
+| T-C2-13 | (L2) With forward power held above `P_rf_off` (reference model), `RESTART` gets status 59, no connection is closed and `G7250_SAFETY` reports `RF_NOT_KEYED`; otherwise the connections close with 1001 only after the reply (C2.8 item 4; A1.9). |
 | T-C3-01 | Initialization order is PROTOCOL, DEVICE, RECEIVE_ONLY, TRX_COUNT, CHANNELS_COUNT, VFO_LIMITS, IF_LIMITS, MODULATIONS_LIST, READY, then state. |
 | T-C3-02 | Values match C3.2; `CHANNEL_COUNT` is never sent. |
 | T-C3-03 | `IF_LIMITS` is resent after a receiver sample-rate change. |
@@ -1096,6 +1108,10 @@ One line per test; tests run against the reference model on the product side (00
 | T-C5-33 | (L1) With two holders, the one that set policy `holder` can set `any` and the other cannot; when the first stops holding, the remaining holder can; under `holder` both holders key and a third client cannot. |
 | T-C5-34 | `G7250_ATU_TUNE` while armed and unkeyed with the effective TX frequency outside the ranges, or inhibited, is rejected with `NOT_KEYABLE`; repeated 100 ms after a cycle ended it is a no-op; after a failed cycle `G7250_ATU_STATE` stays `failed` and `TRX` still keys. |
 | T-C5-35 | A `G7250_FAULT_CLEAR` from a client that has not opted in clears a clearable fault; a wrong name from an opted-in client gets `BAD_VALUE` and a class-2 fault `NOT_CLEARABLE`. |
+| T-C5-36 | With a mean-only detector model, `G7250_LIMIT:LIMIT_FWD_POWER,10000;` holds class `ssb` with 6 dB PEP-to-mean ratio to a mean of 2.5 W, `cw` to 10 W and `am` to 2.5 W, at `DRIVE:0,100`; the reply carries 10000 (C5.10.1 item 5; Table A3-3). |
+| T-C5-37 | With `G7250_LIMIT:LIMIT_FWD_POWER` below the ATU profile's tune power, `G7250_ATU_TUNE` tunes at the limit, not at the profile power (C5.7; A3.4 rule 5). |
+| T-C5-38 | (L2) While armed and keyed, a DHCP renewal with another address unkeys, drops the arm with `SESSION_CHANGED` (row 14), and the new address applies only after RF is gone; a renewal with the same address changes nothing (C5.5.5; A1.11a). |
+| T-C5-39 | After an under-voltage `UNKEY` with inhibit, `G7250_TX_STATE` `inhibits` has bit 5 set until the supply has been inside the range for 2 s, and `G7250_TX_ARM_STATE` shows `inhibited` while armed (C5.5.3). |
 | T-C5-31 | Drop reasons on TCI are `STOP` for `STOP;` and `HOLDER_LOST` for the holder's connection loss, as Table B8-3 drop reasons 13 and 14; (L1) a TCI `STOP` makes AetherSDR clear the P2 run bit and its TCI clients see `STOP`. |
 | T-C5-09 | In class `am` at `DRIVE:0,100`, with and without 100 % modulation, the carrier estimate stays within 25 W and the PEP within 100 W; a modulated signal is not held to a 25 W mean (A3.4c). |
 | T-C5-10 | `G7250_ATU_TUNE` needs the arm, follows the tune time limit and reports `tuned` or `failed`. |
@@ -1207,6 +1223,7 @@ Every other open point of draft 1 is decided in 0021 (proposed for ON8ST review 
 | C-C15 | A TX request that cannot key is not kept: a refused `TRX` or `TUNE` does not key later, and CW text received while unarmed is discarded ([TCI] is silent; 0022 §24). | C5.5.4, C4 |
 | C-C16 | (L1) `STOP` ("Stops the device") clears AetherSDR's P2 run bit; the TCI drop reason is `STOP` (0022 §32). | C4 |
 | C-C17 | (L1) `START` does not take over a radio that another host or level 2 uses (discovery byte 4 = 0x03) without confirmation by AetherSDR's user (0022 §47). | C4 |
+| C-C18 | `DRIVE` and `TUNE_DRIVE` are kept as the client set them, but forward power, the ATU tune carrier included, never exceeds the bound of the power limit in force, mapped as Table A3-3 for the detector in use (0022 §52, §53). | C4, C5.7, C5.10.1 |
 
 ## Annex C-D — Assumptions to verify against public sources
 
@@ -1240,7 +1257,7 @@ The profile rule stands meanwhile; none of these is a HIS question.
 - RFC 2119, RFC 8174 (BCP 14).
 - Decisions 0001, 0003, 0004, 0006, 0007, 0008, 0011, 0012, 0013, 0014, 0015, 0017, 0019,
   0021, 0022.
-- `spec/network-interface.md` rc2 draft: A1.8, A1.9, A2.3–A2.5a, A3.1a, A3.1b, A3.2–A3.6,
+- `spec/network-interface.md` rc2: A1.8, A1.9, A2.3–A2.5a, A3.1a, A3.1b, A3.2–A3.6,
   A3.4c, A3.4d, A3.9–A3.9c, B4.8, B5.8, B7, B8.3, B8.4, B8.6, B8.7, Tables B8-2 and B8-3,
   B10.2, B10.3, B10.5, B10.5a, B10.7, B10.9.
 - `analysis/ch394-network-budget.md` (Addendum, "TCI (level 2)"); `open-questions-his.md`

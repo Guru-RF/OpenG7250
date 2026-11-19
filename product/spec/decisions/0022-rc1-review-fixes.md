@@ -1179,6 +1179,238 @@ fact about the spec, not a choice.
 13. **"Relays settled" (L14).** The condition excludes the T/R relay and the RX attenuator
     during TX, which move inside the key sequence of A3.9a item 4.
 
+## 52. Host power limits with a mean-only detector (rc2-draft review H1)
+
+Status: proposed.
+
+**Problem.** §43 gave conservative mean bounds for the built-in 100 W PEP limit only. A
+persistent (C-3) or session limit (`LIMIT_FWD_POWER`, `G7250_LIMIT`) is a PEP value; with a
+detector that gives only the mean, comparing it with the mean lets an SSB signal of 10 W mean
+reach about 40 W PEP under a 10 W host limit.
+
+**Chosen rule.** Every limit in force, whichever tier and level sets it, is a PEP value *L* and
+acts through one table (A3.4c, Table A3-3). With mean only: SSB mean ≤ *L* × `P_ssb_mean` /
+100 W; AM mean ≤ min(*L* / 4, 25 W), which bounds PEP to *L* and the carrier to the AM carrier
+limit; CW and FM mean ≤ *L*. With PEP the bound is PEP ≤ *L*, plus the AM carrier bound of §43.
+Table B8-2 `LIMIT_FWD_POWER`, part C `G7250_LIMIT`, `DRIVE`, C5.10.1 item 5, C8.1, C-C18;
+tests T-A3-36, T-C5-36.
+
+- Alternative A: allow host limits only on a PEP detector. For: no scaling rule. Against: the
+  host could not limit power at all on a mean-only radio, and the tier rule of 0007 rule 1
+  would depend on the detector.
+- Alternative B: compare host limits with the mean and keep the scaling for the built-in limit
+  only. For: simple to state. Against: a host limit would then be up to 6 dB looser than it
+  reads, the unsafe direction.
+
+**Reason.** One mapping for every tier keeps "the limit in force acts" (§6) true on every
+detector, and errs on the low side like §43.
+
+## 53. Tune power never above the limit in force (rc2-draft review M1)
+
+Status: proposed.
+
+**Problem.** A3.4 rule 5 gives the ATU its own power profile (0007 Decision 4 rule 5), and
+A3.9b item 3 set the drive to that profile's tune power. A host or persistent limit below the
+profile's tune power was not applied to the tune carrier.
+
+**Chosen rule.** The tune power is the lower of the profile's tune power and the forward-power
+bound in force for the TX mode class in force (Table A3-3); the profile may only be stricter
+than the limit in force. A3.4 rule 5, A3.9b item 3, B10.9, part C C5.7; T-A3-37, T-C5-37.
+
+- Alternative: refuse `ATU_TUNE` with `NOT_KEYABLE` when the limit is below the profile power.
+  For: the ATU always tunes at its design power. Against: a user who set a low limit to protect
+  an amplifier or antenna could not tune at all.
+
+**Reason.** A limit in force acts on every TX source (0007 rule 1; §6); tuning at less power is
+safe, only slower or less accurate.
+
+## 54. Address change by DHCP during a session (rc2-draft review M2)
+
+Status: proposed.
+
+**Problem.** §44 handled a C-1 change and P2 Set IP. A DHCP renewal with another address or
+netmask, the end of a lease or a DHCPNAK (RFC 2131 sections 4.4, 4.4.5), or an address
+conflict found while the address is in use ([CH394] section 7.1.7) also change the radio's
+address, but no rule covered them.
+
+**Chosen rule.** Each is a change of the radio's own address: it ends a running session (A2.3),
+is drop event 9 (`SESSION_CHANGED`) while armed, and the new address, or giving up the old one,
+applies only after the unkey and RF gone. A renewal with the same address changes nothing.
+A1.11a, Table A3-1 event 9, A2.3, part C C2.5.4 and C5.5.5 row 14; T-A1-35, T-C5-38.
+
+- Alternative: keep the old address until the session ends. For: no session cut. Against:
+  after a lease ends or a NAK, RFC 2131 lets the client no longer use the address, and a
+  conflict means another host has it; streams would go out under an address that is not ours.
+
+**Reason.** The same handling as Set IP and C-1 (§44); the delay until RF is gone is at most
+`t_reset_wait` and keeps relays from moving under RF.
+
+## 55. Exact edge filter for unnumbered hosts (rc2-draft review M3)
+
+Status: proposed.
+
+**Problem.** §35 said "the bit has read 0 for at least 10 ms" without saying from which packet
+the 10 ms run, which left the test open.
+
+**Chosen rule.** A 0→1 edge is accepted only if `t_edge` − `t_ref` ≥ 10 ms: `t_edge` the
+arrival of the packet with the bit at 1 after a packet with it at 0, `t_ref` the arrival of the
+latest earlier packet of the session with that bit at 1 (whether or not it keyed), else the
+latest arm confirmation. Times at receipt, 1 ms resolution; the radio ignores 9 ms or less and
+accepts 11 ms or more; the reference model applies the rule exactly. B11.6a with a test
+vector; Annex X1 D28; T-B11-11, T-B11-13.
+
+- Alternative: measure from the arrival of the first packet with the bit at 0. For: closer to
+  "read 0 for 10 ms". Against: a stale 0 packet itself can then shorten or lengthen the
+  window; the latest 1 is the packet a stale copy duplicates.
+
+**Reason.** A stale packet is a delayed copy of an earlier 1; measuring from the latest 1 is the
+direct test for it, and one time difference is easy to test.
+
+## 56. Numbered-host mode without lockout (rc2-draft review M4)
+
+Status: proposed.
+
+**Problem.** In §35 one packet with a non-zero number switched the session to numbered mode.
+A single corrupt or spoofed packet with a high number, or a host that restarts its numbering,
+then had every later packet discarded until the session ended: the host loses control,
+including PTT release.
+
+**Chosen rule.** Numbered mode engages with the third of three consecutive packets with
+non-zero numbers, each newer than the one before (RFC 1982); until then the unnumbered rule
+(§55) applies. In numbered mode a packet not newer than the last accepted one is discarded
+and counted; number 0 is never newer. The fifth such packet in a row, or a packet older than
+the last accepted one by more than 2¹⁶, resynchronises: the radio returns to unnumbered mode,
+logs and counts it, and acts on that packet except that a 0→1 edge in it is ignored and not
+latched. A 0→1 edge in a discarded packet is never accepted. B11.6a; Annex X1 D28;
+T-B11-14, T-B11-15.
+
+- Alternative A: never resynchronise within a session. For: a stale packet can never key.
+  Against: the lockout described above, which keeps a keyed host from unkeying except through
+  the keyed timeout.
+- Alternative B: resynchronise on the first packet that is not newer. For: no lockout at all.
+  Against: every duplicated packet would end the protection.
+
+**Reason.** Three good packets show a numbering host; five bad ones in a row (about 500 ms at
+the recommended 100 ms rate) or a large jump show a restart, not reordering. No edge from the
+packet that resynchronises keeps a stale packet from keying through the resynchronisation.
+
+## 57. Start and bounds of the DUC underrun timer (rc2-draft review M5)
+
+Status: proposed.
+
+**Problem.** B10.5 did not say when an underflow starts (at the key, at the first sample, or at
+an empty FIFO), what the DUC sends while the FIFO is empty, or a lower bound for the underrun
+time; a too-short value would cut a host that starts its I&Q with the PTT edge.
+
+**Chosen rule.** The underflow starts at the key if the FIFO is empty then, else when the FIFO
+runs empty while keyed; each sample ends it. While the FIFO is empty the DUC gets zeros. The
+underrun time is at least the key latency (`t_rf_off` + `t_settle`, the bound of A3.9a item 3)
+plus one DUC packet period (240 samples at 192 ksps = 1.25 ms, B10.7) and at most the
+`KEYED_TIMEOUT` in force. B10.5; Annex X1 D8; Annex X2 C20; T-B10-32.
+
+- Alternative: start the timer at the first sample after the key. For: a host that starts I&Q
+  late is never cut. Against: a host that keys and never sends I&Q would hold the key until the
+  keyed timeout or the maximum TX time, and the underrun check would not catch a TX chain that
+  hangs before its first packet.
+
+**Reason.** Timing from the key catches a TX chain that never starts; the lower bound keeps a
+correct host from being cut; zeros give no RF and no stale signal.
+
+## 58. Destination of the takeover notices (rc2-draft review M6)
+
+Status: proposed.
+
+**Problem.** §29 and §48 said the final `TX_ARM_STATE` goes to the old owner but not to which
+port, nor whether the notices share the `NOT_OWNER` answer limit of B8.5.
+
+**Chosen rule.** The three copies and the repeated notice are register packets from local port
+7250 to the old owner's IP address and the register destination its session had at the
+takeover: General bytes 31–32 if non-zero, else its source port (B8.1; [P2] General packet
+bytes 31–32). They are not `NOT_OWNER` answers and do not count against that limit, nor it
+against them. A2.4, B8.5; T-A2-13.
+
+- Alternative: send the notices to the packet's source port. For: reaches the socket that just
+  sent. Against: a host that set bytes 31–32 listens for register packets on that port, as for
+  every other push of its session (B8.1).
+
+**Reason.** The notice is the last register push of the old session and goes where all of them
+went; separate limits keep a write flood from suppressing the notice and the other way round.
+
+## 59. Commanded reset with RF present (rc2-draft review M7)
+
+Status: proposed.
+
+**Problem.** §40 waits until RF is gone before a commanded reset, without a bound. With a
+power-measuring design and RF that does not go (a stuck PA), the command would hang, or a
+reset would start with RF present, the case §40 forbids.
+
+**Chosen rule.** The wait is bounded by `t_reset_wait` = 2 s from the unkey (or from the
+command if not keyed), longer than `t_rf_off` (HIS-12). If RF is not gone by then, the radio
+does not reset: it logs, enters or stays in the fault state (`RF_NOT_KEYED`, class 2), keeps RX
+and replies with the new status 59 "reset refused: RF present". The same holds for every
+commanded reset, including the restart after an abandoned update, which then stays in the
+update state. A1.9, Table A1-3, A1.8, part C C2.8; T-A1-36, T-A1-37, T-C2-13.
+
+- Alternative A: reset after the bound anyway. For: the radio always restarts. Against: the
+  state of the PA, SEND and relay lines during a reset is unknown (HIS-13), and RF is already
+  present.
+- Alternative B: reply with status 50 (refused while armed or transmitting). For: no new code.
+  Against: the radio is neither armed nor keyed at that point; a tool would wait for a disarm
+  that has happened.
+
+**Reason.** Never reset with RF present; a distinct status tells the tool that the radio needs
+a visit (power cycle), not a retry.
+
+## 60. What a factory reset restores (rc2-draft review M8)
+
+Status: proposed.
+
+**Problem.** 0008 C-5 resets "network configuration and secrets" and §31 keeps the limits; the
+other configuration items (C-2, C-6, C-7, the TCI port), the log and the counters were not
+listed.
+
+**Chosen rule.** Table A1-4 (A1.6a): C-1 network, C-2 default level (level 1), C-5 secret (new
+first-secret window), C-6 region (the intersection of all regions, 0020 §23), C-7 allow-list
+(empty) and the TCI port (50001) return to their factory defaults; C-3 persistent limits, the
+log, the fault and reset counters, `TRIP_COUNT` and the firmware images are kept; write session,
+challenges and stored replies are discarded as at every reset. T-A1-39.
+
+- Alternative A: keep the region. For: a radio set for its region stays usable after a reset.
+  Against: a radio given away or moved keeps the TX ranges of another region; the factory
+  default is the narrowest set and so the safe one (0020 §23).
+- Alternative B: also return the C-3 limits to the built-in values. For: a true factory state.
+  Against: §31: a factory reset is a recovery path for a lost secret and should not loosen the
+  safety settings of an installation.
+
+**Reason.** A factory reset restores reachability (network, secret, allow-list, port) and
+the safe defaults (region, level), and loosens nothing that protects the station; logs and
+counters are evidence and are kept.
+
+## 61. rc2-draft review small fixes (review LOW)
+
+Status: proposed.
+
+1. **Inhibits on TCI (L1).** The `inhibits` text of `G7250_TX_STATE` (part C C5.5.3) names
+   both inhibits of `LIMIT_INHIBIT`: bit 3 `LIMIT_PA_TEMP` and bit 5 `LIMIT_SUPPLY_VOLTAGE`
+   after an over-voltage or under-voltage `UNKEY` (§42). T-C5-39.
+2. **Row 5 of C5.5.5 (L2).** "The P2 drop reasons of Table B8-3" instead of "1–13", which left
+   out the limit drops 0x40 + id.
+3. **Drop reason after a reset (L3).** After any reset `TX_ARM_STATE` [23:16] reads 5 `RESET`
+   until the next drop (Table A3-1 event 5, Table B8-2). T-A3-38.
+4. **Reply after the unkey (L4).** `RESTART`, `FACTORY_RESET` and `SWITCH_LEVEL` unkey and
+   disarm first, then reply (A1.9, A2.5a); a repeat during the wait for RF gone gets status 1.
+   This amends the order of §40 (reply, unkey, RF gone, disarm) to: unkey and disarm, RF gone
+   (bounded by §59), reply, relays, reset; and the step order of §9 for `SWITCH_LEVEL`.
+   Alternative: reply first. For: the fastest answer. Against: the host would see "OK" while
+   the radio still transmits, and the reply cannot carry status 59 (§59). T-A1-38, T-A2-04.
+5. **CWX host note (L5).** B10.5a: an iambic string or run of dots longer than 1 s per held
+   paddle is cut; hosts release the paddle bits between characters or use DUC I&Q or TCI CW
+   text.
+6. **Arm and `UPDATE_BEGIN` (L6).** The arm acceptance and `UPDATE_BEGIN` are one atomic
+   decision; one wins, the other is refused (arm `MAINTENANCE`, update status 50) (A1.8,
+   B10.2, part C C2.8). Alternative: allow both and let the update disarm. Against: §8, an
+   update never disarms. T-A1-40, T-C2-12.
+
 ---
 
 ## Consequences
@@ -1208,6 +1440,17 @@ fact about the spec, not a choice.
   write reject reason 10 `NOT_KEYABLE`; management status 58; stream-state reasons `update`
   and `link` (part C enumerations). `P_ssb_mean` belongs to HIS-11 and HIS-12; the filter plan
   for the receive state (§33) to HIS-07; envelope samples of the detector (§43) to HIS-11.
+- §52–§61 (review of the rc2 draft) are applied in `spec/network-interface.md` rc2 (A1.4
+  Tables A1-2 and A1-3, A1.6, A1.6a with Table A1-4, A1.8, A1.9, A1.11a, A2.3, A2.4, A2.5a,
+  Table A3-1, A3.4, A3.4c with Table A3-3, Table A3-2, A3.9b, Table B8-2, B8.5, B10.2, B10.5,
+  B10.5a, B10.9, B11.6a, Annex X1 D8, D28, Annex X2 C20, Annex X3), in
+  `spec/part-c-tci-profile.md` rc2 (C2.5.4, C2.8, C4, C5.5.3, C5.5.5, C5.7, C5.10, C5.10.1,
+  C8.1, C9, C-C18), in `spec/annex-aethersdr.md` and `spec/glossary.md`. New names: management
+  status 59; constant `t_reset_wait` (2 s); Table A1-4 and Table A3-3. `spec/register-map.yaml`
+  needs regenerating by the coordinator for the changed `TX_ARM_STATE` and `LIMIT_FWD_POWER`
+  texts. `t_reset_wait` must exceed `t_rf_off` (HIS-12); `t_rf_off` + `t_settle` ≤ 98.75 ms is
+  needed for the underrun bounds of §57 (HIS-07, HIS-12); the factory default of C-1 is HIS-14.
+  `sources.md` could add RFC 2131 (DHCP), cited directly in A1.11a.
 - `open-questions-his.md`: HIS-07 (filter plan, which frequencies share an RF-path state),
   HIS-11 (PEP detector, temperature filter), HIS-12 (`P_swr`, `P_temp`, hysteresis) are
   extended by the coordinator; this file does not edit it.

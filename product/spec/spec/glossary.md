@@ -1,6 +1,6 @@
 # Glossary — G7250-P2 network interface
 
-- Version: rc2 draft, 2026-11-19
+- Version: rc2, 2026-11-19
 - © 2026 ON8ST, CC BY 4.0 (see `LICENSE.md`)
 
 Terms as used in `network-interface.md`, part C and the annexes. Where a term comes from
@@ -29,9 +29,12 @@ named.
 | **Key rule** | The radio keys only on a 0→1 edge of a TX request at a moment when every key condition holds; a refused request is never latched (A3.1a). | 0007, 0022 §24 |
 | **RF-path state** | The setting of filters, band relays, ATU in/out and network, and antenna. Unkeyed it follows the receive frequency; at every key it is switched to the state for the TX frequency first, while unkeyed (A3.1b). | 0022 §33 |
 | **Continuous TX** | For the maximum TX time: from a key to the unkey after which the T/R path returns to receive; CW gaps shorter than the hang delay do not end it (A3.4d). | 0007, 0022 §51 |
-| **Tune cycle** | An internal ATU tune: starts only from unkeyed, runs at the tune power, owns the key throughout and ends unkeyed; the only time ATU relays move under RF (A3.9b). | 0007, 0022 §22 |
+| **Tune cycle** | An internal ATU tune: starts only from unkeyed, runs at the tune power (below), owns the key throughout and ends unkeyed; the only time ATU relays move under RF (A3.9b). | 0007, 0022 §22 |
 | **Keyed timeout** | 500 ms without a High Priority packet while keyed: the radio unkeys, the arm stays. | 0007 |
-| **Commanded reset** | A reset caused by a management command (`RESTART`, `FACTORY_RESET`, `UPDATE_ACTIVATE`, `ROLLBACK`) or the abandoned-update timeout: unkey, RF gone, disarm, relays safe, then reset (A1.9). | 0022 §40 |
+| **Commanded reset** | A reset caused by a management command (`RESTART`, `FACTORY_RESET`, `UPDATE_ACTIVATE`, `ROLLBACK`) or the abandoned-update timeout: unkey and disarm, RF gone (at most 2 s), reply, relays safe, then reset; never with RF present, which gives status 59 and the fault state instead (A1.9). | 0022 §40, §59, §61 |
+| **Limit in force** | The strictest of the built-in, persistent and session value of a limit, the only value that acts; a forward-power limit acts through the bounds of Table A3-3 for the detector in use (A3.4, A3.4c). | 0022 §6, §52 |
+| **Tune power** | The power of an ATU tune cycle: the lower of the ATU profile's tune power and the forward-power bound in force (A3.4 rule 5). | 0022 §53 |
+| **Numbered mode** | Handling of High Priority packets after three increasing non-zero sequence numbers: packets not newer than the last accepted one are discarded; five such in a row, or a jump back by more than 2¹⁶, return to unnumbered mode (B11.6a). | 0022 §35, §56 |
 | **Maximum continuous TX time** | 5 min default: the radio unkeys, the arm stays. A host may set it stricter. | 0007 |
 | **Disarm** | Leaving the armed state; the host must arm again. Each disarm has a reason code. | 0007 |
 | **Fault (class 1 / class 2)** | Class 1: cleared by the host once the condition is gone. Class 2: cleared only by reset. RX continues during a fault. | 0007 |

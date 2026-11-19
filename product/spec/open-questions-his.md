@@ -74,6 +74,8 @@ Priority: **M1** = needed for milestone M1 (discovery, capability block, RX-IQ);
   state (decides which retunes while keyed are allowed without unkeying).
 - Added by 0022 §23: relay settle time `t_settle` and the RF-gone guard time `t_rf_off`
   (or forward-power threshold `P_rf_off`) before any relay moves after unkey.
+- Added by 0022 §57: `t_rf_off` + `t_settle` must not exceed 98.75 ms, so that the DUC
+  underrun time fits between the key latency + 1.25 ms and the 100 ms minimum keyed timeout.
 
 ### HIS-08 — Internal ATU (M2)
 
@@ -133,6 +135,7 @@ Priority: **M1** = needed for milestone M1 (discovery, capability block, RX-IQ);
 - Added by 0022 §7: the fold-back power caps `P_swr` (high SWR) and `P_temp` (high
   temperature), the minimum forward power `P_min` for SWR evaluation, and the hystereses.
 - Added by 0022 §23: the forward-power threshold `P_rf_off` below which RF counts as gone.
+- Added by 0022 §59: `t_reset_wait` (2 s) must exceed `t_rf_off`.
 
 ### HIS-13 — Fault and reset behaviour (M3)
 
@@ -156,6 +159,7 @@ Priority: **M1** = needed for milestone M1 (discovery, capability block, RX-IQ);
 - Added by 0007: does the CH394Q report link status (cable unplugged) to the processor?
 - Added by 0008: is a DHCP client present in the current design? (The CH394 has none built
   in, per 0008.)
+- Added by 0022 §60: the factory-default network configuration (C-1: DHCP or a fixed address).
 
 ### HIS-15 — MAC address (M1)
 

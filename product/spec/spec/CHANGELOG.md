@@ -4,6 +4,17 @@
 
 All dates 2026-11-19. Decision numbers refer to `decisions/`.
 
+## rc2 — release candidate 2
+
+- Fixes from the independent review of rc1 (0022 §33–§51) and of the rc2 draft (0022 §52–§61):
+  RF path set for the TX frequency at every key (split included), set-up phase so the arm is
+  reachable for standard P2 hosts, ordering of High Priority packets (numbered and unnumbered
+  hosts), CWX bit meaning and key-down cap, ATU tune retries and state after a failed tune,
+  commanded resets only after RF is gone (bounded wait), one conservative power mapping for
+  every limit in force, DHCP address changes end the session, P2 accepted from the own subnet
+  only, factory-reset scope.
+- Tools: register map lists G7250 extensions and checks itself (lint L8).
+
 ## rc1 — release candidate 1 (tag `spec-rc1`)
 
 Covers `network-interface.md` (parts A and B), `part-c-tci-profile.md` (part C),
