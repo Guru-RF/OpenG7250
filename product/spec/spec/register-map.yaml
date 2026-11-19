@@ -36,9 +36,9 @@ registers:
   - name: TX_ARM_TOKEN
     address: 0x0200
     access: "RO"
-    content: "32-bit token; never 0, 0xFFFFFFFF or `ARM_MAGIC`; differs from the previous token"
+    content: "32-bit token; never 0, 0xFFFFFFFF or `ARM_MAGIC`; differs from the previous token, also from the last one before a reset (boot counter, B10.2 item 5)"
     sent: "at session start and on every change"
-    source: "0007 Decision 1; 0020 §7"
+    source: "0007 Decision 1; 0020 §7; 0022 §73 item 4"
   - name: TX_ARM
     address: 0x0201
     access: "W, owner"
@@ -126,27 +126,27 @@ registers:
   - name: LIMIT_TX_TIME
     address: 0x0230
     access: "W, owner"
-    content: "maximum continuous TX time, ms; built-in 300 000"
+    content: "maximum continuous TX time, ms; built-in 300 000; 0 = back to the persistent value, not \"no TX time\" (B8.6)"
     sent: "answer"
-    source: "0007 Resolved 3; 0020 §10"
+    source: "0007 Resolved 3; 0020 §10; 0022 §73 item 5"
   - name: LIMIT_FWD_POWER
     address: 0x0231
     access: "W, owner"
-    content: "upper bound *L* on forward power, PEP, mW, all bands and classes; enforced through Table A3-3 like every other tier, so with a mean-only detector it bounds the mean (SSB *L* × `P_ssb_mean` / 100 W, AM min(*L* / 4, 25 W), CW and FM *L*); also bounds the tune power (A3.4 rule 5)"
+    content: "upper bound *L* on forward power, PEP, mW, all bands and classes; enforced through Table A3-3 like every other tier: on the measured PEP, or without a PEP detector on the PEP estimate from the digital crest factor of the DUC samples for every class, with the class-based mean bounds (SSB *L* × `P_ssb_mean` / 100 W, AM min(*L* / 4, 25 W), CW and FM *L*) in addition (A3.4c); also bounds the tune power (A3.4 rule 5); 0 = back to the persistent value, not \"no power\" (B8.6)"
     sent: "answer"
-    source: "0007 Decision 4; 0020 §10; 0022 §17, §52, §53"
+    source: "0007 Decision 4; 0020 §10; 0022 §17, §52, §53, §62; §73 item 5"
   - name: LIMIT_SWR
     address: 0x0232
     access: "W, owner"
-    content: "1000 × SWR; replaces S2 when stricter, S1 becomes the lower of S1 and this value"
+    content: "1000 × SWR; checked against the persistent value of S2 (accepted if equal to or stricter than it, else `LOOSER_LIMIT`); replaces S2 when stricter, S1 in force becomes the lower of S1 and this value; 0 = back to the persistent value (B8.6)"
     sent: "answer"
-    source: "0007 Decision 4; 0020 §10"
+    source: "0007 Decision 4; 0020 §10; 0022 §73 item 6"
   - name: LIMIT_PA_TEMP
     address: 0x0233
     access: "W, owner"
-    content: "m°C; replaces T3 when stricter"
+    content: "m°C; replaces T3 when stricter; 0 = back to the persistent value (B8.6)"
     sent: "answer"
-    source: "0007 Decision 4; 0020 §10"
+    source: "0007 Decision 4; 0020 §10; 0022 §73 item 5"
   - name: TLM_PA_TEMP
     address: 0x0300
     address_end: 0x0303
@@ -357,6 +357,8 @@ code_sets:
         text: "VNA mode requested"
       - value: 12
         text: "EER requested"
+      - value: 13
+        text: "frequency encoding mismatch (General byte 37 bit [3] differs from discovery byte 21, B3.8; 0022 §73 item 12)"
   - set: "Write reject reason (`WRITE_STATUS` [7:0])"
     values:
       - value: 1

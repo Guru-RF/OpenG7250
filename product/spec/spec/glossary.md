@@ -1,6 +1,6 @@
 # Glossary — G7250-P2 network interface
 
-- Version: rc2, 2026-11-19
+- Version: rc3 draft, 2026-11-19
 - © 2026 ON8ST, CC BY 4.0 (see `LICENSE.md`)
 
 Terms as used in `network-interface.md`, part C and the annexes. Where a term comes from
@@ -22,15 +22,23 @@ named.
 | **Watchdog** | The P2 rule that the radio leaves RUN if no control packet arrives for 1 s. Cannot be disabled while armed. | [P2], 0007 |
 | **Run** | High Priority packet byte 4 bit [0]; enables the radio's streams. | [P2] |
 | **Transmit bit** | High Priority packet byte 4 bit [1] (PTT0). Has effect only while armed. | [P2], 0015 |
-| **Armed** | State in which the radio may transmit. Reached only through the arm handshake in the G7250 register map. | 0015, 0007 |
+| **Armed** | State in which the radio may transmit. Reached only through the arm handshake: on level 1 in the G7250 register map, on TCI by `G7250_TX_ARM` (part C C5.5); on level 1 AetherSDR arms only on an explicit arm action of its user or a valid `G7250_TX_ARM` (C5.5.7). | 0015, 0007, 0021 §30 |
+| **Arm holder** | On TCI, the connection whose `G7250_TX_ARM` armed the radio; on level 1 also AetherSDR's own user interface, so that one arm can have two holders (part C C5.5.5, C5.5.5.1). | 0021 §24, 0022 §46 |
 | **Arm handshake** | Host declares a mode class, reads the per-session arm token, writes the derived value; the radio confirms. | 0007 |
-| **Mode class** | Host-declared class of the transmitted signal (for example AM vs. SSB/CW/FM), used to apply per-mode limits. Required before arming. | 0007 |
+| **Mode class** | Class of the transmitted signal (SSB, CW, AM, FM), used to apply per-mode limits. On P2 declared by the host in `TX_MODE_CLASS` before arming; on TCI derived by the server from `MODULATION` of receiver 0 and reported by `G7250_TX_MODE_CLASS`; on level 1 AetherSDR writes the class of the signal it actually transmits (part C C5.6). | 0007, 0021 §6, §31 |
 | **Keyed** | Armed and transmitting (transmit bit set and accepted). | 0007 |
 | **Key rule** | The radio keys only on a 0→1 edge of a TX request at a moment when every key condition holds; a refused request is never latched (A3.1a). | 0007, 0022 §24 |
 | **RF-path state** | The setting of filters, band relays, ATU in/out and network, and antenna. Unkeyed it follows the receive frequency; at every key it is switched to the state for the TX frequency first, while unkeyed (A3.1b). | 0022 §33 |
 | **Continuous TX** | For the maximum TX time: from a key to the unkey after which the T/R path returns to receive; CW gaps shorter than the hang delay do not end it (A3.4d). | 0007, 0022 §51 |
 | **Tune cycle** | An internal ATU tune: starts only from unkeyed, runs at the tune power (below), owns the key throughout and ends unkeyed; the only time ATU relays move under RF (A3.9b). | 0007, 0022 §22 |
-| **Keyed timeout** | 500 ms without a High Priority packet while keyed: the radio unkeys, the arm stays. | 0007 |
+| **Keyed timeout** | On P2: no High Priority packet within `KEYED_TIMEOUT` (500 ms default, 100–500 ms) while keyed: the radio unkeys, the arm stays. On TCI: no application frame from the keying client within the `G7250_KEYED_TIMEOUT` in force (100–500 ms, default 500 ms), for the sources of part C Table C8-1. | 0007, 0021 §18, §20 |
+| **Application frame** | On TCI, a complete WebSocket text message with at least one complete TCI command, or a complete binary message with a TX audio block; a fragmented message counts when its last fragment arrives; Ping, Pong and Close never count (part C C2.2, C8.2). | 0021 §18, §40 |
+| **Connection watchdog** | On TCI, the 1 s timer of the arm holder, fed by any frame, Pong included; the server sends a Ping at least every 250 ms; expiry drops the arm (`WATCHDOG`) (part C C8.2). | 0021 §18, 0022 §32 |
+| **Generic keyed window** | On TCI, the 1 s keyed-liveness timer of a keying client that has not opted in and keys with a source that produces no frames by itself; fed only by a restatement of the TX request (part C Table C8-1, C8.2.3). | 0021 §18, §27, §28 |
+| **Keying client** | On TCI, the client whose TX request keyed the radio (`G7250_TX_STATE` `mine` true) (part C C7.4). | 0021 §1 |
+| **Opt-in** | On TCI, `G7250_EXT:true;` from a client: from then on it receives the G7250 extension messages; before it, it sees only standard TCI 2.1 (part C C5.2). | 0014, 0021 §29 |
+| **TX policy** | On TCI, `G7250_TX_POLICY`: `any` (every client may key while armed) or `holder` (only the arm holder may) (part C C5.5.8). | 0021 §1 |
+| **Policy owner** | The arm holder that may set the TX policy back to `any`; on level 1 with two holders, the one that set `holder`, or the remaining one (part C C5.5.8). | 0022 §46 |
 | **Commanded reset** | A reset caused by a management command (`RESTART`, `FACTORY_RESET`, `UPDATE_ACTIVATE`, `ROLLBACK`) or the abandoned-update timeout: unkey and disarm, RF gone (at most 2 s), reply, relays safe, then reset; never with RF present, which gives status 59 and the fault state instead (A1.9). | 0022 §40, §59, §61 |
 | **Limit in force** | The strictest of the built-in, persistent and session value of a limit, the only value that acts; a forward-power limit acts through the bounds of Table A3-3 for the detector in use (A3.4, A3.4c). | 0022 §6, §52 |
 | **Tune power** | The power of an ATU tune cycle: the lower of the ATU profile's tune power and the forward-power bound in force (A3.4 rule 5). | 0022 §53 |
@@ -46,7 +54,7 @@ named.
 | **Raw ADC word** | Telemetry value as sampled, converted by the host with the unit's constants from the capability record. | [P2] Appendix A, 0006 |
 | **Management channel** | Separate UDP port for identification, configuration, logs and firmware update; never keys the radio. | 0008 |
 | **First-secret window** | Short window after first power-on or factory reset in which the management secret can be set over the network. | 0008 |
-| **Socket budget** | The 8 sockets of the WCH CH394Q Ethernet controller: 7 for G7250-P2, 1 for the management channel. | [CH394], 0017, 0008 |
+| **Socket budget** | The 8 sockets of the WCH CH394Q Ethernet controller. Level 1: 7 for G7250-P2, 1 for the management channel. Level 2: 1 management, 1 P2 port 1024 (discovery), 1 spare TCI listener, 5 TCI client connections (part C C2.5). | [CH394], 0017, 0008, 0021 §3 |
 | **HIS** | Hardware-interface spec, the clean source of hardware facts; questions in `open-questions-his.md`. | AGENTS.md |
 | **G6** | Feasibility gate for level 2 (compute, memory, network stack). | 0011 |
 | **TCI profile** | The subset and extensions of TCI 2.1 that both AetherSDR (level 1) and the firmware (level 2) follow; part C. | 0014, [TCI] |

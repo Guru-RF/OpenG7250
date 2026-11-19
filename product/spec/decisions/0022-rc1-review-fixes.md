@@ -1205,6 +1205,11 @@ tests T-A3-36, T-C5-36.
 **Reason.** One mapping for every tier keeps "the limit in force acts" (§6) true on every
 detector, and errs on the low side like §43.
 
+Note (§62): the class-based mean bounds do not err on the low side for a signal outside the
+assumption of its class (crest factor above 6 dB, a mis-declared class, AM beyond 100 %). §62
+adds the PEP estimate from the digital crest factor as the bound for every class without a PEP
+detector; the mapping of this section stays as an additional bound.
+
 ## 53. Tune power never above the limit in force (rc2-draft review M1)
 
 Status: proposed.
@@ -1411,6 +1416,311 @@ Status: proposed.
    B10.2, part C C2.8). Alternative: allow both and let the update disarm. Against: §8, an
    update never disarms. T-A1-40, T-C2-12.
 
+## 62. PEP estimate from the digital crest factor (rc2 review H1)
+
+Status: proposed.
+
+**Problem.** §43 and §52 bound forward power with a mean-only detector by class-based mean
+bounds (SSB mean ≤ *L* × `P_ssb_mean` / 100 W, CW and FM mean ≤ *L*, AM mean ≤ min(*L* / 4,
+25 W)). These hold PEP ≤ *L* only for a signal within the assumption of its class. SSB voice
+with a 12 dB crest factor reaches about 4 × *L* PEP under the SSB bound; SSB I&Q sent under a
+declared class CW reaches about 4 × *L*; AM modulated beyond 100 % exceeds *L* under *L* / 4.
+The rc2 text called the bounds conservative ("may reduce more than needed, never less"),
+which is false.
+
+**Chosen rule.** The firmware feeds every sample to the DUC, so it knows the envelope before
+the PA. Over the same sliding 100 ms window as the coupler, aligned by the DUC-to-coupler delay
+(HIS-18), the safety core computes the digital crest factor *CF* = max(I² + Q²) / mean(I² +
+Q²) of the samples fed to the DUC, for every TX source (host I&Q after drive scaling, keyer
+waveform, tune carrier). PEP estimate = measured mean × *CF*. Without a PEP detector the
+safety core enforces PEP estimate ≤ *L* for every class; the class-based mean bounds of Table
+A3-3 stay as additional bounds, never instead. The AM carrier bound with mean only (mean ≤
+25 W) is kept: the mean of AM is never below its carrier. A TX path whose RF does not come
+from DUC samples cannot key without a PEP detector (HIS-18). The estimate assumes the analogue
+chain does not raise the crest factor (compression lowers it, so the estimate errs high);
+filter overshoot and inter-sample peaks go into the margin (HIS-11, HIS-12). A3.4c, Table A3-2,
+Table A3-3 and its notes, Table B8-2 `LIMIT_FWD_POWER`, Annex X1 D10; tests T-A3-39 (12 dB
+voice), T-A3-40 (CW declared, SSB I&Q), T-A3-41 (AM at 150 %); T-A3-33 qualified. Amends the
+"conservative" statement of §43 and §52.
+
+- Alternative A: require a PEP detector for M4 (HIS-11). For: measures the real PEP, also
+  after the analogue chain. Against: depends on the hardware; if the existing design has a
+  mean-only detector, M4 would be blocked although a firmware-side bound exists.
+- Alternative B: keep the class mapping and lower `P_ssb_mean` to cover 12 dB voice. For:
+  simple. Against: still wrong for a mis-declared class or overmodulated AM, and costs 6 dB on
+  every normal SSB signal.
+
+**Reason.** The crest factor is known exactly on the digital side at no hardware cost, and
+mean × *CF* is the PEP of the signal actually sent, whatever the declared class. Keeping the
+class bounds as an extra can only lower power, so nothing becomes looser than rc2.
+
+## 63. DUC FIFO while unkeyed (rc2 review M1)
+
+Status: proposed.
+
+**Problem.** §32 empties the DUC FIFO at every unkey, but nothing bounded what a host that
+streams DUC I&Q continuously fills it with while unkeyed. At the next key the radio could
+transmit audio seconds old, and the FIFO depth while unkeyed was undefined.
+
+**Chosen rule.** While unkeyed the G7250 keeps only the owner's most recent DUC I&Q: at most
+4800 samples (25 ms at 192 ksps, 20 packets), and only samples received within the last
+25 ms; older samples are dropped, oldest first, and counted. The first sample transmitted at
+a key is at most 25 ms old. While keyed the capacity is HIS-18 and a full FIFO discards whole
+packets (B11.7). B10.7, B11.7, Annex X2 C20; T-A3-26 extended to a continuously streaming
+host.
+
+- Alternative A: drop all DUC I&Q while unkeyed. For: the simplest bound, age 0. Against: the
+  first samples of every over, sent with or just before the PTT edge, are lost; the underrun
+  timer then starts at every key.
+- Alternative B: keep up to the FIFO capacity. For: no extra rule. Against: the age at the key
+  depends on the capacity (HIS-18) and can be long.
+
+**Reason.** 25 ms keeps a host's lead with its PTT edge and bounds staleness to a value a
+listener does not notice; dropping oldest keeps the newest audio.
+
+## 64. TX settings at session end and takeover (rc2 review M2)
+
+Status: proposed.
+
+**Problem.** A2.4 and A3.6 reset the arm, mode class, limits and `KEYED_TIMEOUT`, but not
+the TX settings of the General and DUC-specific packets: PA enable (General byte 58), CW
+select, break-in, hang delay, RF delay, keyer settings, EER, the DUC-rate refusal and the RX
+step attenuator during TX. A new owner inherited them without knowing.
+
+**Chosen rule.** At every session end and takeover, after the unkey, these return to their
+session-start values, the same as at power-on: PA enable 0, and every DUC-specific field as a
+packet of zeros read through Table B10-1 (CW select, keyer bits, break-in and EER 0; hang
+and RF delay 0 ms; speed and weight 0, so CWX forms no element; rate and bits read as 192 and
+24; ramp 8 ms; step attenuator during TX the A3.6 value, HIS-07). The new owner sets its own
+values in its takeover packet, set-up phase or later packets. A2.4 step 1, A3.6, new A3.6a with Table A3-4,
+B5.7, Tables B7-1 and B10-1, B10.9, B10.10, Annex X1 D5, D30; T-A2-14.
+
+- Alternative: keep the old owner's settings, as RX settings are kept. For: a host that
+  takes over from itself keeps working without resending. Against: a new host may key with
+  another host's break-in, RF delay for an external amplifier, or PA enable it never set.
+
+**Reason.** Reset is the safe default (0007 Decision 5), and a host must send a General
+packet in its session before it can arm anyway (§13, §34).
+
+## 65. Allowed requesters on level 1 (rc2 review M3)
+
+Status: proposed.
+
+**Problem.** A3.1a named "the owner" as the requester on level 1, but KEY is a local input,
+and B10.1 listed "any controller request" as a TX request, against A3.7 and 0007 Resolved 6.
+
+**Chosen rule.** On level 1 the allowed requesters are the owner's PTT and CWX bits, the
+owner's `ATU_TUNE`, and one local source: KEY, only while the owner has set DUC-specific
+byte 5 bit [1] in this session, under its arm. No controller request keys on level 1; B10.1
+no longer lists one. A3.1a, A3.7, B10.1, B10.9; T-A3-42.
+
+- Alternative: treat KEY as a controller request and refuse it on level 1. For: no local
+  source at all. Against: removes hardware CW, which [P2] DUC-specific byte 5 bit [1] offers
+  and 0007 Decision 6 keeps.
+
+**Reason.** Names the one local exception explicitly and ties it to an owner setting that is
+reset at every session end (§64).
+
+## 66. ATU tune cycle and the TX RF-path state (rc2 review M4)
+
+Status: proposed.
+
+**Problem.** A3.9b started the tune carrier without the A3.1b switch to the TX state, so with
+split or cross-band the carrier went through the receive-frequency state; item 7 returned the
+ATU to the state for the TX frequency, against A3.1b's unkeyed rule.
+
+**Chosen rule.** The cycle first switches the RF path to the A3.1b TX state for the effective
+TX frequency and waits for the relays to settle. At every end, once RF is gone, the RF path
+returns to the unkeyed state for the receive frequency; a tuned result is stored for the TX
+frequency (HIS-08) and recalled by the next key under A3.1b; a cycle that did not end tuned
+stores nothing. A3.9b items 2 and 7, B10.9; T-A3-43, T-B10-30 adjusted. Amends §38.
+
+- Alternative: let the cycle tune in whatever state is in use. For: no relay movement before
+  the carrier. Against: tunes the ATU for the wrong filter and band with split.
+
+**Reason.** The tune cycle is a key like any other (§22), so A3.1b applies to it.
+
+## 67. SWR cap and CW break-in (rc2 review M5)
+
+Status: proposed.
+
+**Problem.** A3.4a held `P_swr` "until the unkey". With CW break-in every element ends with an
+unkey, so the cap lifted at every element and the next element started at full power into the
+bad load.
+
+**Chosen rule.** The cap holds to the end of the continuous transmission of A3.4d, until an
+unkey after which the T/R path returns to receive (after the hang delay). A3.4a, Table A3-2;
+T-A3-11 extended.
+
+- Alternative: hold the cap for a fixed minimum time, for example 2 s. For: independent of
+  the hang delay. Against: a new constant, and a hang delay longer than it still lifts the cap
+  between elements.
+
+**Reason.** Uses the definition of continuity already used for the TX time limit (§51).
+
+## 68. Bound on every wait for RF gone (rc2 review M6)
+
+Status: proposed.
+
+**Problem.** §59 bounded the RF-gone wait only for commanded resets. After a normal unkey, a
+session end or a fault, a detector that kept reading RF at or above `P_rf_off` but below the
+"RF while not keyed" threshold would hold relays and pending actions for ever, without a fault.
+
+**Chosen rule.** Both. Every RF-gone wait is bounded by `t_reset_wait` = 2 s from the unkey;
+at the bound the G7250 enters fault `RF_NOT_KEYED` (class 2) or stays in it and logs; relays
+still do not move while RF is present; actions that move no relay proceed (session end, address
+change, level switch); a commanded reset gets 59. In addition the "RF while not keyed"
+threshold is not above `P_rf_off` and `t_blank` is shorter than `t_reset_wait`. A3.9a item 1a,
+A1.9 step 2, Table A3-2; T-A3-44.
+
+- Alternative A: only the threshold rule. For: no new timer. Against: leaves the timing to two
+  TBD values.
+- Alternative B: only the timer. For: one rule. Against: RF between the thresholds would be
+  tolerated for 2 s without a reason.
+
+**Reason.** Two independent guards; each alone closes the gap.
+
+## 69. Factory reset atomicity (rc2 review M7)
+
+Status: proposed.
+
+**Problem.** A1.6a did not say when the items of Table A1-4 are written. With a reset refused
+by status 59 (§59), a secret cleared before the refusal would open a first-secret window on a
+radio that stays up.
+
+**Chosen rule.** The items are written only as part of a reset that starts, after RF gone,
+between steps 4 and 5 of the commanded reset. A refusal with 59 changes nothing of Table A1-4;
+only the log entry and the unkey and disarm of step 1 remain. A1.6a; T-A1-41.
+
+- Alternative: write first, then reset. For: simple. Against: the refusal case leaves the
+  radio claimable by anyone on the LAN.
+
+**Reason.** All or nothing; the refusal case is the one where the radio stays reachable.
+
+## 70. Set IP from outside the subnet (rc2 review M8)
+
+Status: proposed.
+
+**Problem.** B11.15 kept Set IP "as before" from any source, and C13 accepts unicast and
+directed broadcast; a host behind a router could change the address and cut a session,
+although no P2 session can come from there.
+
+**Chosen rule.** Unicast and directed-broadcast Set IP is accepted only from a source inside
+the radio's subnet; the limited broadcast is accepted from any source, because routers do not
+forward it (RFC 1812 section 5.3.5.1) and a host with a wrong address set-up needs it. B3.9,
+B11.15, A1.10, Annex X1 D29, Annex X2 C13; narrows the risk of 0008 S7 to the link and the
+subnet. T-B3-32.
+
+- Alternative: accept Set IP only from inside the subnet, broadcast included. For: one rule.
+  Against: [P2]'s recovery path for a radio on the wrong subnet would no longer work.
+
+**Reason.** Keeps [P2]'s broadcast use (0008 point 6) and removes the routed case only.
+
+## 71. Total caps on management replies (rc2 review M9)
+
+Status: proposed.
+
+**Problem.** Identification is answered to any source, also off-subnet and broadcast, with up
+to 1400 bytes for an 18-byte request; the limit of §16 was per source only, so spoofed sources
+multiplied it.
+
+**Chosen rule.** In addition to 20 per second per source: at most 100 management replies per
+second in total, of these at most 50 identification replies, and of those at most 10 to sources
+outside the subnet; excess dropped and counted. A1.10, B11.14, Annex X1 D25; T-A1-42.
+
+- Alternative: answer identification only inside the subnet. For: no amplification beyond the
+  subnet. Against: 0008 I-6 answers broadcast identification, and a tool on another subnet
+  could no longer find the radio.
+
+**Reason.** Bounds the amplification to about 1.1 Mbit/s worst case (100 × 1400 bytes per
+second), without dropping a function; management is not safety-relevant (A1.9).
+
+## 72. Wrap-around and releases in discarded High Priority packets (rc2 review M10)
+
+Status: proposed.
+
+**Problem.** B11.6a says 0 is never newer, but T-B11-10 accepted 0xFFFFFFFF → 0 as newer.
+And a PTT 1→0 in a discarded packet was not followed, so a real release in a packet discarded
+during the run-up to a resynchronisation was ignored until the keyed timeout.
+
+**Chosen rule.** 0 stays never newer; a numbering host skips 0 at the wrap (0xFFFFFFFF → 1).
+A PTT bit or CWX request at 0 in a discarded packet while keyed by it unkeys (reason 1, arm
+kept); after that the bit counts as 1 until an accepted packet reads 0, so a stale release
+never re-keys. B11.6a, Annex X1 D28; T-B11-10 fixed, T-B11-16.
+
+- Alternative A: make 0 newer than 0xFFFFFFFF. For: hosts may wrap naturally. Against: 0 is
+  also [P2]'s "unnumbered" value; it would make an unnumbered packet newer in numbered mode.
+- Alternative B: unkey only from the next accepted packet. For: a stale 0 cannot cut a
+  transmission. Against: a real release can be delayed up to the keyed timeout (500 ms).
+
+**Reason.** The unkey is the safe direction; the result matches unnumbered mode, where a
+stale 0 also ends the transmission and the following 1 fails the 10 ms test.
+
+## 73. rc2 review small fixes (review LOW)
+
+Status: proposed.
+
+1. **Order for C-1 and C-3 (L1).** Unkey and disarm first, then reply; C-1 applies the address
+   after RF gone, C-3 applies the limit before the reply (A1.6, A1.9; as §61). T-A1-30.
+   Alternative: reply first. Against: the host sees "OK" while the radio still transmits.
+2. **Drop reason of a commanded reset (L2).** `RESTART` and `FACTORY_RESET` while armed drop
+   with `MAINTENANCE` (Table A3-1 event 11), also when refused with 59; after the reset
+   `RESET`. Alternative: `RESET` before the reset. Against: the reset may not happen (59).
+   T-A3-38.
+3. **Drop events while unarmed (L3).** No change to `TX_ARM_STATE`, no new token; exceptions:
+   `RESET` after any reset and a new token per session. A processor watchdog reset reads 5
+   `RESET`; its fault shows in `SAFETY_STATE` and `FAULT_CODE`. T-A3-38, T-A3-47.
+4. **Token across resets (L4).** A boot counter in non-volatile memory, incremented once per
+   start, forms part of every token; a random part may be added (HIS-20). B10.2 item 5, Table
+   B8-2; T-B8-17. Alternative: a random token only. Against: no guarantee without a source
+   (HIS-20), and still only probable.
+5. **`LIMIT_<name>` = 0 (L5).** Kept as "back to the persistent value"; documented in Table
+   B8-2 and after it. Alternative: a distinct reset value (0xFFFFFFFF). Against: changes the
+   meaning of an accepted register (0020 §10). T-B8-20.
+6. **`LIMIT_SWR` and `ATU_TUNE` precedence (L6).** `LIMIT_SWR` is checked against the
+   persistent S2; `ATU_TUNE` rejects in the order `BUSY`, `NOT_OWNER`, `BAD_VALUE`,
+   `NOT_ARMED`, no-op, `KEYED`, `NOT_KEYABLE`. A3.9b item 1, Table B8-2; T-B8-18.
+7. **`CAP_REQUEST` on a slow link (L7).** Yes, the record is answered as on a fast link, plus
+   the `LINK_STATUS`/`STREAM_STATUS` answer, at most once per 100 ms per source and 10 per
+   second in total. B5.8; T-B4-16.
+8. **Unasked record vs `CAP_REQUEST` limit (L8).** Separate limits: the unasked record is left
+   out only after another unasked record to the same destination within 1 s; a `CAP_REQUEST`
+   answer never suppresses it. B4.4 item 2; T-B4-07.
+9. **SEND during the CW hang delay (L9).** SEND, T/R relay and RX attenuator during TX stay in
+   TX position during the hang delay; released after it. A3.9a item 4, B10.9; T-A3-46.
+   Alternative: release SEND at every element. Against: an external amplifier would switch at
+   every element.
+10. **DDC0 change during the bounded wait (L10).** Deferred to the next unkey; does not refuse
+    the key. A3.9a item 3; T-A3-45.
+11. **TX low-pass filter while unkeyed (L11).** Where HIS-07 allows keeping it set for the TX
+    frequency, that filter follows DUC0 while unkeyed; no other relay does. A3.1b; T-A3-28.
+12. **Frequency encoding mismatch (L12).** General byte 37 bit [3] ≠ discovery byte 21: DDC0
+    does not run, no TX request keys, `STREAM_STATUS` reason 13 (new), logged. B3.8, A3.1a,
+    Tables B7-1 and B8-3; T-B7-06. Alternative: ignore bit [3]. Against: the host would
+    compute every frequency in the wrong encoding, TX included.
+13. **DDC0 without a DDC-specific packet (L13).** Not enabled, reason 1; status packets run.
+    Also lowers the spoofed-run amplification of B11.14. B5.2; T-B6-26, T-B5-11.
+    Alternative: stream at 48 ksps. Against: data to a host that never asked.
+14. **Set-up phase fields (L14).** B5.1a item 2 covers every field acted on, among them
+    General bytes 31–32 and 37.
+15. **PA disabled blocks all RF (L15).** Listed as Annex X1 D30.
+16. **Management and relays (L16).** The only relay movement a management command causes is
+    the return to the A3.6 set after RF gone. A1.9, A3.9.
+17. **Management socket and DHCP (L17).** A1.2 names the borrowing of A1.11 as the exception.
+18. **C-7 and the TX state (L18).** A C-7 list that closes the arm holder's TCI connection
+    unkeys and drops with `HOLDER_LOST` before the reply. A1.9; T-A1-45.
+19. **Link speed and the record (L19).** B4.7 no longer lists a change of link speed.
+20. **Reflection loops (L20).** No answer to management datagrams with type ≠ 1, to datagrams
+    to port 1024 from source port 1024, or to non-owner register packets from source port
+    7250. A1.4, B3.2, B8.5, B11.14, Annex X1 D25; T-A1-43, T-B3-33, T-B8-19. Alternative: rate
+    limits only. Against: a loop at the rate limit runs for ever.
+21. **Status 34 (L21).** Sent only for the authentication-failure limit (5 failures in 10 s
+    per address, 10 s hold); requests above reply limits get no reply. A1.10; T-A1-44.
+22. **Takeover notice copies (L22).** Identical register pairs; each copy has its own sequence
+    number. A2.4; T-A2-10.
+23. **Editorial (L23).** A1.8 no longer says "receive-safe" for a state in which RX stops;
+    Annex X3 ids in order (T-A1-28, T-A3-14, T-A3-15 moved).
+
 ---
 
 ## Consequences
@@ -1451,6 +1761,18 @@ Status: proposed.
   texts. `t_reset_wait` must exceed `t_rf_off` (HIS-12); `t_rf_off` + `t_settle` ≤ 98.75 ms is
   needed for the underrun bounds of §57 (HIS-07, HIS-12); the factory default of C-1 is HIS-14.
   `sources.md` could add RFC 2131 (DHCP), cited directly in A1.11a.
+- §62–§73 (review of rc2) are applied in `spec/network-interface.md` rc3 draft (A1.2, A1.4,
+  A1.6, A1.6a, A1.8–A1.10, A2.4, A3.1a, A3.1b, Table A3-1, A3.2, Table A3-2, A3.4a, A3.4c with
+  Table A3-3, A3.6, A3.6a, A3.7, A3.9, A3.9a, A3.9b, B3.2, B3.8, B3.9, B4.4, B4.7, B5.1a, B5.2,
+  B5.7, B5.8, Tables B7-1, B8-2, B8-3, B10-1, B8.5, B10.1, B10.2, B10.7, B10.9, B10.10, B11.6a,
+  B11.7, B11.14, B11.15, Annex X1 D5, D10, D25, D28, D29, D30, Annex X2 C13, C20, Annex X3).
+  New names: `STREAM_STATUS` reason 13 (frequency encoding mismatch); Table A3-4; A3.9a item
+  1a. `spec/register-map.yaml` needs regenerating by the coordinator for the changed
+  `TX_ARM_TOKEN`, `LIMIT_*` texts and stream reason 13. `sources.md` could add RFC 1812
+  (§70). Part C follows §62 (PEP estimate), §64 where TCI has session TX settings, §66, §67,
+  §68 and §73 items 9, 10, 18 in a later step. HIS-18 gets the DUC-to-coupler delay and the
+  keyed FIFO capacity (§62, §63); HIS-11 and HIS-12 the crest-factor margin and the ordering of
+  the "RF while not keyed" threshold, `P_rf_off`, `t_blank` and `t_reset_wait` (§62, §68).
 - `open-questions-his.md`: HIS-07 (filter plan, which frequencies share an RF-path state),
   HIS-11 (PEP detector, temperature filter), HIS-12 (`P_swr`, `P_temp`, hysteresis) are
   extended by the coordinator; this file does not edit it.

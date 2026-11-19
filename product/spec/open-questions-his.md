@@ -125,6 +125,9 @@ Priority: **M1** = needed for milestone M1 (discovery, capability block, RX-IQ);
 - Added by 0022 §23: blanking time `t_blank` after unkey for the "RF while not keyed" check.
 - Added by 0022 §43: if the detector gives no PEP, the conservative SSB mean limit
   `P_ssb_mean` (start value 25 W); whether envelope samples exist for the AM carrier estimate.
+- Added by 0022 §62, §68: the margin needed on the digital crest-factor PEP estimate
+  (analog PA compression and detector errors), and that the "RF while not keyed" threshold
+  can be set at or below `P_rf_off` with `t_blank` < `t_reset_wait`.
 
 ### HIS-12 — Power control and limits (M4)
 
@@ -202,6 +205,8 @@ Priority: **M1** = needed for milestone M1 (discovery, capability block, RX-IQ);
   (`analysis/ch394-network-budget.md`); gate G6 (0011).
 - Added by 0008: flash size and layout (room for two images, or one plus staging), RAM for a
   log buffer, and whether an FPGA image is loaded by the main-unit firmware.
+- Added by 0022 §62, §63: the delay from DUC samples to the coupler (for the crest-factor
+  window), and the DUC FIFO capacity while keyed.
 
 ### HIS-19 — Firmware loading and recovery (M5)
 

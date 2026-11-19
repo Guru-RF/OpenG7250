@@ -1,12 +1,12 @@
 # G7250 network interface specification
 
-- Version: rc2, 2026-11-19; changes in `spec/CHANGELOG.md`
-- Status: release candidate rc2, for review by ON8ST. Brings the text in line with decisions
+- Version: rc3 draft, 2026-11-19; changes in `spec/CHANGELOG.md`
+- Status: draft of release candidate rc3, for review by ON8ST. Brings the text in line with decisions
   0003, 0004, 0006, 0007 and 0008, all accepted by ON8ST on 2026-11-19, and applies the
   detail choices of 0020 (proposed, for ON8ST review at rc1), the points of 0021 that concern
   parts A and B, and the review fixes of 0022 (proposed, for ON8ST review at rc1), including
-  §22–§32 from a second review of the transmit side, §33–§51 from the final review of rc1 and
-  §52–§61 from the review of the rc2 draft. Focus: milestone M1 (discovery, capability block, RX IQ on G7250-P2); sections for M2–M5 are complete except for
+  §22–§32 from a second review of the transmit side, §33–§51 from the final review of rc1,
+  §52–§61 from the review of the rc2 draft and §62–§73 from the review of rc2. Focus: milestone M1 (discovery, capability block, RX IQ on G7250-P2); sections for M2–M5 are complete except for
   values that depend on the hardware.
 - © 2026 ON8ST, CC BY 4.0 (see `LICENSE.md`).
 - Structure: decision 0001, "(2) Network-interface spec", as revised by 0016, split into parts
@@ -40,7 +40,10 @@ firmware update, on a connection separate from G7250-P2 and TCI (0001 spec secti
 A1.2 **Transport.** The management channel MUST use its own UDP port, served by the eighth
 socket of the CH394Q (0008, Decision, Transport 1; 0017). That socket is reserved at both
 levels, MUST be open whenever the network is up, and MUST NOT be closed to make room for
-another level (0008, Transport 1; Socket budget).
+another level (0008, Transport 1; Socket budget). The one exception is the provisional DHCP
+rule of A1.11: while a lease renewal borrows the socket, for the few seconds of the exchange,
+management requests are lost and the host's retransmission (A1.4) covers the gap (0008,
+Socket budget; 0022 §73 item 17).
 
 A1.3 **Port number.** The management channel uses local UDP port **7251** (0020 §2). This
 lies outside 1024–1029, outside the wideband default ports 1027–1034 and outside the DDC
@@ -82,6 +85,8 @@ Table A1-1 — Management message header (0020 §27)
   is spent (0022 §11).
 - A host SHOULD retransmit after 500 ms without a reply, at most 5 times (0020 §24).
 - A datagram with another magic MUST be dropped without reply. A datagram with the right
+  magic whose type (byte 6) is not 1 (request) MUST be dropped without reply and counted, so
+  that two radios never answer each other's replies (0022 §73 item 20). A datagram with the right
   magic but shorter than 18 bytes, or whose length does not match *N*, MUST be answered with
   status 17 if bytes 8–11 are present (12 bytes or more), else dropped (0022 §20). A request with an unknown major version
   MUST be answered with status 18, the G7250's own version in bytes 4–5 (0020 §27; B11.13).
@@ -144,9 +149,9 @@ A1.6 **Configuration** (write needs authentication, A1.10) (0008, Functions):
 
 - network: static or DHCP; address, netmask, gateway (C-1; [CH394] sections 7.1.2–7.1.5); a
   change of the radio's address or netmask ends a running session (A2.3), is drop event 9
-  while armed (`SESSION_CHANGED`, Table A3-1), and is applied only after the unkey and RF gone
-  (A3.9a item 1) (0022 §44); an address change by DHCP is handled the same way (A1.11; 0022
-  §54);
+  while armed (`SESSION_CHANGED`, Table A3-1), and is carried out in the order unkey and
+  disarm, reply, RF gone (A3.9a item 1, bounded as A3.9a item 1a), apply the address (0022
+  §44; §73 item 1); an address change by DHCP is handled the same way (A1.11; 0022 §54);
 - level selection: default level at power-on, and a request to switch level now; level 2 is
   selectable only once it exists, after gate G6 (C-2; 0011 point 4);
 - safety settings that MAY only be made stricter than the built-in limits: maximum TX time,
@@ -157,9 +162,9 @@ A1.6 **Configuration** (write needs authentication, A1.10) (0008, Functions):
   so a value tightened by mistake MAY be loosened back toward the built-in value; such a
   loosening is accepted with status 0 and MUST be logged with the old value, the new value and
   the source (A1.7); a value looser than the built-in value MUST be refused with status 49
-  (0022 §31). Any change while armed drops the arm (`MAINTENANCE`, Table A3-1 event 11) and
-  then applies at once (0022 §6). `FACTORY_RESET` does not change the limits (0022 §31; Table
-  A1-4);
+  (0022 §31). Any change while armed is carried out in the order unkey and disarm
+  (`MAINTENANCE`, Table A3-1 event 11), apply the limit, reply (0022 §6; §73 item 1).
+  `FACTORY_RESET` does not change the limits (0022 §31; Table A1-4);
 - configuration MUST be validated as a whole before it is applied, stored in non-volatile
   memory with a version and a check value, and survive a restart; a network change is applied
   after the reply is sent; if the new network configuration cannot be brought up, or an
@@ -182,7 +187,13 @@ A1.6 **Configuration** (write needs authentication, A1.10) (0008, Functions):
 A1.6a **Scope of a factory reset** (0022 §60). `FACTORY_RESET` and the local factory reset
 (C-5) MUST restore or keep each configuration item as Table A1-4 states, and nothing else.
 The factory reset is logged with its source before the reset; it is then carried out as a
-commanded reset (A1.9).
+commanded reset (A1.9). **Atomicity** (0022 §69): the items of Table A1-4 MUST be written only
+as part of a reset that actually starts, after RF is gone, between steps 4 and 5 of the
+commanded reset; the new values take effect with that reset. A `FACTORY_RESET` refused with
+status 59 (RF not gone) MUST change nothing of Table A1-4: the secret stays set, no
+first-secret window opens, and network, level, region, allow-list and TCI port keep their
+values; only the log entry of the attempt and the refusal, and the effects of step 1 (unkey,
+disarm), remain. A power loss before the reset starts leaves the old values.
 
 Table A1-4 — What a factory reset restores (0022 §60)
 
@@ -214,8 +225,9 @@ A1.8 **Firmware update** (authenticated) (0008, Functions, U-1 to U-10):
 - An update MUST be refused while TX is armed or the radio is transmitting; this holds for
   every update command, `ROLLBACK` included, which is refused with status 50 (0022 §32);
   `UPDATE_STATUS` is a read and is answered at any time (0022 §51). Once an update
-  starts, the G7250 MUST leave RUN, refuse any new P2 RUN or arm, and stay in the receive-safe
-  state of 0015 until it restarts (U-1; 0007 drop event 11, `MAINTENANCE`). In detail
+  starts, the G7250 MUST leave RUN, refuse any new P2 RUN or arm, and stay unarmed and unkeyed,
+  in the TX-side state of A3.6 (0015) and with all streams stopped, until it restarts (U-1;
+  0007 drop event 11, `MAINTENANCE`; wording 0022 §73 item 23). In detail
   (0022 §10): from `UPDATE_BEGIN` on, the P2 session ends and all RX streams stop; a High
   Priority packet with run set is answered, at most once per 100 ms, with `STREAM_STATUS`
   reason 10; register writes are rejected with `BUSY`, which takes precedence over
@@ -255,23 +267,33 @@ A1.8 **Firmware update** (authenticated) (0008, Functions, U-1 to U-10):
 
 A1.9 **Management never keys the radio or loosens a limit.** No request on this channel MAY
 key the radio, set PTT, arm TX, set the drive level, switch an RF-path relay or loosen a
-safety limit beyond its built-in value (0008 S1; 0011 point 3; 0015; 0007). Returning a
+safety limit beyond its built-in value (0008 S1; 0011 point 3; 0015; 0007). The one relay
+movement a management command causes is the return to the relay set of A3.6 after the unkey
+and RF gone, as part of a commanded reset (step 4 below), a level switch or a session end it
+causes (A3.9a item 5); it never moves a relay toward a TX state (0022 §73 item 16). Returning a
 persistent value toward the built-in value is the C-3 correction of A1.6 (0022 §31). Management MAY unkey and disarm, and then
 always in the order of A3.2 (0022 §8):
 
 - `RESTART` and `FACTORY_RESET` are accepted while armed or keyed; they unkey and disarm
-  first, then reply, then reset, as a commanded reset below (`FACTORY_RESET` drops with
-  `MAINTENANCE`; the reset is Table A3-1 event 5) (0022 §61);
+  first, then reply, then reset, as a commanded reset below. Both drop the arm with
+  `MAINTENANCE` (Table A3-1 event 11), also when the reset is then refused with status 59;
+  after the reset `TX_ARM_STATE` reads `RESET` (Table A3-1 event 5) (0022 §61; §73 item 2);
 - `SWITCH_LEVEL` unkeys and disarms first (`LEVEL_CHANGE`), then replies (A2.5a; 0022 §61);
-- `SET_CONFIG` with C-3 limits drops the arm (`MAINTENANCE`); a region change is refused
-  while armed or keyed (A1.6 C-6);
-- `SET_CONFIG` with a C-1 change of the radio's address or netmask, while armed, drops the arm
-  (`SESSION_CHANGED`, Table A3-1 event 9) and applies the new address after the reply and
-  after RF is gone (A1.6 C-1; 0022 §44);
+- `SET_CONFIG` with C-3 limits, while armed, unkeys and drops the arm (`MAINTENANCE`), then
+  applies the limit, then replies; a region change is refused while armed or keyed (A1.6 C-6)
+  (0022 §73 item 1);
+- `SET_CONFIG` with a C-1 change of the radio's address or netmask, while armed, unkeys and
+  drops the arm (`SESSION_CHANGED`, Table A3-1 event 9), then replies, and applies the new
+  address only after RF is gone (A1.6 C-1; 0022 §44; §73 item 1);
+- `SET_CONFIG` with a C-7 allow-list on level 2 that closes the TCI connection of the arm
+  holder or of a keying client: the closure unkeys and drops the arm as for a lost connection
+  (part C C5.5.5 row 3, `HOLDER_LOST`), before the reply and before the connection is closed
+  (A1.6 C-7; 0022 §73 item 18);
 - a firmware update, and every update command including `ROLLBACK`, is refused with status 50
   while armed or transmitting (A1.8; 0022 §32); `UPDATE_STATUS`, a read, is answered (0022
   §51);
-- every other command leaves the TX state unchanged.
+- every other command leaves the TX state unchanged; this includes a C-7 allow-list that
+  closes no connection of the arm holder or of a keying client.
 
 **Commanded reset** (0022 §40, §59, §61). Every reset that a command causes (`RESTART`,
 `FACTORY_RESET`, `UPDATE_ACTIVATE`, `ROLLBACK`, and the restart after an abandoned update, A1.8)
@@ -281,6 +303,7 @@ MUST be carried out in this order:
 2. wait until RF is gone (A3.9a item 1: forward power below `P_rf_off`, or `t_rf_off` after
    the unkey; TBD HIS-07, HIS-12), at most `t_reset_wait` = 2 s from the unkey, or from the
    receipt of the command if the radio was not keyed; `t_rf_off` MUST be shorter (HIS-12);
+   this is the bound of A3.9a item 1a, which applies to every wait for RF gone (0022 §68);
 3. send the reply (status 0); a repeat of the request with the same request id (A1.4) that
    arrives during steps 1–2 is answered with status 1;
 4. relays to the state of A3.6 (A3.9a item 5);
@@ -335,11 +358,26 @@ A1.10 **Security on a LAN** (0008, Security):
   source, except identification; authentication failures MUST be rate-limited and logged
   (S4). Replies MUST NOT exceed 20 per second per source IP address and port; requests above
   that are dropped and counted (`GET_STATS`) (0022 §16).
+- **Total reply caps** (0022 §71). An identification reply can be up to 1400 bytes for an
+  18-byte request (A1.4), so a spoofed source gains up to about 78 times the traffic. In
+  addition to the per-source limit, the G7250 MUST send at most 100 management replies per
+  second in total, of these at most 50 identification replies per second, and of those at
+  most 10 per second to sources outside the radio's own subnet. Requests above a cap are
+  dropped without reply and counted (`GET_STATS`). A flood can therefore delay management
+  for other hosts; it cannot touch TX (A1.9, A3.10).
+- **Authentication-failure limit and status 34** (0022 §73 item 21). After 5 authentication
+  failures (status 33) from one source IP address within 10 s, every authenticated request
+  and every `GET_CHALLENGE` from that address is answered with status 34 and not executed,
+  until 10 s have passed without a failure from it; each such answer is logged with a count
+  (at most one log entry per second per address). Status 34 is sent only for this limit and
+  counts against the reply limits above; a request above a reply limit or cap gets no reply
+  at all.
 - One writer at a time: a write session is held by one host (address and port), opened by its
   first authenticated write and ended by `END_WRITE_SESSION` or after 60 s without a request
   (0020 §24); others get status 35 ("busy") for writes and normal answers for reads (S5).
 - No confidentiality in this version (S6).
-- P2 Set IP on port 1024 is the one unauthenticated write (B3.9; S7).
+- P2 Set IP on port 1024 is the one unauthenticated write, with the source rule of B3.9
+  (B3.9, B11.15; S7; 0022 §70).
 
 A1.11 **DHCP.** Provisional (0008, Socket budget, "Proposed … to be fixed in spec part A;
 depends on HIS-14"): the DHCP exchange at power-on runs before the P2 sockets are opened;
@@ -391,11 +429,14 @@ while a level-1 session runs. The G7250 MUST handle it in this order (0022 §3):
 
 1. End the old session with the actions of A3.2 in their order: unkey, drop the arm
    (`TAKEOVER`), issue a new token, send a last `TX_ARM_STATE` to the old owner. The last
-   `TX_ARM_STATE` MUST be sent three times, about 10 ms apart, with identical content (0022
-   §29). Then the TX-side state of A3.6 applies: PA off, SEND and TUNER released, ATU tuning
-   aborted, DUC FIFO emptied (0022 §32), session limits back to the persistent values (A3.4),
-   `TX_MODE_CLASS` = 0, `KEYED_TIMEOUT` = 500 ms, hardware-timer value "no General packet
-   yet" (B5.6); relays move only as A3.9a allows. Apart from the three copies and the
+   `TX_ARM_STATE` MUST be sent three times, about 10 ms apart, with identical register content
+   (the same address and data pairs); each copy carries the next sequence number of local
+   port 7250 (B2.7) (0022 §29; §73 item 22). Then the TX-side state of A3.6 applies: PA off,
+   SEND and TUNER released, ATU tuning aborted, DUC FIFO emptied (0022 §32), session limits
+   back to the persistent values (A3.4), `TX_MODE_CLASS` = 0, `KEYED_TIMEOUT` = 500 ms,
+   hardware-timer value "no General packet yet" (B5.6), and the TX settings of A3.6a back to
+   their session-start values: PA enable cleared, every DUC-specific setting as if no
+   DUC-specific packet had been received (0022 §64); relays move only as A3.9a allows. Apart from the three copies and the
    repeated notice below, no stream packet and no register push is sent to the old owner;
    answers to its own requests (discovery replies, `CAP_REQUEST` and `NOT_OWNER` answers)
    follow their usual rules and rate limits (B11.14; 0022 §51).
@@ -404,7 +445,7 @@ while a level-1 session runs. The G7250 MUST handle it in this order (0022 §3):
 3. Send every stream of the session (B2.4) to the new owner's source IP address and port from
    the next packet on; all outgoing sequence counters restart at 0 (B2.7).
 4. Keep the RX-side settings (DDC0 frequency, rate and enable; front end) until the new owner
-   writes them. The capability record is sent once, unasked, at the new owner's first General
+   writes them. TX settings are not kept (step 1; A3.6a). The capability record is sent once, unasked, at the new owner's first General
    packet (B4.4).
 5. Process the takeover packet itself.
 
@@ -502,10 +543,15 @@ TX request at a moment when every key condition holds:
 - the RF-path state (TX low-pass filter, band relays, ATU in/out and network, antenna) the one
   required for the effective TX frequency in force: DUC0 on level 1, the TCI TX frequency on
   level 2 (part C C4, `TX_FREQUENCY`); A3.1b (0022 §33);
-- on level 1, PA enabled (General byte 58 bit [0], B10.10); for PTT with DUC I&Q, no
+- on level 1, PA enabled (General byte 58 bit [0], B10.10); no frequency-encoding mismatch
+  standing (General byte 37 bit [3], B3.8; 0022 §73 item 12); for PTT with DUC I&Q, no
   DUC-specific refusal or EER standing (B10.6);
 - a TX mode class defined (B10.3; on TCI, a modulation other than `WFM`, C5.6);
-- the requester allowed (on level 1 the owner, A2.1; on TCI the TX policy, C5.5.8);
+- the requester allowed (0022 §65). On level 1 the allowed requesters are the owner's PTT and
+  CWX bits (High Priority bytes 4 and 5), the owner's `ATU_TUNE`, and one local source: the
+  KEY input, and only while the owner has selected hardware CW with DUC-specific byte 5 bit
+  [1] in this session, under the owner's arm (B10.9). No controller request is a requester on
+  level 1 (A3.7). On TCI the TX policy decides (C5.5.8);
 - not keyed by another source, and no ATU tune cycle running (A3.9b);
 - relays settled (A3.9a item 2): every RF-path relay of A3.9 except the T/R relay and the RX
   attenuator during TX, which move as part of the key sequence of A3.9a item 4 and settle
@@ -528,12 +574,15 @@ A3.1b **RF-path state for the TX frequency** (level-independent; 0022 §33).
   filter of another band degrades RX. Which state a receive frequency needs is the filter
   plan, TBD (HIS-07). If HIS-07 shows that the TX low-pass filter is not in the receive path,
   the radio MAY keep that filter set for the TX frequency while unkeyed; the check at the key
-  still applies.
+  still applies. That filter, and only that filter, then follows DUC0 (the TCI TX frequency)
+  while unkeyed (0022 §73 item 11).
 - **At every key** the radio MUST compare the state in use with the state required for the
   effective TX frequency in force. If they differ, it MUST switch while unkeyed, wait until
   the relays have settled (A3.9a item 2) and only then key, if the request is still asserted
   and every condition of A3.1a holds; this is the bounded wait of A3.9a item 3. If they are
-  equal, it keys without moving a relay. A DUC0 change while unkeyed moves no relay by itself.
+  equal, it keys without moving a relay. A DUC0 change while unkeyed moves no relay by itself,
+  except the TX low-pass filter where the first item lets it follow the TX frequency (0022
+  §73 item 11).
 - **While keyed** the state stays the TX state: a change that would need another TX state
   unkeys first (A3.9, TX frequency); a receive-frequency change that would need another state
   is deferred until the unkey (A3.9, RF-path relays).
@@ -563,11 +612,20 @@ Table A3-1 — Arm drop events (0007 sub-decision 1, rule 5)
 | 8 | Ethernet link down, or renegotiated below 100 Mbit/s, if the CH394Q reports it (HIS-14; B5.8; 0022 §16) | `LINK_DOWN` |
 | 9 | Loss of the socket or port set-up the session uses (for example a new address by Set IP, B3.9, by a management network change, A1.6 C-1, or by DHCP: another address or netmask at renewal, end of lease, DHCPNAK, address conflict, A1.11a; the change applies only after RF is gone; General packet port moves are not honoured, B2.3) (0022 §44, §54) | `SESSION_CHANGED` |
 | 10 | Change of active level (A2.5) | `LEVEL_CHANGE` |
-| 11 | Start of a firmware update or of a configuration change of limits over the management channel (A1.8) | `MAINTENANCE` |
+| 11 | Start of a firmware update, a configuration change of limits over the management channel (A1.8), or a commanded reset by `RESTART` or `FACTORY_RESET` while armed (A1.9; 0022 §73 item 2) | `MAINTENANCE` |
 | 12 | New Discovery from the owner while armed | `REDISCOVERY` |
 | 13 | A TX path that must be blocked is found not blocked (A3.7) | `FAULT` |
 
 The numeric reason codes are in B8.7, Table B8-3 (0020 §8).
+
+**Drop events while not armed** (0022 §73 item 3). An event of Table A3-1 that occurs while TX
+is not armed drops nothing: it MUST NOT change `TX_ARM_STATE` (the last drop reason in
+[23:16] included), MUST NOT issue a new token and pushes nothing, apart from the other effects
+of the event itself (a session end, a fault entry, a stop). Two exceptions: after any reset
+[23:16] reads 5 `RESET` (event 5), and every new session starts with a new token (B10.2 item
+1). So a processor watchdog reset reads drop reason 5 `RESET`; the fault it causes at start-up
+(`WDT_RESET_AT_START`, A3.5) is entered while unarmed and shows in `SAFETY_STATE` and
+`FAULT_CODE`, not as drop reason 6 `FAULT`.
 
 Not drop events (they end the transmission but keep the arm): the keyed timeout and TX IQ
 underrun (B10.5), the CWX key-down cap (B10.5a), maximum continuous TX time and other
@@ -621,23 +679,26 @@ Table A3-2 — TX limits (0007, Decision 4; open thresholds carry their HIS id; 
 | Limit | Measured by | Threshold(s) | Action | Recovery |
 |-------|-------------|--------------|--------|----------|
 | TX frequency | DUC0 frequency ([P2] High Priority bytes 329–332); carrier only (A3.4b) | outside the transmit ranges of [G7250-MAN] for the configured region (A1.6 C-6; 0020 §23) | not keyed: TX request ignored (no key); keyed: `UNKEY` before the new frequency applies (A3.9; 0022 §1) | inside a range again; next TX request |
-| SWR | forward and reflected power (HIS-11) | above S1: `REDUCE` (cap `P_swr`, A3.4a); above S2: `UNKEY`; both evaluated only above the minimum forward power `P_min`; S1, S2, `P_min` TBD (HIS-11, HIS-12) | as listed | cap held until unkey; `UNKEY`: next TX request; 3 `UNKEY` trips within 10 s → `FAULT` `SWR_REPEATED`, class 1 (0020 §29; 0022 §5) |
+| SWR | forward and reflected power (HIS-11) | above S1: `REDUCE` (cap `P_swr`, A3.4a); above S2: `UNKEY`; both evaluated only above the minimum forward power `P_min`; S1, S2, `P_min` TBD (HIS-11, HIS-12) | as listed | cap held to the end of the continuous transmission (A3.4a, A3.4d); `UNKEY`: next TX request; 3 `UNKEY` trips within 10 s → `FAULT` `SWR_REPEATED`, class 1 (0020 §29; 0022 §5) |
 | PA temperature | PA sensor (HIS-11), filtered (A3.4a) | T1 `WARN`, T2 `REDUCE` (cap `P_temp`, A3.4a), T3 `UNKEY` with inhibit, T4 `FAULT` `PA_OVERTEMP`; all TBD (HIS-11, HIS-12) | as listed | cap lifts below T2 minus hysteresis; inhibit lifts below T3 minus hysteresis; hysteresis TBD (HIS-11, HIS-12) |
-| Forward power | forward power (HIS-11): PEP and 100 ms mean (A3.4c), vs band and TX mode class | 100 W PEP SSB/CW/NFM; AM 25 W carrier (carrier estimate, A3.4c) and 100 W PEP [G7250-MAN]; every tier (built-in, persistent, session; P2 and TCI) is enforced through the bounds of Table A3-3, which for a detector without envelope samples or without PEP are the conservative mean bounds (0022 §43, §52); 50 MHz TBD (90 W in [G7250-PUDX], [G7250-RIGPIX]; HIS-12); margin TBD (HIS-12) | `REDUCE`; if still over 200 ms after `REDUCE` started, `UNKEY` (0020 §29) | next TX request |
+| Forward power | forward power (HIS-11): PEP and 100 ms mean (A3.4c), vs band and TX mode class; without a PEP detector, the PEP estimate from the digital crest factor of the DUC samples (A3.4c) | 100 W PEP SSB/CW/NFM; AM 25 W carrier (carrier estimate, A3.4c) and 100 W PEP [G7250-MAN]; every tier (built-in, persistent, session; P2 and TCI) is enforced through the bounds of Table A3-3: with a PEP detector on the measured PEP, without one on the PEP estimate for every class, the class-based mean bounds acting in addition, never instead (0022 §43, §52, §62); 50 MHz TBD (90 W in [G7250-PUDX], [G7250-RIGPIX]; HIS-12); margin TBD (HIS-12) | `REDUCE`; if still over 200 ms after `REDUCE` started, `UNKEY` (0020 §29) | next TX request |
 | Supply voltage | supply sensor (HIS-11) | starting values 13.8 V ±15 % (11.73–15.87 V) [G7250-MAN]; final HIS-11, HIS-12 | under-voltage while keyed: `REDUCE`, below a lower value (HIS-12) `UNKEY` with inhibit; over-voltage: `UNKEY` with inhibit | `REDUCE` lifts inside the range; each inhibit lifts when the supply has been inside the range for 2 s (0020 §29; 0022 §42) |
 | Supply / PA current | current sensor, if any (HIS-11) | above 23 A [G7250-MAN]; final HIS-12 | `UNKEY` | next TX request |
 | Maximum continuous TX time | firmware timer, any TX source; "continuous" as A3.4d (0022 §51) | 5 min built-in (0007, Resolved 3); may be set stricter, never looser; to be checked against the thermal rating (HIS-12) | `UNKEY` (arm kept) | next TX request |
 | ATU tune time | firmware timer | initial tuning ≤ 10 s [G7250-MAN] plus margin TBD (HIS-08) | `UNKEY`, tune reported failed; the tune cycle ends unkeyed (A3.9b) | next tune command |
 | Sensor plausibility | all of the above | sensor missing, stuck or out of range (HIS-11) | `FAULT` | A3.5 |
-| RF while not keyed | forward power (HIS-11) | above a threshold TBD (HIS-11) while not keyed and after the blanking time `t_blank` since the last unkey (A3.9a item 6; TBD HIS-11, HIS-12; 0022 §23) | `FAULT` | A3.5 |
+| RF while not keyed | forward power (HIS-11) | above a threshold TBD (HIS-11), not above `P_rf_off` (A3.9a item 1a; 0022 §68), while not keyed and after the blanking time `t_blank` since the last unkey (A3.9a item 6; TBD HIS-11, HIS-12; 0022 §23) | `FAULT` | A3.5 |
 
 The limit ids and their symbolic names (`LIMIT_TX_FREQ` … `LIMIT_RF_NOT_KEYED`) are in Table
 B8-3. Only maximum continuous TX time, forward power, SWR and PA temperature are host-tunable
 (Table B8-2); the others have no `LIMIT_<name>` register (0022 §19).
 
 A3.4a **Fold-back caps** (0022 §7). For SWR above S1 the safety core MUST cap forward power at
-a fixed value `P_swr`, TBD (HIS-12), and hold the cap until the unkey, even if SWR falls below
-S1 again; the next transmission starts uncapped. `P_swr` MUST be above `P_min`, so that SWR
+a fixed value `P_swr`, TBD (HIS-12), and hold the cap to the end of the continuous
+transmission of A3.4d, that is until an unkey after which the T/R path returns to receive
+(A3.9a item 4), even if SWR falls below S1 again; with CW break-in the cap therefore holds
+across element gaps shorter than the hang delay (0022 §67). The next continuous transmission
+starts uncapped. `P_swr` MUST be above `P_min`, so that SWR
 stays measurable while capped (HIS-11, HIS-12). For PA temperature at or above T2 the safety
 core MUST cap forward power at a fixed value `P_temp`, TBD (HIS-12), and lift the cap below T2
 minus the hysteresis; the temperature is filtered with a time constant of seconds,
@@ -656,6 +717,21 @@ is the carrier amplitude, so the carrier estimate is the carrier power at any mo
 depth; the mean power is not: a 25 W carrier with 100 % sine modulation has a mean of 37.5 W
 and a PEP of 100 W.
 
+**PEP estimate from the digital crest factor** (0022 §62). The firmware generates or forwards
+every sample the DUC transmits, so it knows the envelope of the signal before the PA. Over the
+same sliding 100 ms window as the coupler measurement, aligned to it by the delay from the DUC
+input to the coupler (TBD HIS-18), the safety core MUST compute the **digital crest factor**
+*CF* = max(I² + Q²) / mean(I² + Q²) of the samples fed to the DUC, whatever the TX source: the
+host's DUC I&Q after the drive scaling, the keyer's CW waveform, the tune carrier. The **PEP
+estimate** is the measured mean forward power × *CF*; with no RF in the window (mean of the
+samples 0) it is 0. Where the detector delivers no PEP (HIS-11), the safety core MUST enforce
+PEP estimate ≤ *L* for every TX mode class, so a declared class never stands in for the
+signal actually sent. The estimate assumes that the analogue chain does not raise the
+crest factor; a PA in compression lowers it, so the estimate then errs high; filter overshoot
+and peaks between samples are covered by the margin, TBD (HIS-11, HIS-12). A TX path whose
+RF does not come from samples the firmware feeds to the DUC has no estimate and MUST NOT key
+on a radio without a PEP detector; whether such a path exists: HIS-18.
+
 **One mapping for every limit in force** (0022 §52). The bounds use *L*, the forward-power
 limit in force for the band (A3.4 rule 1): the strictest of the built-in value (100 W PEP
 [G7250-MAN]; 50 MHz HIS-12), the persistent value (C-3, A1.6) and the session value
@@ -670,12 +746,20 @@ Table A3-3 — Forward-power bounds per detector and TX mode class (0022 §43, �
 |-------------------|-----|--------|----|
 | PEP and envelope samples | PEP ≤ *L* | PEP ≤ *L* | PEP ≤ *L* and carrier estimate ≤ 25 W |
 | PEP, no envelope samples | PEP ≤ *L* | PEP ≤ *L* | PEP ≤ *L* and mean ≤ 25 W |
-| mean only | mean ≤ *L* × `P_ssb_mean` / 100 W | mean ≤ *L* | mean ≤ min(*L* / 4, 25 W) |
+| mean only | PEP estimate ≤ *L* and mean ≤ *L* × `P_ssb_mean` / 100 W | PEP estimate ≤ *L* and mean ≤ *L* | PEP estimate ≤ *L* and mean ≤ min(*L* / 4, 25 W) |
 
+- Mean only: the PEP estimate is the bound that holds for any signal; the class-based mean
+  bound is an additional bound and can only lower the power further, never raise it (0022
+  §62). Example: SSB voice with a 12 dB crest factor under *L* = 100 W is held to a mean of
+  about 6.3 W by the estimate, below the class bound of 25 W; CW declared but SSB I&Q sent,
+  with 6 dB crest factor, is held to a mean of 25 W by the estimate, below the CW bound of
+  100 W; AM modulated beyond 100 % is held to PEP ≤ *L* by the estimate, where *L* / 4 alone
+  would not hold it.
 - `P_ssb_mean` is the mean of an SSB signal of 100 W PEP; starting value 25 W (a PEP-to-mean
   ratio of 6 dB), final value TBD (HIS-11, HIS-12). With *L* = 10 W the SSB mean bound is
   2.5 W, so a signal with 6 dB PEP-to-mean ratio stays at 10 W PEP.
-- CW and FM have a constant envelope, so mean and PEP are equal.
+- CW and FM have a constant envelope, so mean and PEP are equal when the signal sent is CW or
+  FM; the estimate covers a signal that is not.
 - AM with mean only: mean ≤ *L* / 4 keeps PEP ≤ *L* at any modulation depth up to 100 %,
   because PEP is then at most 4 × the carrier and the mean at least the carrier (at 100 %
   sine modulation the mean is 1.5 × the carrier, so PEP ≤ 2/3 *L*); mean ≤ 25 W keeps the
@@ -683,8 +767,13 @@ Table A3-3 — Forward-power bounds per detector and TX mode class (0022 §43, �
 - AM without envelope samples: mean ≤ 25 W holds the carrier to 25 W at any modulation (at
   100 % sine modulation the carrier is then 16.7 W).
 
-The fallbacks are conservative on purpose: they may reduce power more than needed, never less
-(0022 §43, §52).
+The class-based mean bounds alone are not conservative: they hold PEP ≤ *L* only for a signal
+within the assumption of its class (a crest factor of at most 6 dB for SSB, a constant
+envelope for CW and FM, a modulation depth of at most 100 % for AM). A crest factor above
+6 dB, a class declared for another signal, or overmodulated AM can exceed *L* under them;
+that is why the PEP estimate is required without a PEP detector, and the class-based bounds
+only add to it (0022 §43, §52, §62). The AM carrier bound with mean only (mean ≤ 25 W) holds
+at any modulation, because the mean of AM is never below its carrier.
 
 A3.4d **Continuous TX** (0022 §51). For the maximum continuous TX time a transmission is
 continuous from the key (A3.1a) until an unkey after which the T/R path returns to receive
@@ -735,7 +824,8 @@ A3.6 **State after power-on, any reset, and every session end** (0007, Decision 
 its bias off, TX path disabled, SEND and TUNER trigger released (HIS-09, HIS-10, HIS-13); DUC
 FIFO emptied (0022 §32); not armed, new token, session limits back to the persistent values (A3.4; after a reset the
 persistent values are read from the stored configuration), `TX_MODE_CLASS` = 0,
-`KEYED_TIMEOUT` = 500 ms, watchdog counted as enabled; ATU not tuning, ATU in or out
+`KEYED_TIMEOUT` = 500 ms, watchdog counted as enabled, the TX settings of A3.6a at their
+session-start values (0022 §64); ATU not tuning, ATU in or out
 as stored per band, or out until the HIS says otherwise (HIS-08); antenna default TBD
 (HIS-06); filters for the default RX frequency, preamplifier off, attenuation TBD (HIS-07).
 At a takeover only the TX-side part applies; RX-side settings are kept for the new owner
@@ -746,9 +836,41 @@ reset starts (0022 §40).
 What the hardware does between reset and the moment the firmware drives these pins is
 HIS-13; if the PA can key from floating lines, M4 waits for a mitigation (0007).
 
+A3.6a **TX settings at every session end and takeover** (0022 §64). The transmit settings that a
+level-1 host writes in General and DUC-specific packets belong to its session. At every session
+end and at every takeover, after the unkey and before the new owner's first packet is
+processed, the G7250 MUST return them to these values, the same as at power-on:
+
+Table A3-4 — TX settings after a session end or takeover (0022 §64; fields [P2] General packet
+byte 58, DUC specific packet)
+
+| Setting | Field ([P2]) | Value after session end or takeover |
+|---------|--------------|-------------------------------------|
+| PA enable | General byte 58 bit [0] | 0: PA disabled; no TX request keys (B10.10) until the new owner sets it |
+| CW select (hardware CW from KEY) | DUC-specific byte 5 bit [1] | 0: KEY keys nothing (A3.1a) |
+| Keyer options (reverse keys, iambic, sidetone, mode B, strict spacing) | DUC-specific byte 5 bits [2]–[6] | 0 |
+| Break-in | DUC-specific byte 5 bit [7] | 0 |
+| EER | DUC-specific byte 5 bit [0] | 0: no EER refusal stands |
+| Sidetone level and frequency | DUC-specific bytes 6–8 | 0 (HIS-17) |
+| Keyer speed and weight | DUC-specific bytes 9–10 | 0: CWX forms no element and does not key until a speed is set (Table B10-1) |
+| Hang delay | DUC-specific bytes 11–12 | 0 ms |
+| RF delay | DUC-specific byte 13 | 0 ms |
+| DUC0 sampling rate and bits | DUC-specific bytes 14–16 | 0, read as 192 ksps and 24 bits: no DUC-rate refusal stands |
+| CW ramp period | DUC-specific byte 17 | 0, read as the G7250 default 8 ms |
+| Line in, mic boost, line-in gain | DUC-specific bytes 50–51 | 0 (HIS-17) |
+| RX step attenuator during TX | DUC-specific bytes 57–59 | the attenuation of A3.6, TBD (HIS-07) |
+
+The values are those of a DUC-specific packet of zeros read through Table B10-1, plus PA
+enable cleared. The new owner sets its own values with the takeover packet itself, its set-up
+phase (B5.1a) or later packets; nothing of the old owner's TX set-up carries over. RX-side
+settings follow A2.4 step 4. Reason: a takeover hands the RF chain to a host that may not know
+what the old owner set; reset is the safe default (0022 §64).
+
 A3.7 **Other TX paths.** "While level 1 runs" means: level 1 is the active level, with or
 without a P2 session (0022 §15). Local inputs (controller microphone PTT, KEY) MUST be
-reported and MUST NOT key the radio by themselves on level 1; the controller has no
+reported and MUST NOT key the radio by themselves on level 1; KEY keys only as an allowed
+requester of A3.1a, with hardware CW selected by the owner and under its arm (B10.9; 0022
+§65), and the controller microphone PTT never keys on level 1; the controller has no
 standalone operation while level 1 runs (0007, Decision 6; Resolved 6). A controller request
 that reaches the main unit (HIS-17) is not a TX request for the arm, does not start a session
 and does not block an arm (0022 §15). SEND, the TUNER trigger and internal ATU tuning are
@@ -779,7 +901,8 @@ A3.9 **Changes while keyed** (level-independent; 0022 §1, §2).
   command is refused: a register write is answered with the value in force and
   `WRITE_STATUS` reason `KEYED`; a TCI command as in part C (0021 §8); a controller ANT or ATU
   button press that reaches the main unit ([G7250-MAN]; HIS-17) is ignored and logged.
-  Management switches no relay (A1.9). The only exception is the ATU relays inside an ATU
+  Management switches no relay, apart from the return to the relay set of A3.6 after RF gone
+  (A1.9; 0022 §73 item 16). The only exception is the ATU relays inside an ATU
   tune cycle at the tune power (A3.9b; 0007 Decision 4 rule 5; 0022 §22). A controller that
   switches relays by itself is a finding for HIS-10 and HIS-17.
 - **ATU memory recall** (0022 §28). Every change of the ATU L/C network or in/out state is an
@@ -794,6 +917,19 @@ relay of A3.9.
 1. **RF gone.** After an unkey, no relay MUST move until RF is gone: forward power below a
    threshold `P_rf_off`, or a fixed guard time `t_rf_off` after the unkey, whichever the
    hardware design uses; values TBD (HIS-07, HIS-12).
+
+   **1a. Bound on every wait for RF gone** (0022 §68). Every wait for RF gone, whatever caused
+   the unkey (a normal unkey, a session end, a takeover, a fault entry, an address or level
+   change, a commanded reset), is bounded by `t_reset_wait` = 2 s from the unkey (A1.9). If
+   forward power is still at or above `P_rf_off` at the bound, which can happen only where
+   the hardware measures forward power (HIS-11), the G7250 MUST enter the fault state with
+   `RF_NOT_KEYED` (class 2) or stay in it, and log the event. Relays still do not move while
+   RF is present; they move as soon as RF is gone. The actions that waited and move no relay
+   then proceed: the session end, the address change (A1.11a), the level switch (A2.5a); a
+   commanded reset is refused with status 59 (A1.9). In addition the threshold of "RF while
+   not keyed" (Table A3-2) MUST NOT be above `P_rf_off`, and `t_blank` MUST be shorter than
+   `t_reset_wait`, so that RF that stops a relay from moving is always a fault (HIS-11,
+   HIS-12).
 2. **Settle.** The radio MUST key only after the settle time `t_settle` has elapsed since the
    last relay change; TBD (HIS-07).
 3. **Bounded wait** (0022 §23, §33, §37). A TX request whose 0→1 edge arrives while an
@@ -807,14 +943,22 @@ relay of A3.9.
    is going (item 1) or the deferred changes and the return to receive are being applied
    (item 4), in which case the deferred changes are applied and then the TX state of A3.1b.
    The wait is bounded by `t_rf_off` + `t_settle` from the edge, TBD (HIS-07, HIS-12). A
-   further RF-path change requested during the wait, or reaching the bound, refuses the
-   request, which is not latched (A3.1a). This is the only deferred TX request.
+   further change of the TX RF-path state requested during the wait (a DUC0 frequency that
+   needs another state, an Alex word, a step attenuator, an antenna or ATU change), or
+   reaching the bound, refuses the request, which is not latched (A3.1a). A change of the
+   receive frequency alone (DDC0; on TCI the receiver centre frequency) during the wait does
+   not refuse it: it is deferred to the next unkey, as while keyed (A3.1b) (0022 §73 item
+   10). This is the only deferred TX request.
 4. **T/R relay and RX attenuator during TX.** At a key: T/R relay and the RX attenuator
    during TX (DUC-specific byte 59 [P2], B10.6) to their TX position, settle (item 2), SEND,
    RF delay (DUC-specific byte 13), RF. At an unkey: RF off, RF gone (item 1), SEND released,
    then both back to their RX position and deferred RF-path changes applied. With CW
-   break-in they return after the hang delay (DUC-specific bytes 11–12). Whether the T/R
-   switch is a relay: HIS-07.
+   break-in, between elements RF stops but SEND, the T/R relay and the RX attenuator during
+   TX stay in their TX position for the hang delay (DUC-specific bytes 11–12); only when the
+   hang delay has run out without a new element are SEND released (RF being gone) and both
+   returned, so that an external amplifier does not switch at every element (0022 §73 item
+   9). A drop event, standby, fault entry or session end during the hang delay ends it at
+   once. Whether the T/R switch is a relay: HIS-07.
 5. **Session end.** The relay set of A3.6 is applied only after the unkey and RF gone.
 6. **Blanking.** The check "RF while not keyed" (Table A3-2) MUST run only while not keyed
    and after a blanking time `t_blank` since the last unkey; `t_blank` is at least the time
@@ -830,9 +974,14 @@ A3.9b **ATU tune cycle** (level-independent; 0022 §22). `ATU_TUNE` (B10.9) and
    `ATU_STATE`, and no cycle starts, so a retried command never gives a second tune carrier
    (B8.4; 0022 §39). A start while armed and unkeyed but with another condition of A3.1a
    failing (fault, inhibit, outside the TX ranges, PA disabled, no mode class, on TCI the TX
-   policy) is rejected with `NOT_KEYABLE` and is not latched (0022 §51).
-2. All conditions of A3.1a hold at the start, and pending RF-path changes are applied and
-   settled first (A3.9a).
+   policy) is rejected with `NOT_KEYABLE` and is not latched (0022 §51). Where several apply,
+   the answer carries the first of: `BUSY`, `NOT_OWNER`, `BAD_VALUE`, `NOT_ARMED`, the no-op
+   (cycle running or within 2 s of the end of the previous one), `KEYED`, `NOT_KEYABLE`
+   (0022 §73 item 6).
+2. All conditions of A3.1a hold at the start. Before RF, the cycle MUST apply pending RF-path
+   changes and switch the RF path to the TX state of A3.1b for the effective TX frequency in
+   force, and wait until the relays have settled (A3.9a items 2, 3), so that the tune carrier
+   goes through the TX filter of the TX frequency, also with split or cross-band (0022 §66).
 3. The radio MUST set the drive to the tune power, the lower of the ATU profile's tune power
    (TBD HIS-08, HIS-12) and the forward-power bound in force (A3.4 rule 5, Table A3-3),
    before RF starts and before the ATU moves any relay (0022 §53).
@@ -843,13 +992,17 @@ A3.9b **ATU tune cycle** (level-independent; 0022 §22). `ATU_TUNE` (B10.9) and
 6. The cycle MUST end unkeyed in every case: tuned, failed, aborted, ATU tune time
    (`LIMIT_ATU_TIME`), keyed timeout, any limit unkey or drop. The tune carrier is never
    handed over to another TX source; keying again needs a new 0→1 edge.
-7. **ATU after a cycle that did not end tuned** (0022 §38): failed, aborted, time limit, keyed
-   timeout, a limit unkey or drop, a takeover or another session end. Once RF is gone (A3.9a
-   item 1) the ATU MUST return to the stored state for the TX frequency if one exists
-   (HIS-08), else to bypass. `ATU_STATE` = 4 (failed) then means "the last tune did not end
-   tuned; the ATU is at the stored state or bypassed", and stays until the next tune cycle or
-   an ATU in/out change. `ATU_STATE` = 4 does not block keying; the SWR limits of Table A3-2
-   protect the PA.
+7. **After the cycle** (0022 §38, §66). At every end of the cycle, once RF is gone (A3.9a
+   item 1), the RF path MUST return to the unkeyed state of A3.1b for the receive frequency,
+   as after every unkey; the next key applies A3.1b again for the TX frequency. A cycle that
+   ended tuned leaves its result stored for the TX frequency where the ATU stores states
+   (HIS-08), and the next key recalls it. A cycle that did not end tuned (failed, aborted,
+   time limit, keyed timeout, a limit unkey or drop, a takeover or another session end)
+   stores nothing: the ATU is at the stored state for the receive frequency if one exists
+   (HIS-08), else bypassed, and the next key recalls the stored state for the TX frequency,
+   or bypass. `ATU_STATE` = 4 (failed) then means "the last tune did not end tuned; the ATU is
+   at a stored state or bypassed", and stays until the next tune cycle or an ATU in/out
+   change. `ATU_STATE` = 4 does not block keying; the SWR limits of Table A3-2 protect the PA.
 
 A3.9c **TX mode class never changes under a transmission** (level-independent; 0022 §26). On
 level 1 a `TX_MODE_CLASS` write with another value while keyed MUST unkey first (`UNKEY`, arm
@@ -1024,7 +1177,11 @@ host; bytes 5–59 are zero ([P2] Discovery packet). The G7250:
   bytes, to answer (B11.3; 0020 §28);
 - MUST answer every request with exactly one reply, within the rate limit of B11.14: at
   most 10 replies per second per source IP address and port and 50 per second in total;
-  requests above it are dropped and counted (0022 §16).
+  requests above it are dropped and counted (0022 §16);
+- MUST NOT answer, and MUST drop and count, a datagram to port 1024 whose source port is 1024.
+  A G7250 discovery reply has byte 4 = 0x02 and comes from port 1024 (B3.3), so without this
+  rule two radios could answer each other's replies without end. A host SHOULD NOT send
+  discovery from local port 1024 (0022 §73 item 20).
 
 A discovery from the owner (same IP address and UDP port, A2.2) while TX is armed drops the
 arm (`REDISCOVERY`, Table A3-1 event 12). A discovery from any other host has no effect on the
@@ -1096,6 +1253,11 @@ High Priority frequency fields ([P2] High Priority packet bytes 9–12, 329–33
 packet byte 37 bit [3]. If the G7250 reports phase (1), the host computes
 `phase_word = 2^32 × f(Hz) / DSP clock (Hz)` ([P2] General packet byte 37); the DSP clock is
 given in record field `dsp_clock_hz` (0003 §3; Annex X2, C4). Value and DSP clock: TBD (HIS-04).
+A General packet whose byte 37 bit [3] differs from byte 21 asks for an encoding the G7250 does
+not use, so every frequency of that host would be misread. The G7250 MUST keep reading the
+High Priority frequency fields in the encoding of byte 21, MUST NOT run DDC0 and MUST NOT key
+while the mismatch stands (`STREAM_STATUS` reason 13 for DDC0 and DUC0; A3.1a), and MUST log
+it; a General packet with the matching bit ends it (0022 §73 item 12).
 
 B3.9 **Other port-1024 commands.**
 
@@ -1116,9 +1278,16 @@ B3.9 **Other port-1024 commands.**
   running session; while armed this is drop event 9 (`SESSION_CHANGED`, Table A3-1). A Set IP
   packet whose bytes 5–10 hold another MAC address is not for this unit and MUST be ignored
   ([P2] Set IP Address packet, "MAC Address"). A Set IP sent to the unit's unicast address or
-  to the subnet's directed broadcast address MUST be accepted under the same rules (0020 §21;
-  Annex X2, C13). Risk stated in 0008 S7: any host on the LAN that knows the MAC can change
-  the address and so cut a running session; it cannot key the radio.
+  to the subnet's directed broadcast address MUST be accepted under the same rules, but only
+  from a source address inside the radio's own subnet; from any other source it MUST be
+  ignored and counted (0020 §21; 0022 §70; Annex X2, C13). A Set IP to the limited broadcast
+  255.255.255.255 is accepted from any source address, because a router does not forward it,
+  so it comes from the radio's own link; a host with a wrong address set-up can therefore still
+  correct the radio ([P2] Set IP Address packet, "Broadcast to Port 1024"; RFC 1812 section
+  5.3.5.1: a router does not forward a limited broadcast). Risk stated in 0008 S7, as
+  narrowed by 0022 §70: any host on the same link (limited broadcast) or in the same subnet
+  that knows the MAC can change the address and so cut a running session; a host behind a
+  router cannot; none can key the radio.
 
 ### B4 Capability block
 
@@ -1147,10 +1316,13 @@ B4.4 **When the record is sent** (0003 §2):
    0022 §49): at the session start if the owner's set-up phase holds a General packet
    (B5.1a), otherwise at the owner's first General packet of the session; at a takeover by a
    General packet, in answer to that packet (A2.4 step 4). It goes to the owner's register
-   destination (item 3) and counts against the `CAP_REQUEST` limit of that destination (at
-   most once per 1 s per destination IP address and port, 10 per second in total; B11.14), so
-   that a takeover ping-pong cannot multiply it. A General packet while no session runs
-   (set-up phase) gets no record.
+   destination (item 3). It has its own limit, separate from the `CAP_REQUEST` answers: it
+   is left out only if an unasked record went to the same destination IP address and port
+   less than 1 s before, so that a takeover ping-pong cannot multiply it (B11.14). A
+   `CAP_REQUEST` answer never suppresses it and it uses up no `CAP_REQUEST` allowance, so a
+   host that reads the record before its run bit (B5.1 step 2) still gets the unasked record at
+   its session start (0022 §49; §73 item 8). A General packet while no session runs (set-up
+   phase) gets no record.
 3. **Destination.** To the source IP address and UDP port of the request when the requesting
    host is not the owner (has no session); otherwise to the owner's memory-mapped port set in
    General packet bytes 31–32, or to the owner's source port (A2.2) if those bytes are zero
@@ -1173,7 +1345,9 @@ pair (0x0000, 0x00000000) is padding and is not answered (B8.1; 0020 §4).
 
 B4.7 **Stability.** Record values MUST be constant for the duration of a session. They MAY
 change only between sessions: after a firmware update, a region change of the TX bands, a
-change of the active level, a new per-unit calibration, or a change of link speed (0003 §2).
+change of the active level or a new per-unit calibration (0003 §2). The record holds only the
+minimum link speed (`link`), which does not change; the current link speed is in
+`LINK_STATUS` (0022 §73 item 19).
 Dynamic state is not in the record: TX armed, fault state and limits in force, telemetry
 values, current link speed and session refusal reason are separate status registers (B8;
 0003 §2).
@@ -1300,8 +1474,10 @@ is the High Priority packet). While no session runs:
    and take nothing over.
 2. When a host starts a session with the run bit (A2.3), its kept packets count for that
    session as if received in it, in the order received and before the run packet itself:
-   General byte 38 bit [0] (B5.6), byte 58 bit [0] (B10.10), byte 39 (B6.3), bytes 23–28
-   (B6.10), and the DDC-specific and DUC-specific fields (B6.5, B10.6).
+   every field the G7250 acts on in the kept General packet (Table B7-1), among them bytes
+   23–28 (B6.10), 31–32 (B8.1), 37 (B3.8, B6.6), 38 bit [0] (B5.6), 39 (B6.3) and 58 bit [0]
+   (B10.10), and every field of the kept DDC-specific and DUC-specific packets (Tables B6-2,
+   B10-1) (0022 §73 item 14).
 3. Kept packets of every other source MUST be discarded when the session starts; set-up from
    another source never counts for the owner. At every session end the kept set is emptied,
    so a host that restarts with the run bit only (B5.4) sends its General packet again before
@@ -1316,7 +1492,10 @@ the run bit set ([P2] "Detailed operation": run "in order to start data from the
 If the run bit arrives with no General or DDC-specific packet from that host, neither kept
 from its set-up phase (B5.1a) nor received in the session, the G7250 MUST use the [P2]
 defaults and the G7250 safe RX state (0015, Consequences; A3.6; RX default state TBD, HIS-06,
-HIS-07). A discovery is not a precondition: a run bit from a host that sent no discovery
+HIS-07). Without such a DDC-specific packet DDC0 counts as not enabled (DDC-specific byte 7 bit
+[0] read as 0): no DDC0 I&Q is sent, `STREAM_STATUS` gives DDC0 reason 1 "not enabled by the
+host", and the High Priority status packets run; DDC0 starts with the first DDC-specific packet
+that enables it (0022 §73 item 13). A discovery is not a precondition: a run bit from a host that sent no discovery
 starts the session normally, and the streams go to that host's source address and port
 (B2.4; [P2] "Detailed operation", restart path; 0020 §14).
 
@@ -1374,7 +1553,8 @@ B5.7 **Takeover.** Takeover is always allowed and follows the ordered procedure 
 (0007, Decision 3; 0022 §3): the old session ends with the A3.2 actions and a last
 `TX_ARM_STATE` to the old owner, sent three times about 10 ms apart (0022 §29); the new host becomes owner at once, RUN stays set, the
 streams go to the new owner with sequence counters restarted at 0, and the new owner starts
-unarmed with `TX_MODE_CLASS` = 0 and session limits at the persistent values. A host that
+unarmed with `TX_MODE_CLASS` = 0, session limits at the persistent values and the TX settings
+of A3.6a reset (0022 §64). A host that
 reopens its socket on a new UDP port takes over from itself (0007, Resolved 4). Only the arm
 part deviates from [P2] ([P2] Discovery reply byte 4 NOTE; Annex X1, D5, D6).
 
@@ -1385,7 +1565,10 @@ B8) (0004 point 9; Resolved). The record field `link` gives the minimum speed (B
 On such a link a run bit makes no owner and starts no stream, and no High Priority status
 packet is sent. The G7250 MUST answer each High Priority packet with the run bit set, and each
 `CAP_REQUEST`, with a register packet holding `LINK_STATUS` (refusal reason 1) and
-`STREAM_STATUS` (reason 8), to the sender, at most once per 100 ms (0020 §20). The speed is
+`STREAM_STATUS` (reason 8), to the sender, at most once per 100 ms per source IP address and
+port and at most 10 per second in total (0020 §20; 0022 §73 item 7). A `CAP_REQUEST` is in
+addition answered with the record as on a fast link (B4.4, limits of B11.14), so that a host
+can read `link` and tell the user why no session starts (0022 §73 item 7). The speed is
 read from the CH394Q PHY configuration register PHY_CFG, bits SPDS (speed) and LINKS (link
 up) ([CH394] section 7.1.15); whether the existing design leaves that register
 usable: TBD (HIS-14). Annex X1, D15. If the link goes down or renegotiates below 100 Mbit/s
@@ -1547,12 +1730,12 @@ Table B7-1 — General packet ([P2] General packet to SDR)
 | 33–36 | Envelope PWM | ignored ("Reserved for future use" in [P2]) | [P2] bytes 33–36; 0005 rule 3 |
 | 37 [0], [1] | Time stamp, VITA-49 | set: refused (DDC0 does not run while it stands) | 0004 point 7 |
 | 37 [2] | VNA mode | set: refused (VNA not offered; DDC0 does not run while it stands; `STREAM_STATUS` reason 11) | [P2] byte 37; 0004 point 7; 0020 §22 |
-| 37 [3] | Frequency or phase word | must match discovery byte 21; TBD (HIS-04) | B3.8 |
+| 37 [3] | Frequency or phase word | must match discovery byte 21; a mismatch: DDC0 does not run and no TX request keys while it stands, `STREAM_STATUS` reason 13; encoding TBD (HIS-04) | B3.8; 0022 §73 item 12 |
 | 38 [0] | Hardware timer enable | honoured while not armed; forced on while armed; must be set to arm | 0007 Decision 2.3; B5.6 |
 | 39 | Endian and I&Q format | Big-Endian 3-byte honoured; anything else refused | 0004 points 1, 7; B6.3 |
 | 40–55 | Reserved | ignored | [P2]; 0005 rule 3 |
 | 56, 57 | Atlas bus configuration, 10 MHz reference source | ignored (byte 56 "Atlas bus configuration"; byte 57 "For Atlas based systems this selects the source of the 10MHz reference clock" in [P2]) | [P2] bytes 56–57; 0022 §21 |
-| 58 [0] | PA enable | honoured as an extra TX condition: while 0, a TX request does not key; cleared while keyed: unkey, arm kept (B10.10); `TX_STATE` bit 4; no exciter-only output | [P2] byte 58; 0005 rule 1; 0020 §22; 0022 §14 |
+| 58 [0] | PA enable | honoured as an extra TX condition: while 0, a TX request does not key; cleared while keyed: unkey, arm kept (B10.10); `TX_STATE` bit 4; no exciter-only output (Annex X1, D30); cleared at every session end and takeover (A3.6a) | [P2] byte 58; 0005 rule 1; 0020 §22; 0022 §14, §64 |
 | 58 [1] | Apollo ATU enable | ignored; the internal ATU is controlled through the register map (`ATU_TUNE`) | 0005 option D; 0007 Decision 6 |
 | 58 [2], [3] | Mercury common frequency, clock source | ignored (Atlas only in [P2]) | [P2] byte 58 |
 | 59 | Alex enable | TBD; ignored unless HIS-06/HIS-07 show identical meaning | 0005 option D, rule 1 |
@@ -1682,7 +1865,11 @@ port; it MUST have no other effect: no takeover, no watchdog feed (0020 §12; 00
 Decision 5). `NOT_OWNER` answers MUST NOT exceed one per 100 ms per source IP address and
 port; further rejected writes are dropped without answer and counted (B11.14; 0022 §16). The
 takeover notices to an old owner (A2.4, "Notice destination") are not `NOT_OWNER` answers and
-have their own limit (0022 §58).
+have their own limit (0022 §58). A memory-mapped packet from a non-owner whose source port is
+7250 MUST get no answer at all (no `NOT_OWNER`, no `CAP_REQUEST` answer) and is dropped and
+counted: register packets of another G7250 come from that port (B2.4a), and answering them
+would let two radios answer each other without end. A host SHOULD NOT use local port 7250 as
+its source port (0022 §73 item 20).
 
 B8.6 **Units.** Analogue registers are signed 32-bit integers in milli-units of an SI unit
 (mV, mA, mW, m°C, ms; SWR as 1000 × SWR). Status registers are enumerations or bit fields;
@@ -1699,7 +1886,7 @@ echoed with the value in force, B8.4)
 | `STREAM_STATUS` | 0x0101 | RO | one byte per stream: [7:0] DDC0, [15:8] DUC0, [23:16] microphone, [31:24] wideband; bit 7 running, [6:0] reason (Table B8-3) | on change | 0004 point 7; 0020 §8 |
 | `LINK_STATUS` | 0x0102 | RO | [15:0] speed in Mbit/s (0 = link down); bit 16 full duplex; bit 17 non-default P2 port not honoured (latched until the next session); [31:24] session refusal reason: 0 none, 1 link below 100 Mbit/s | on change; B5.8 | 0003 §2; 0004 point 9; 0020 §8, §13, §20 |
 | `WRITE_STATUS` | 0x0103 | RO | last rejected write, B8.4 | on every rejection, to the writer | 0020 §11 |
-| `TX_ARM_TOKEN` | 0x0200 | RO | 32-bit token; never 0, 0xFFFFFFFF or `ARM_MAGIC`; differs from the previous token | at session start and on every change | 0007 Decision 1; 0020 §7 |
+| `TX_ARM_TOKEN` | 0x0200 | RO | 32-bit token; never 0, 0xFFFFFFFF or `ARM_MAGIC`; differs from the previous token, also from the last one before a reset (boot counter, B10.2 item 5) | at session start and on every change | 0007 Decision 1; 0020 §7; 0022 §73 item 4 |
 | `TX_ARM` | 0x0201 | W, owner | `token XOR ARM_MAGIC` arms; 0 disarms; any other value rejected (`BAD_TOKEN` in `TX_ARM_STATE`) | answer is `TX_ARM_STATE` | 0007 Decision 1; 0020 §7 |
 | `TX_ARM_STATE` | 0x0202 | RO | [3:0] state 0 disarmed, 1 armed, 2 inhibited (armed, but a limit inhibit is active so TX requests do not key; entered from 1 when an inhibit starts, back to 1 when it lifts, no new generation); [15:8] last reject reason of the owner; [23:16] last drop reason, 5 `RESET` after any reset until the next drop (Table A3-1 event 5); [31:24] arm generation (+1 per arm, wraps) (Table B8-3) | on every change | 0007 Decision 1; 0006; 0020 §8; 0022 §13, §61 |
 | `TX_STATE` | 0x0203 | RO | bit 0 keyed (PA actually keyed); bit 1 `WARN` active; bit 2 `REDUCE` active; bit 3 last TX request outside the TX ranges; bit 4 PA disabled by the host (General byte 58 bit [0]); bit 5 inhibit active; [11:8] TX source 0 none, 1 PTT, 2 CWX, 3 KEY, 4 ATU; [23:16] last unkey reason 0 none, 1 TX request released, 2 keyed timeout, 3 TX IQ underrun, 4 limit, 5 arm dropped, 6 retune needs RF-path change, ATU memory recall included (A3.9), 7 PA disabled by the host while keyed (B10.10), 8 keying client lost (TCI only, part C C8.2; never set by the radio over P2), 9 CW key-down longer than 1 s (B10.5a; TCI `KEYER`), 10 TX mode class changed while keyed (A3.9c); [31:24] limit id when reason 4 | on every change (event) | 0007 Decisions 1, 2, 4; 0006; 0020 §8, §22; 0022 §1, §14, §25, §26, §28, §32 |
@@ -1714,10 +1901,10 @@ echoed with the value in force, B8.4)
 | `FAULT_CLEAR` | 0x0215 | W, owner | write the current `FAULT_CODE`; clears all flags if every flagged code is class 1 (not escalated), its condition is gone and 10 s have passed since the latest fault entry (A3.5), else `NOT_CLEARABLE`; other values `BAD_VALUE` | answer | 0007 Decision 5; 0022 §5, §27 |
 | `LIMIT_STATUS` | 0x0220 | RO | bit *n*: limit *n* limiting (`WARN` or `REDUCE`); bit 16 + *n*: limit *n* tripped (`UNKEY` or stronger) since the last TX request; limit ids in Table B8-3 | event | 0006; 0007; 0020 §8 |
 | `LIMIT_INHIBIT` | 0x0221 | RO | bit *n* (1–15): limit id *n* holds an inhibit (Table A3-2: `LIMIT_PA_TEMP` above T3; `LIMIT_SUPPLY_VOLTAGE` after an over-voltage or under-voltage `UNKEY`, until the supply has been inside the range for 2 s); bit 0 and bits 16–31 are 0; `TX_STATE` bit 5 is the OR of all bits | event | 0007 Decision 4; 0022 §32, §42 |
-| `LIMIT_TX_TIME` | 0x0230 | W, owner | maximum continuous TX time, ms; built-in 300 000 | answer | 0007 Resolved 3; 0020 §10 |
-| `LIMIT_FWD_POWER` | 0x0231 | W, owner | upper bound *L* on forward power, PEP, mW, all bands and classes; enforced through Table A3-3 like every other tier, so with a mean-only detector it bounds the mean (SSB *L* × `P_ssb_mean` / 100 W, AM min(*L* / 4, 25 W), CW and FM *L*); also bounds the tune power (A3.4 rule 5) | answer | 0007 Decision 4; 0020 §10; 0022 §17, §52, §53 |
-| `LIMIT_SWR` | 0x0232 | W, owner | 1000 × SWR; replaces S2 when stricter, S1 becomes the lower of S1 and this value | answer | 0007 Decision 4; 0020 §10 |
-| `LIMIT_PA_TEMP` | 0x0233 | W, owner | m°C; replaces T3 when stricter | answer | 0007 Decision 4; 0020 §10 |
+| `LIMIT_TX_TIME` | 0x0230 | W, owner | maximum continuous TX time, ms; built-in 300 000; 0 = back to the persistent value, not "no TX time" (B8.6) | answer | 0007 Resolved 3; 0020 §10; 0022 §73 item 5 |
+| `LIMIT_FWD_POWER` | 0x0231 | W, owner | upper bound *L* on forward power, PEP, mW, all bands and classes; enforced through Table A3-3 like every other tier: on the measured PEP, or without a PEP detector on the PEP estimate from the digital crest factor of the DUC samples for every class, with the class-based mean bounds (SSB *L* × `P_ssb_mean` / 100 W, AM min(*L* / 4, 25 W), CW and FM *L*) in addition (A3.4c); also bounds the tune power (A3.4 rule 5); 0 = back to the persistent value, not "no power" (B8.6) | answer | 0007 Decision 4; 0020 §10; 0022 §17, §52, §53, §62; §73 item 5 |
+| `LIMIT_SWR` | 0x0232 | W, owner | 1000 × SWR; checked against the persistent value of S2 (accepted if equal to or stricter than it, else `LOOSER_LIMIT`); replaces S2 when stricter, S1 in force becomes the lower of S1 and this value; 0 = back to the persistent value (B8.6) | answer | 0007 Decision 4; 0020 §10; 0022 §73 item 6 |
+| `LIMIT_PA_TEMP` | 0x0233 | W, owner | m°C; replaces T3 when stricter; 0 = back to the persistent value (B8.6) | answer | 0007 Decision 4; 0020 §10; 0022 §73 item 5 |
 | `TLM_PA_TEMP` | 0x0300–0x0303 | RO | m°C, signed; sensors 0–3 | slow | 0006; HIS-11 |
 | `TLM_PA_CURRENT` | 0x0304 | RO | mA | fast | 0006; HIS-11 |
 | `TLM_SUPPLY_CURRENT` | 0x0305 | RO | mA (if separate from PA current) | fast | 0006; HIS-11 |
@@ -1729,7 +1916,13 @@ echoed with the value in force, B8.4)
 
 A `LIMIT_<name>` register holds the session value. A write is checked against the
 persistent value (management C-3); a looser value is rejected with `LOOSER_LIMIT`. Writing 0,
-and the end of the session, return the session value to the persistent value. The answer
+and the end of the session, return the session value to the persistent value.
+
+**Writing 0 is not "no power"** (0022 §73 item 5). For every `LIMIT_<name>` register, 0 means
+"no session value, back to the persistent value"; it is never the limit value 0 (no power, no
+TX time, SWR 0). The answer to a write of 0 carries the limit in force, which is then the
+stricter of persistent and built-in value, so the host sees that the limit went up. A host
+that wants no RF unkeys or disarms (B10.2), or writes a small non-zero value. The answer
 carries the limit in force, the strictest of built-in, persistent and session value (A3.4;
 0007 rules 1–2; 0020 §10; 0022 §6).
 
@@ -1751,7 +1944,7 @@ Table B8-3 — Reason and fault codes (0020 §8; 0022 §5, §19)
 | Drop reason (`TX_ARM_STATE` [23:16]; Table A3-1) | 0 none; 1 `HOST_DISARM`; 2 `RUN_CLEARED`; 3 `WATCHDOG`; 4 `TAKEOVER`; 5 `RESET`; 6 `FAULT` (events 6 and 13); 8 `LINK_DOWN`; 9 `SESSION_CHANGED`; 10 `LEVEL_CHANGE`; 11 `MAINTENANCE`; 12 `REDISCOVERY`; 13 `STOP` (TCI only: `STOP` command, part C C5.5.5 row 2); 14 `HOLDER_LOST` (TCI only: arm holder's connection closed, part C C5.5.5 row 3); 7 unused; 13 and 14 are never set over P2; 0x40 + limit id `LIMIT_<name>` (event 7: action `DISARM` only; a trip with action `FAULT` gives 6 `FAULT`, the cause in `FAULT_CODE`; 0022 §41) (0022 §30) |
 | Limit id (`TX_STATE` [31:24]; `LIMIT_STATUS` bit *n*; drop reason 0x40 + id) | 1 `LIMIT_TX_FREQ` (TX frequency); 2 `LIMIT_SWR` (SWR; host-tunable); 3 `LIMIT_PA_TEMP` (PA temperature; host-tunable); 4 `LIMIT_FWD_POWER` (forward power; host-tunable); 5 `LIMIT_SUPPLY_VOLTAGE` (supply voltage); 6 `LIMIT_CURRENT` (supply or PA current); 7 `LIMIT_TX_TIME` (maximum continuous TX time; host-tunable); 8 `LIMIT_ATU_TIME` (ATU tune time); 9 `LIMIT_SENSOR` (sensor plausibility); 10 `LIMIT_RF_NOT_KEYED` (RF while not keyed) |
 | Fault code (`FAULT_CODE`, `FAULT_FLAGS` bit) and class | 0 none; 2 `SWR_REPEATED` (3 SWR trips in 10 s), class 1; 3 `PA_OVERTEMP` (PA temperature above T4), class 1; 9 `SENSOR_IMPLAUSIBLE` (sensor missing, stuck or out of range), class 2; 10 `RF_NOT_KEYED` (RF while not keyed), class 2; 16 `TX_PATH_NOT_BLOCKED` (drop event 13), class 2; 17 `WDT_RESET_AT_START` (processor watchdog reset seen at start-up, HIS-13), class 1; 18 `SELFTEST_FAILED` (start-up self-test failed), class 2; 19 `INTERNAL_ERROR` (internal consistency error), class 2; codes 1 and 4–8 reserved (those limits have no `FAULT` action) |
-| Stream reason (`STREAM_STATUS` [6:0] per byte) | 0 none or running; 1 not enabled by the host; 2 not offered by this firmware; 3 sample rate not offered; 4 sample size not offered; 5 data format not offered (General byte 39); 6 time stamp or VITA-49 requested; 7 wideband parameters not offered; 8 link below 100 Mbit/s; 9 run bit clear; 10 update in progress; 11 VNA mode requested; 12 EER requested |
+| Stream reason (`STREAM_STATUS` [6:0] per byte) | 0 none or running; 1 not enabled by the host; 2 not offered by this firmware; 3 sample rate not offered; 4 sample size not offered; 5 data format not offered (General byte 39); 6 time stamp or VITA-49 requested; 7 wideband parameters not offered; 8 link below 100 Mbit/s; 9 run bit clear; 10 update in progress; 11 VNA mode requested; 12 EER requested; 13 frequency encoding mismatch (General byte 37 bit [3] differs from discovery byte 21, B3.8; 0022 §73 item 12) |
 | Write reject reason (`WRITE_STATUS` [7:0]) | 1 `UNKNOWN_ADDRESS`; 2 `READ_ONLY`; 3 `NOT_OWNER`; 4 `BAD_VALUE`; 5 `LOOSER_LIMIT`; 6 `BUSY`; 7 `NOT_CLEARABLE`; 8 `KEYED` (RF-path change or ATU tune while keyed); 9 `NOT_ARMED`; 10 `NOT_KEYABLE` (ATU tune while another key condition of A3.1a fails, A3.9b) (B8.4; 0022 §22, §51) |
 
 Names introduced in this part and not in the decisions 0003–0008 (`STREAM_STATUS`,
@@ -1845,9 +2038,11 @@ Transmit MUST NOT be enabled in a firmware before M3 is closed: record `tx` bit 
 design note §6; 0007, header). This section applies from M4.
 
 B10.1 **Every TX request needs the arm.** TX requests are: High Priority byte 4 bit [1] (PTT),
-byte 5 bits [1] and [2] with bit [0] set (CWX dot and dash, B10.5a; Annex X2, C19), a KEY closure in hardware CW, internal ATU tuning (`ATU_TUNE`) and any
-controller request. None of them keys the radio unless TX is armed (0015; 0007 sub-decision 1
-rule 4). High Priority byte 4 bits [2]–[7] never key (0007 rule 4). Every TX request follows
+byte 5 bits [1] and [2] with bit [0] set (CWX dot and dash, B10.5a; Annex X2, C19), a KEY
+closure in hardware CW while the owner has selected it (DUC-specific byte 5 bit [1]), and
+internal ATU tuning (`ATU_TUNE`); these are the allowed requesters of A3.1a. None of them keys
+the radio unless TX is armed (0015; 0007 sub-decision 1 rule 4). A controller request is not a
+TX request on level 1 and never keys (A3.7; 0007, Resolved 6; 0022 §65). High Priority byte 4 bits [2]–[7] never key (0007 rule 4). Every TX request follows
 the key rule of A3.1a: a 0→1 edge at a moment when every key condition holds; a refused
 request is not latched (0022 §24).
 
@@ -1874,7 +2069,12 @@ B10.2 **Arm handshake** (0007, Decision 1, option 1C):
    (0007 rule 2; [P2] does not order memory-mapped and High Priority packets).
 5. The token MUST differ from the previous one and MUST NOT be 0, 0xFFFFFFFF or `ARM_MAGIC`
    (with the token equal to `ARM_MAGIC` the arm value would be 0, which disarms); it need not
-   be unpredictable (0007 rule 3; 0020 §7; generation: HIS-18, HIS-20). A correct arm write
+   be unpredictable (0007 rule 3; 0020 §7; generation: HIS-18, HIS-20). It MUST also differ
+   from the last token before a reset, which the firmware does not remember: the G7250 keeps
+   a boot counter in non-volatile memory, incremented once at every start, and takes part of
+   every token from it, so that no token of one boot repeats the last token of the boot before;
+   a random part from the source of A1.10 MAY be added where HIS-20 gives one (0022 §73 item
+   4). A correct arm write
    while already armed with the same token is a no-op: it is answered and does not raise the
    generation (0020 §7).
 6. The arm is dropped by the events of Table A3-1.
@@ -1965,7 +2165,7 @@ Table B10-1 — DUC-specific packet ([P2] DUC specific packet)
 | 5 [7] | Break-in | honoured | [P2] byte 5; 0007 Decision 6 |
 | 5 [0] | EER | set: refused (EER not offered): DUC I&Q not accepted and transmit refused until cleared; `STREAM_STATUS` reason 12 | [P2] byte 5, DUC I&Q NOTE; 0004 point 7; 0020 §22 |
 | 6–8 | Sidetone level, frequency | TBD (HIS-17) | [P2] bytes 6–8 |
-| 9, 10 | Keyer speed, weight | honoured | [P2] bytes 9–10; 0007 Decision 6 |
+| 9, 10 | Keyer speed, weight | honoured; speed 0 (also the value after a session end, A3.6a): the keyer forms no element and CWX does not key, the request is not latched (A3.1a) | [P2] bytes 9–10; 0007 Decision 6; 0022 §64 |
 | 11–12 | Hang delay, ms | honoured | [P2] bytes 11–12; 0007 Decision 6 |
 | 13 | RF delay, ms | honoured; SEND asserted before RF | [P2] byte 13; 0007 Decision 6 |
 | 14–15 | DUC0 sampling rate | 192 honoured; any other value refused: DUC I&Q not accepted and transmit refused (PA off) until a valid packet; 0 read as 192 | [P2] bytes 14–15; 0004 points 2, 7; 0020 §18 |
@@ -1986,6 +2186,16 @@ whole, MUST NOT enter the DUC FIFO and MUST have no other effect; it is counted 
 Annex X1, D24). The G7250 MUST empty the DUC FIFO at every unkey, every session end and every
 takeover, so that a later key never sends stale I&Q (0022 §32).
 
+**DUC FIFO while unkeyed** (0022 §63). A host may stream DUC I&Q continuously, keyed or not.
+While unkeyed, the G7250 MUST keep only the owner's most recent DUC I&Q, at most 4800 samples
+(25 ms at 192 ksps, 20 packets), and only samples received within the last 25 ms: a sample
+that would exceed the depth, or that has been in the FIFO for 25 ms, is dropped, oldest first,
+and counted (`GET_STATS`). The first sample transmitted at a key is therefore at most 25 ms
+old when the key comes, and a host that sends its I&Q with or shortly before its PTT edge has
+its first samples sent. While keyed the FIFO holds what the host sends up to its capacity,
+TBD (HIS-18); a full FIFO discards whole packets (B11.7). Dropping old samples while unkeyed is
+not an underflow (B10.5).
+
 B10.8 **Drive level.** High Priority byte 345 is honoured; mapping to power TBD (HIS-12);
 `REDUCE` lowers drive on the radio side without changing the host's value (0007 rule 4).
 
@@ -1994,11 +2204,11 @@ B10.9 **Other TX paths** (0007, Decision 6; A3.7):
 | Path | Rule |
 |------|------|
 | Controller mic PTT | reported in status byte 4 bit [0] if it reaches the main unit (HIS-17); never keys by itself |
-| KEY (Morse) | reported as dot/dash, status byte 4 bits [1]–[2]; keys hardware CW only when armed, CW selected (DUC-specific byte 5 bit [1]) and all limits pass; delays per DUC-specific bytes 5, 11–13 (HIS-17); a closure that cannot key is not latched (A3.1a) |
+| KEY (Morse) | reported as dot/dash, status byte 4 bits [1]–[2]; the one local requester of A3.1a: keys hardware CW only when armed, CW selected by the owner in this session (DUC-specific byte 5 bit [1]; cleared at every session end and takeover, A3.6a) and all limits pass; delays per DUC-specific bytes 5, 11–13 (HIS-17); a closure that cannot key is not latched (A3.1a; 0022 §65) |
 | Host CWX | High Priority byte 5: bit [0] selects host CW, bits [1] and [2] are the keyer's paddles; a TX request under the arm; a paddle bit held for more than 1 s unkeys (B10.5a; 0022 §36) |
-| SEND output | asserted only while armed and keyed, before RF (RF delay), released after RF; released on every drop event, on standby and in fault (HIS-09) |
+| SEND output | asserted only while armed and keyed, before RF (RF delay), and with CW break-in during the hang delay between elements (no RF then, A3.9a item 4); released after RF gone at the end of the transmission; released, ending any hang delay, on every drop event, on standby and in fault (HIS-09; 0022 §73 item 9) |
 | TUNER trigger | under the arm, as ATU tuning (HIS-09) |
-| Internal ATU tuning | a tune cycle (A3.9b): needs arm, owner, frequency in a range, limits, own profile and time limit; started by `ATU_TUNE` from unkeyed only (HIS-08); tune power the lower of the profile's (TBD HIS-08, HIS-12) and the forward-power bound in force (A3.4 rule 5; 0022 §53), set before RF and before any ATU relay moves; `ATU_TUNE` while not armed is rejected with `NOT_ARMED`, while keyed by another source with `KEYED`, neither latched; a PTT or CWX edge during the tune neither keys nor ends it, and a new 0→1 TX request is needed after it; the cycle ends unkeyed; the keyed timeout applies; a start within 2 s after the previous cycle is a no-op; with another key condition failing, `NOT_KEYABLE`; after a cycle that did not end tuned the ATU returns to the stored state or bypass (A3.9b items 1, 7) (0022 §14, §22, §38, §39) |
+| Internal ATU tuning | a tune cycle (A3.9b): needs arm, owner, frequency in a range, limits, own profile and time limit; started by `ATU_TUNE` from unkeyed only (HIS-08); tune power the lower of the profile's (TBD HIS-08, HIS-12) and the forward-power bound in force (A3.4 rule 5; 0022 §53), set before RF and before any ATU relay moves; `ATU_TUNE` while not armed is rejected with `NOT_ARMED`, while keyed by another source with `KEYED`, neither latched; a PTT or CWX edge during the tune neither keys nor ends it, and a new 0→1 TX request is needed after it; the cycle ends unkeyed; the keyed timeout applies; a start within 2 s after the previous cycle is a no-op; with another key condition failing, `NOT_KEYABLE`; the cycle first switches the RF path to the TX state for the TX frequency and settles; after every cycle the RF path returns to the state for the receive frequency, a cycle that did not end tuned storing nothing (A3.9b items 1, 2, 7) (0022 §14, §22, §38, §39, §66) |
 | P2 TUNE bit (High Priority 1396–1397 bit [0]) | information only; does not start the internal ATU |
 | Controller ATU key, SWR scan, other controller TX functions | refused while level 1 runs (A3.7), unless they reach the main unit as reportable requests (HIS-17) |
 | Controller ANT and ATU in/out buttons | while keyed: ignored and logged, if they reach the main unit (A3.9; HIS-17) |
@@ -2008,7 +2218,9 @@ On level 1, controller inputs never key the radio (0007, Resolved 6).
 
 B10.10 **PA enable while keyed.** General byte 58 bit [0] cleared while keyed MUST unkey
 (`UNKEY`, arm kept, `TX_STATE` unkey reason 7); setting it again MUST NOT key without a new
-0→1 TX request ([P2] General packet byte 58; 0020 §22; 0022 §14).
+0→1 TX request ([P2] General packet byte 58; 0020 §22; 0022 §14). The bit is cleared at every
+session end and takeover (A3.6a; 0022 §64); while it is 0 there is no exciter-only output
+either (Annex X1, D30).
 
 ### B11 Error handling and robustness
 
@@ -2106,6 +2318,16 @@ discarded under B11.1, B11.3) take part (0022 §35, §56).
   not latched; a 1→0 in it is followed. A 0→1 edge in a discarded packet is never accepted.
   While packets are discarded the keyed timeout (B10.5) runs on; an unkey by it is the safe
   direction.
+- **Release in a discarded packet** (0022 §72). A discarded packet is otherwise not acted on,
+  but if its PTT bit, or its CWX request (B10.5a), reads 0 while the radio is keyed by that
+  request, the G7250 MUST unkey (`TX_STATE` unkey reason 1, arm kept) and count it: a 0 is
+  always taken as a release. After such an unkey the bit counts as 1 until an accepted packet
+  reads 0, so keying again needs an accepted packet with the bit at 0 and a later 0→1 edge;
+  a stale release therefore ends the transmission and never re-keys it. This is the same
+  outcome as a stale 0 in unnumbered mode, where the next 1 fails the 10 ms test.
+- **Wrap-around** (0022 §72). Because 0 is never newer, a host that numbers its packets MUST
+  skip 0 at the wrap: after 0xFFFFFFFF comes 1, which is newer (RFC 1982). A packet numbered
+  0 in numbered mode is discarded (and counts for resynchronisation).
 - A host SHOULD number its High Priority packets from 1 upwards and restart at 1 only with a
   new session.
 
@@ -2120,8 +2342,10 @@ B11.7 **Overruns.**
   full), the G7250 MUST drop the whole packet, MUST NOT send a partial packet, and MUST set
   High Priority status byte 30 bit [0] ([P2] High Priority Status packet; 0020 §28). The same
   applies to wideband and microphone packets.
-- **TX.** A DUC I&Q packet that finds the DUC FIFO full MUST be discarded whole; the CH394Q has
-  no flow control in UDP mode ([CH394] section 12.2.4; 0020 §28). Underflow: B10.5. DUC I&Q
+- **TX.** While keyed, a DUC I&Q packet that finds the DUC FIFO full MUST be discarded whole;
+  the CH394Q has no flow control in UDP mode ([CH394] section 12.2.4; 0020 §28). While unkeyed
+  the oldest samples are dropped instead, so that the FIFO holds the latest 25 ms (B10.7; 0022
+  §63). Underflow: B10.5. DUC I&Q
   from a source other than the owner never reaches the FIFO (B10.7; 0022 §4). The FIFO is
   emptied at every unkey, session end and takeover (B10.7; 0022 §32).
 
@@ -2158,21 +2382,30 @@ spoofed requests, answers to sources other than the owner MUST be limited per so
 address and UDP port: `CAP_REQUEST` answers at most once per 1 s per source and 10 per second
 in total (B4.4); `NOT_OWNER` answers at most once per 100 ms per source (B8.5); discovery
 replies at most 10 per second per source and 50 per second in total (B3.2); management
-replies at most 20 per second per source (A1.10). Requests above a limit are dropped and
+replies at most 20 per second per source, 100 per second in total, identification 50 per
+second in total and 10 per second to sources outside the subnet (A1.10; 0022 §71). Datagrams
+that another radio's replies could be get no answer at all: a datagram to port 1024 from
+source port 1024 (B3.2), a management datagram whose type is not 1 (A1.4), and a non-owner's
+register packet from source port 7250 (B8.5) (0022 §73 item 20). Requests above a limit are
+dropped and
 counted (`GET_STATS`). The owner's own traffic is not limited, except the unasked capability
 record (B4.4 item 2). Safety timing does not depend on the load (A3.10). Known limit (0022
 §49): a spoofed High Priority packet with run set, from an address inside the radio's subnet
-while no session runs, starts a session and so makes the radio stream DDC0 to the spoofed
-address, up to 18.6 Mbit/s at 384 ksps (B6.4); this is inherent in [P2], where the run bit
-alone starts the data ([P2] "Detailed operation"), and B11.15 confines it to the radio's own
-subnet.
+while no session runs, starts a session and so makes the radio send High Priority status to
+the spoofed address, and, if a spoofed DDC-specific packet enabling DDC0 comes with it (B5.2),
+stream DDC0 there, up to 18.6 Mbit/s at 384 ksps (B6.4); this is inherent in [P2], where the
+run bit starts the data ([P2] "Detailed operation"), and B11.15 confines it to the radio's own
+subnet (0022 §73 item 13).
 
 B11.15 **Sources outside the subnet** (0022 §49; Annex X1, D29). The G7250 MUST discard
 (B11.1) every C&C packet, DUC I&Q packet and memory-mapped packet whose source address is
 outside the radio's own subnet (address and netmask of A1.6 C-1), as the management channel
 does (A1.10, S4): such a source starts no session, takes nothing over, keeps no set-up (B5.1a)
-and gets no register answer. Discovery and Set IP are answered as before (B3.2, B3.9). A host
-behind a router cannot open a P2 session; it needs a bridged link.
+and gets no register answer. Discovery is answered as before (B3.2). Set IP is accepted from
+outside the subnet only when sent to the limited broadcast 255.255.255.255, which a router
+does not forward; unicast and directed-broadcast Set IP from outside the subnet is ignored
+(B3.9; 0022 §70). A host behind a router cannot open a P2 session or change the radio's address;
+it needs a bridged link.
 
 ---
 
@@ -2198,12 +2431,12 @@ open in the sections concerned.
 | D2 | Memory-mapped register port defined | Default port "xxxx", undefined ([P2] General bytes 29–32) | Default port 7250, one port for both directions; destination default (bytes 31–32 = 0) is the owner's source port; carries the G7250 register map | 0005, 0003, 0020 | B2.3, B8.1 |
 | D3 | TX needs an explicit token arm | High Priority byte 4 bit [1] enables transmit ([P2]) | No TX request (PTT, CWX, KEY, ATU) keys unless armed by token handshake; keying only on an edge after confirmation; arm dropped by the events of Table A3-1 | 0015, 0007 | B10.1, B10.2, A3.2 |
 | D4 | Hardware timer forced on while armed | Host may clear General byte 38 bit [0] ([P2]) | Clear honoured only while not armed; arming requires the bit set | 0015, 0007 | B5.6 |
-| D5 | Takeover drops the arm | Second host's C&C takes over ([P2] Discovery reply byte 4 NOTE) | Takeover always allowed, but unkeys and drops the arm first; new owner starts unarmed, with mode class and session limits reset; RUN and RX settings kept | 0007, 0022 §3 | B5.7, A2.4 |
+| D5 | Takeover drops the arm | Second host's C&C takes over ([P2] Discovery reply byte 4 NOTE) | Takeover always allowed, but unkeys and drops the arm first; new owner starts unarmed, with mode class, session limits and the TX settings of PA enable and the DUC-specific packet reset; RUN and RX settings kept | 0007, 0022 §3, §64 | B5.7, A2.4, A3.6a |
 | D6 | Owner is IP address and UDP port | "different Host" not defined ([P2]) | A C&C packet from the owner's IP on another source port is a takeover; host must use one source port per session | 0007 | B5.5, A2.2; X2 C7 |
 | D7 | Keyed timeout | Only the 1 s watchdog ([P2] "Detailed operation") | While keyed, High Priority at least every 100 ms; none within `KEYED_TIMEOUT` (500 ms) unkeys, arm kept | 0007 | B10.5 |
 | D8 | TX IQ underrun unkeys | No such rule ([P2]) | DUC underflow longer than the underrun time (at least key latency + 1.25 ms, at most `KEYED_TIMEOUT`; exact value TBD, HIS-18) unkeys whenever the TX source is PTT, in every mode class; the underflow is timed from the key if the FIFO is empty then | 0007, 0022 §25, §57 | B10.5 |
 | D9 | TX mode class required | No such field ([P2]) | Arm refused without `TX_MODE_CLASS` | 0007 | B10.3 |
-| D10 | Safety core overrides PTT | Bit [1] enables transmit ([P2]) | Limits may reduce drive or unkey while PTT is set; 5 min maximum continuous TX; no key outside the TX ranges; keying only on a 0→1 edge when every condition holds, refused requests not latched; a retune while keyed that needs an RF-path change (ATU memory recall included), a `TX_MODE_CLASS` change or PA enable cleared while keyed, unkeys; RF-path fields are deferred while keyed and relays move only after RF is gone; `ATU_TUNE` while keyed is refused; at a key the RF path is first switched to the state for the TX frequency (A3.1b) | 0007, 0011, 0022 §1, §2, §14, §22–§24, §26, §28, §33 | A3.1a, A3.1b, A3.4, A3.9–A3.9c, B10.4, B10.10 |
+| D10 | Safety core overrides PTT | Bit [1] enables transmit ([P2]) | Limits may reduce drive or unkey while PTT is set; 5 min maximum continuous TX; no key outside the TX ranges; keying only on a 0→1 edge when every condition holds, refused requests not latched; a retune while keyed that needs an RF-path change (ATU memory recall included), a `TX_MODE_CLASS` change or PA enable cleared while keyed, unkeys; RF-path fields are deferred while keyed and relays move only after RF is gone; `ATU_TUNE` while keyed is refused; at a key the RF path is first switched to the state for the TX frequency (A3.1b); without a PEP detector, power is bounded on a PEP estimate from the crest factor of the DUC samples | 0007, 0011, 0022 §1, §2, §14, §22–§24, §26, §28, §33, §62 | A3.1a, A3.1b, A3.4, A3.4c, A3.9–A3.9c, B10.4, B10.10 |
 | D11 | Memory-mapped packets are not C&C | "any C&C packet" feeds the watchdog; not stated for memory-mapped packets ([P2]) | No memory-mapped packet feeds the watchdog or takes over; a `CAP_REQUEST`-only packet does not start a session; its answer goes to the request's source when the host is not the owner | 0003, 0007 | B4.4, B4.5, B5.6; X2 C6 |
 | D12 | Erase and Program ignored | Erase/Program reprogram the EEPROM; Command Reply ([P2]) | Ignored without reply; V3.8 checksum not claimed; update only via the management channel | 0008 | B3.9, A1.8 |
 | D13 | Unsupported requests refused | No negative acknowledgement; radio follows the host ([P2]) | Unoffered DDC rate or size, format, time stamp, VITA-49, VNA mode, wideband parameters, DUC rate/bits or EER: stream does not run, reason in `STREAM_STATUS`; never clamped | 0004, 0020 | B6.3, B6.6, B6.7, B6.10, B7, B10.6, B11.2 |
@@ -2218,11 +2451,12 @@ open in the sections concerned.
 | D22 | Non-default radio-side ports not honoured | Host may move every radio-side port with General bytes 5–22, 29–30 ([P2]) | Zero or the default value honoured; any other value: default kept, logged, `LINK_STATUS` bit 17; bytes 31–32 (host side) honoured | 0020 §13 | B2.3, B7, B11.12 |
 | D23 | No P2 session while level 2 is active | C&C from another host takes over ([P2] Discovery reply byte 4 NOTE) | While level 2 is active, P2 C&C starts no session and no takeover; discovery answers 0x03; level changes only over management | 0021 §16, 0020 §25 | A2.5 |
 | D24 | DUC I&Q only from the owner | No source rule for DUC I&Q ([P2] DUC I&Q Data packet) | DUC I&Q from any source other than the owner's IP address and port is discarded and counted; the host sends it from its session socket | 0022 §4 | B10.7, B11.7 |
-| D25 | Answer rate limits | Every discovery is answered ([P2] Discovery packet) | Discovery, `CAP_REQUEST`, `NOT_OWNER` and management answers are rate-limited per source; excess requests dropped and counted | 0022 §16 | B11.14, B3.2 |
+| D25 | Answer rate limits | Every discovery is answered ([P2] Discovery packet) | Discovery, `CAP_REQUEST`, `NOT_OWNER` and management answers are rate-limited per source, with total caps; excess requests dropped and counted; no answer to a discovery from source port 1024 or to a non-owner's register packet from source port 7250 | 0022 §16, §71, §73 item 20 | B11.14, B3.2, B8.5 |
 | D26 | CWX key-down capped at 1 s | No such rule ([P2] High Priority byte 5) | With CWX selected (byte 5 bit [0]), a dot or dash bit (bits [1], [2]) held continuously for more than 1 s unkeys, arm kept; a new 0→1 edge is needed | 0022 §25, §36 | B10.5a |
 | D27 | Key waits for relays to settle | Bit [1] enables transmit at once ([P2]) | A PTT or CWX 0→1 edge keys only after the relays have settled (`t_settle`, TBD HIS-07): when it arrives with an RF-path change, while an earlier change still moves or settles, right after an unkey, or when the key itself needs the TX state of A3.1b; bounded by `t_rf_off` + `t_settle` | 0022 §23, §33, §37 | A3.1b, A3.9a |
-| D28 | Stale High Priority packets discarded | The host's sequence number is 0x00000000; nothing on order ([P2] High Priority packet, "Sequence Number") | After three consecutive increasing non-zero host numbers, a High Priority packet not newer than the last accepted one is discarded and counted; five such packets in a row, or a jump back by more than 2¹⁶, resynchronise (logged; no 0→1 edge from that packet); otherwise, and with numbers 0, a PTT or CWX edge counts only 10 ms or more after the latest packet with the bit at 1 | 0022 §35, §55, §56 | B11.6a, B2.7 |
-| D29 | P2 only from the radio's own subnet | No source rule ([P2]) | C&C, DUC I&Q and memory-mapped packets from outside the radio's subnet are discarded; no session or takeover from there | 0022 §49 | B11.15, A2.3 |
+| D28 | Stale High Priority packets discarded | The host's sequence number is 0x00000000; nothing on order ([P2] High Priority packet, "Sequence Number") | After three consecutive increasing non-zero host numbers, a High Priority packet not newer than the last accepted one is discarded and counted; five such packets in a row, or a jump back by more than 2¹⁶, resynchronise (logged; no 0→1 edge from that packet); a PTT or CWX bit at 0 in a discarded packet still unkeys; otherwise, and with numbers 0, a PTT or CWX edge counts only 10 ms or more after the latest packet with the bit at 1 | 0022 §35, §55, §56, §72 | B11.6a, B2.7 |
+| D29 | P2 only from the radio's own subnet | No source rule ([P2]) | C&C, DUC I&Q and memory-mapped packets from outside the radio's subnet are discarded; no session or takeover from there; Set IP from outside the subnet only by limited broadcast | 0022 §49, §70 | B11.15, A2.3, B3.9 |
+| D30 | PA disabled blocks all RF | General byte 58 bit [0] enables the PA ([P2] General packet byte 58); [P2] does not say that transmit stops without it | While bit [0] is 0 no TX request keys and there is no exciter-only output; clearing it while keyed unkeys, arm kept; cleared at every session end and takeover | 0020 §22, 0022 §14, §64, §73 item 15 | B7, B10.10, A3.1a, A3.6a |
 
 Not deviations, but G7250 choices within [P2]: board type 200 (0002); short discovery reply
 only, bytes 14–19 and 24–59 zero (0003); one DDC (0004; HIS-02); a contiguous subset of the
@@ -2248,14 +2482,14 @@ only if HIS-17 allows (0004); raw ADC words in the status fields (0006); P2 Set 
 | C10 | General bytes 29–30 "memory mapped data from the PC will be sent to", bytes 31–32 "to the PC will be sent to" | Bytes 29–30 name the G7250's receive port, bytes 31–32 the host's destination port; the G7250 sends from the same local port it receives on (0005, Consequences; B8.1) |
 | C11 | Set IP Address packet: success "can be verified by sending a Discovery Command"; Command reply packet: "Following a successful Set IP command, the hardware will respond with a Discovery reply packet" | Both hold: the G7250 sends a Discovery reply after a Set IP, and answers later discoveries with the new address (0008 point 6; B3.9) |
 | C12 | Streams go to "the Source Port of the Host that initiated the Discovery Packet" (status, microphone, wideband "Destination Port") or "… the Discovery Command" (DDC packet "Destination Port"); the General packet is sent from that same port (General packet "Source Port") | The destination is the owner's source IP address and port (A2.2), fixed at session start or takeover (0022 §3, §12); for a P2 host this is the discovery port. A discovery from another socket of the same host does not move the streams, and a run bit without a discovery starts the session normally (0020 §14; B2.4, B5.2) |
-| C13 | Set IP Address packet: "Broadcast to Port 1024", destination 255.255.255.255 | Also accepted when sent to the unit's unicast or the subnet's directed broadcast address; the MAC in bytes 5–10 identifies the unit (0020 §21; B3.9) |
+| C13 | Set IP Address packet: "Broadcast to Port 1024", destination 255.255.255.255 | Also accepted when sent to the unit's unicast or the subnet's directed broadcast address, but those only from a source inside the radio's own subnet; the limited broadcast is accepted from any source, as a router does not forward it; the MAC in bytes 5–10 identifies the unit (0020 §21; 0022 §70; B3.9) |
 | C14 | High Priority Status bytes 39–40 headed "ADC0 max magnitude" with the note "Max ADC1 magnitude"; text: "for each of ADC0 and ADC1 … up to 32768" | Bytes 39–40 carry ADC0, 0–32767, bit 15 = 0; the "ADC1" note is read as ADC0 (0022 §21; B9.2) |
 | C15 | Memory-mapped packets shown with 240 address/data pairs, no count field | A packet carries 1 to 240 pairs and is 4 + 6*n* bytes long; the length is the count (0020 §4; 0022 §21; B8.1) |
 | C16 | Wideband Data packet "Sequence Number": "set to zero at power on or whenever a block of raw samples has been sent" and "incremented in each sequential packet until the number of samples set in the General packet has been sent" (pp. 52–53) | The wideband counter is 0–7 within each 8-packet frame and restarts at 0 for every frame, not a continuous counter (0022 §21; B2.7, B6.10) |
 | C17 | High Priority packet: frequency, Alex words, step attenuator and PTT in one packet; no order of application stated within a packet | RF-path fields of the packet are applied first, relays settle, then the PTT or CWX edge keys (A3.9a item 3; 0022 §23) |
 | C18 | "Detailed operation" and the packet introductions: General, DDC-specific and DUC-specific packets are sent before the High Priority packet that sets run | Packets received from a host while no session runs are kept per source (set-up phase) and count for the session that host starts with its run bit; the set-up of other sources is discarded at that moment (0022 §34; B5.1a) |
 | C19 | High Priority packet byte 5 (p. 34): bit [0] CWX, which selects CW from the host; bits [1] and [2] dot and dash, sent at the keyer speed | Bits [1] and [2] are the paddle inputs of the radio's keyer (DUC-specific bytes 9–10); the TX request is asserted while bit [0] and bit [1] or [2] are set (0022 §36; B10.5a) |
-| C20 | High Priority Status byte 30 bit [2] "DUC FIFO underflow"; nothing on what the DUC sends meanwhile or when an underflow begins | While the DUC FIFO is empty the DUC gets zero samples; an underflow begins at the key if the FIFO is empty then, else when it runs empty while keyed (0022 §57; B10.5) |
+| C20 | High Priority Status byte 30 bit [2] "DUC FIFO underflow"; nothing on what the DUC sends meanwhile or when an underflow begins | While the DUC FIFO is empty the DUC gets zero samples; an underflow begins at the key if the FIFO is empty then, else when it runs empty while keyed (0022 §57; B10.5); while unkeyed the FIFO keeps at most the latest 25 ms of the owner's I&Q (0022 §63; B10.7) |
 
 ## Annex X3 — Conformance tests
 
@@ -2293,19 +2527,24 @@ To be implemented in g7250-testbench, first against the reference model, then on
 | T-A1-25 | A region change is refused with status 50 while armed or keyed on either level and with status 57 while a P2 session runs. |
 | T-A1-26 | More than 20 management requests per second from one source are answered at most 20 times per second; the excess is counted in `GET_STATS`. |
 | T-A1-27 | `ROLLBACK` while armed, and while keyed, is refused with status 50 and leaves `TX_STATE` and `TX_ARM_STATE` unchanged; unarmed it is accepted. |
+| T-A1-28 | A C-3 write that loosens a tightened persistent limit back toward the built-in value is accepted with status 0 and logged with old value, new value and source; a value looser than the built-in value gets status 49; no command changes a built-in value; `FACTORY_RESET` leaves the persistent limits unchanged. |
 | T-A1-29 | `RESTART` and `FACTORY_RESET` while keyed at full power: the unkey comes first, and no relay moves and the reset does not start until forward power is below `P_rf_off` or `t_rf_off` has passed (reference model; A1.9). |
-| T-A1-30 | A `SET_CONFIG` that changes the radio's address while armed and keyed is answered, then unkeys, drops the arm with `SESSION_CHANGED` and applies the address only after RF is gone; the session ends. |
+| T-A1-30 | A `SET_CONFIG` that changes the radio's address while armed and keyed unkeys and drops the arm with `SESSION_CHANGED` before the reply, and applies the address only after RF is gone; the session ends; a C-3 change while armed and keyed unkeys and drops the arm with `MAINTENANCE`, applies the limit and then replies (A1.6, A1.9; 0022 §73 item 1). |
 | T-A1-31 | `SWITCH_LEVEL` during a firmware update gets status 58. |
 | T-A1-32 | A region change while a P2 session runs and TX is armed gets status 57; on level 2 while armed it gets status 50 (after G6). |
 | T-A1-33 | `UPDATE_STATUS` while armed and keyed is answered with status 0 and changes nothing; every other update command gets status 50. |
 | T-A1-34 | After `UPDATE_BEGIN` and 10 min without an update command, the update is aborted and logged and the radio restarts into the running image; RX works afterwards (reference model). |
-| T-A1-28 | A C-3 write that loosens a tightened persistent limit back toward the built-in value is accepted with status 0 and logged with old value, new value and source; a value looser than the built-in value gets status 49; no command changes a built-in value; `FACTORY_RESET` leaves the persistent limits unchanged. |
 | T-A1-35 | While armed and keyed, a DHCP renewal with another address, a lease expiry, a DHCPNAK and an address conflict each unkey, drop the arm with `SESSION_CHANGED` and end the session, and the radio uses the new address (or stops using the old one) only after forward power is below `P_rf_off` or `t_rf_off` has passed; a renewal with the same address and netmask changes nothing (reference model; A1.11a). |
 | T-A1-36 | With the reference model holding forward power above `P_rf_off` after the unkey, `RESTART` while keyed unkeys and disarms, does not reset, logs the event, enters the fault state with `RF_NOT_KEYED` and replies with status 59 after `t_reset_wait` (2 s); `UPDATE_ACTIVATE` and `ROLLBACK` in the same state get 59 as well (A1.9). |
 | T-A1-37 | After `UPDATE_BEGIN` and 10 min without an update command, with forward power held above `P_rf_off`, the radio does not restart, logs it and stays in the update state and in fault (reference model; A1.8, A1.9). |
 | T-A1-38 | `RESTART`, `FACTORY_RESET` and `SWITCH_LEVEL` while keyed: the `TX_STATE` push showing unkeyed and the `TX_ARM_STATE` push showing the drop leave the radio before the management reply; a retransmission of `RESTART` with the same request id during the wait for RF gone is answered with status 1 and does not start a second reset (A1.9, A2.5a). |
 | T-A1-39 | After `FACTORY_RESET` with every item of Table A1-4 changed beforehand: C-1, C-2, C-5, C-6, C-7 and the TCI port are at their factory defaults, the first-secret window is open, and the C-3 limits, the log, the fault and reset counters, `TRIP_COUNT` and the firmware images are unchanged (A1.6a). |
 | T-A1-40 | An arm write and `UPDATE_BEGIN` sent so that they reach the radio within 1 ms of each other, repeated 1000 times: each time either the arm is confirmed and `UPDATE_BEGIN` gets status 50, or `UPDATE_BEGIN` succeeds and the arm is rejected with `MAINTENANCE`; never both (reference model; A1.8). |
+| T-A1-41 | With forward power held above `P_rf_off` (reference model), `FACTORY_RESET` while keyed gets status 59 and changes nothing of Table A1-4: the secret still works, no first-secret window opens, and C-1, C-2, C-6, C-7 and the TCI port are unchanged; the attempt is logged; without RF it restores Table A1-4 only with the reset (A1.6a). |
+| T-A1-42 | Identification requests from 200 sources inside the subnet at 10 per second each get at most 50 replies per second in total; from sources outside the subnet at most 10 per second; all management replies together at most 100 per second; the excess is counted (A1.10). |
+| T-A1-43 | A management datagram with the right magic and type 2 (a reply), also one of 12–17 bytes, gets no reply and is counted; two radios whose management ports are pointed at each other exchange no datagrams (A1.4). |
+| T-A1-44 | After 5 failed authentications from one address within 10 s, its authenticated requests and `GET_CHALLENGE` get status 34 until 10 s without a failure; requests above the 20 per second reply limit get no reply at all (A1.10). |
+| T-A1-45 | On level 2 with the arm held by a TCI client, a C-7 allow-list that excludes that client unkeys and drops the arm with `HOLDER_LOST` before the reply and before the connection closes; an allow-list that keeps it changes nothing in the TX state (after G6; A1.9). |
 | T-A2-01 | Identification and record `level` report the active level and the owner (IP and port). |
 | T-A2-02 | A level change drops the arm with `LEVEL_CHANGE` (after G6). |
 | T-A2-03 | While level 2 is active, P2 C&C starts no session and no takeover (after G6). |
@@ -2315,25 +2554,26 @@ To be implemented in g7250-testbench, first against the reference model, then on
 | T-A2-07 | Takeover by a General packet while host A runs: host B becomes owner at once, DDC0 continues to B from the next packet with sequence 0, no stream packet or register push goes to A after its last `TX_ARM_STATE`, B's watchdog runs, and the record is sent once to B. |
 | T-A2-08 | After a takeover `TX_MODE_CLASS` is 0, `KEYED_TIMEOUT` 500 ms, session limits are the persistent values, and the RX settings of A are kept until B writes its own. |
 | T-A2-09 | Two hosts alternating C&C every 50 ms: neither can stay armed, every takeover is counted, and the log has at most one takeover entry per second for the pair. |
-| T-A2-10 | At a takeover the old owner receives the final `TX_ARM_STATE` (`TAKEOVER`) exactly three times, about 10 ms apart, with identical content, and no stream packet or register push afterwards; a discovery from it is still answered. |
+| T-A2-10 | At a takeover the old owner receives the final `TX_ARM_STATE` (`TAKEOVER`) exactly three times, about 10 ms apart, with identical register pairs and consecutive sequence numbers, and no stream packet or register push afterwards; a discovery from it is still answered. |
 | T-A2-11 | After B takes over from A, each DUC I&Q or register packet from A within 5 s is answered with one copy of the `TAKEOVER` notice, at most once per 100 ms; a C&C packet from A takes the radio back, B receives three notices, and the streams to A restart at sequence 0. |
 | T-A2-12 | While level 2 is active, a General packet on port 1024 has no effect, is counted, and does not count for a later level-1 session (after G6). |
 | T-A2-13 | Host A with General bytes 31–32 = 50000 is taken over by host B: the three copies and every repeated notice arrive at A's address on port 50000 from local port 7250 (with bytes 31–32 = 0: at A's source port); a register write from A within the 5 s gets its `NOT_OWNER` answer at its source port and a notice, at most one notice per 100 ms, and neither limit consumes the other (A2.4). |
+| T-A2-14 | Host A sets PA enable, CW select, break-in, hang delay 500 ms, RF delay 20 ms, keyer speed 20 wpm and EER; host B takes over with a High Priority packet only: `TX_STATE` bit 4 shows PA disabled, KEY keys nothing, CWX forms no element, no EER refusal stands, and DUC rate and bits read 192 and 24; the same holds after A clears run and starts again with a run bit only (A3.6a). |
 | T-A3-01 | Each drop event of Table A3-1 unkeys, disarms, issues a new token and reports its reason (one test per row). |
 | T-A3-02 | Each limit row of Table A3-2 gives its action and recovery (one test per row, reference model). |
 | T-A3-03 | A `LIMIT_<name>` write looser than the persistent value (C-3) is rejected with `LOOSER_LIMIT`, a stricter one accepted; writing 0 and the session end return to the persistent value; the answer carries the limit in force. |
 | T-A3-04 | A class 1 fault clears only with the current code and only when the condition is gone; a clear does not re-arm. |
-| T-A3-14 | With a class 1 and a class 2 code flagged, `FAULT_CLASS` is 2 and `FAULT_CLEAR` is rejected with `NOT_CLEARABLE`, clearing nothing; with only class 1 codes whose conditions are gone, all flags clear. |
-| T-A3-15 | A processor watchdog reset seen at start-up gives `WDT_RESET_AT_START`, class 1, clearable by `FAULT_CLEAR` without another reset; the radio never resets itself to clear a fault. |
 | T-A3-05 | A class 2 fault clears only by reset and is detected again at start-up if the cause persists. |
 | T-A3-06 | After power-on and after every session end the state of A3.6 holds. |
 | T-A3-07 | Controller PTT and KEY inputs are reported and never key the radio without arm, with and without a P2 session while level 1 is active. |
 | T-A3-08 | While keyed, a DUC0 retune inside the same transmit range and RF-path state is followed without unkey. |
 | T-A3-09 | While keyed, a DUC0 change to another `tx_band` entry, or out of all ranges, unkeys before the frequency applies (`TX_STATE` reason 6, or 4 with `LIMIT_TX_FREQ`), keeps the arm, and switches relays only after the unkey; keying again needs a new 0→1 edge. |
 | T-A3-10 | While keyed, an Alex word or step-attenuator change in the High Priority packet is applied only after the unkey; a register write that would switch an RF-path relay is rejected with `KEYED`; a controller ANT or ATU press is ignored and logged. |
-| T-A3-11 | SWR above S1 caps forward power at `P_swr` until the unkey even if SWR falls back; the next transmission starts uncapped (reference model). |
+| T-A3-11 | SWR above S1 caps forward power at `P_swr` to the end of the continuous transmission even if SWR falls back; with CW break-in the cap holds across element gaps shorter than the hang delay and lifts only after the hang delay has run out; the next continuous transmission starts uncapped (reference model; A3.4a). |
 | T-A3-12 | PA temperature above T2 caps power at `P_temp`; the cap lifts below T2 minus the hysteresis; a short temperature spike below the filter time constant does not cap (reference model). |
 | T-A3-13 | Under a received flood at line rate to every open port, the watchdog, keyed timeout and limit actions keep their timing (the unkey may come earlier, never later). |
+| T-A3-14 | With a class 1 and a class 2 code flagged, `FAULT_CLASS` is 2 and `FAULT_CLEAR` is rejected with `NOT_CLEARABLE`, clearing nothing; with only class 1 codes whose conditions are gone, all flags clear. |
+| T-A3-15 | A processor watchdog reset seen at start-up gives `WDT_RESET_AT_START`, class 1, clearable by `FAULT_CLEAR` without another reset; the radio never resets itself to clear a fault. |
 | T-A3-16 | A PTT bit held at 1 while PA enable is 0, while EER or a DUC rate refusal stands, with DUC0 outside the ranges, while unarmed and while inhibited does not key when the condition clears; a new 0→1 edge then keys (A3.1a). |
 | T-A3-17 | `ATU_TUNE` = 1 while the owner is keyed with PTT, CWX or KEY is rejected with `KEYED`, does not start after the unkey, and does not end the transmission (A3.9b). |
 | T-A3-18 | In a tune cycle the drive is at the tune power before RF starts and before the first ATU relay moves; the cycle ends unkeyed in each end case (tuned, failed, abort, time limit, keyed timeout), and a PTT held at 1 through the cycle does not key after it (reference model). |
@@ -2344,19 +2584,28 @@ To be implemented in g7250-testbench, first against the reference model, then on
 | T-A3-23 | `FAULT_CLEAR` less than 10 s after the latest fault entry is rejected with `NOT_CLEARABLE` even when the condition is gone; after 10 s it clears. |
 | T-A3-24 | The third `SWR_REPEATED` entry since power-on gives `FAULT_CLASS` 2 and cannot be cleared by `FAULT_CLEAR`; after `RESTART` the counters are kept and a further entry is class 2 again; after a power cycle the count starts at 0. |
 | T-A3-25 | While keyed, a retune inside one `tx_band` entry that would make the ATU recall another stored state unkeys with `TX_STATE` reason 6 before the recall; no ATU state changes while keyed (HIS-08; reference model). |
-| T-A3-26 | After an unkey, a session end and a takeover, the DUC FIFO is empty: the first I&Q sent at the next key is from packets received after it. |
+| T-A3-26 | After an unkey, a session end and a takeover, the DUC FIFO is empty: the first I&Q sent at the next key is from packets received after it. A host that streams DUC I&Q without pause for 10 s unkeyed and then keys: the FIFO never holds more than 4800 samples while unkeyed, and the first sample transmitted was received at most 25 ms before the key (B10.7). |
 | T-A3-27 | With DDC0 at 7.1 MHz and DUC0 at 14.2 MHz, unkeyed, the RF path is in the 7 MHz state; a PTT 0→1 edge switches it to the 14 MHz state unkeyed, waits `t_settle` and then keys through the 14 MHz TX filter; after the unkey and RF gone it returns to the 7 MHz state (reference model; A3.1b). |
-| T-A3-28 | Unkeyed, a DUC0 change into another `tx_band` entry moves no relay; the switch comes at the next key (A3.1b). |
+| T-A3-28 | Unkeyed, a DUC0 change into another `tx_band` entry moves no relay, apart from the TX low-pass filter where HIS-07 lets it follow the TX frequency; the switch comes at the next key (A3.1b). |
 | T-A3-29 | A High Priority packet with a DUC0 change that needs other relays and PTT 0, followed 10 ms later by a packet with PTT 0→1, keys once the relays have settled, not earlier, and is not refused (A3.9a item 3). |
 | T-A3-30 | A PTT 0→1 edge within `t_rf_off` after an unkey keys only after RF gone, the deferred changes and the settle time; a further RF-path change during the wait refuses the request, which does not key later (A3.9a item 3). |
 | T-A3-31 | A limit trip with action `FAULT` (PA temperature above T4) drops the arm with drop reason 6 `FAULT` and `FAULT_CODE` `PA_OVERTEMP`, never with 0x40 + limit id (Table A3-1). |
 | T-A3-32 | In class AM at full drive, a carrier with 100 % sine modulation and an unmodulated carrier each give a carrier estimate of at most 25 W plus the margin and a PEP of at most 100 W; the modulated carrier is not reduced below 25 W (reference model; A3.4c). |
-| T-A3-33 | With a detector model without envelope samples, AM is held to a mean of 25 W; without PEP, SSB is held to a mean of `P_ssb_mean`, and CW and FM to a mean of 100 W (reference model; A3.4c). |
+| T-A3-33 | With a detector model without envelope samples, AM is held to a mean of 25 W; without PEP, SSB with a 6 dB crest factor is held to a mean of `P_ssb_mean`, and CW and FM with a constant envelope to a mean of 100 W (reference model; A3.4c). |
 | T-A3-34 | CW break-in with element gaps shorter than the hang delay for 5 min unkeys at the maximum continuous TX time; with gaps longer than the hang delay the timer restarts at every key (A3.4d). |
 | T-A3-35 | A key whose only relay movement is the T/R relay and the RX attenuator during TX is not held by the "relays settled" condition; it keys after the sequence of A3.9a item 4 (A3.1a). |
 | T-A3-36 | With a mean-only detector model and `LIMIT_FWD_POWER` = 10 000 mW: class SSB with a signal of 6 dB PEP-to-mean ratio is held to a mean of 2.5 W (`P_ssb_mean` = 25 W), so its PEP stays at 10 W; class CW to a mean of 10 W; class AM to a mean of 2.5 W; the same bounds hold when the 10 W are the persistent C-3 value with no session value, and on TCI with `G7250_LIMIT:LIMIT_FWD_POWER,10000;` (reference model; Table A3-3). |
 | T-A3-37 | With a session power limit below the ATU profile's tune power, the tune carrier of an `ATU_TUNE` cycle stays at the limit, set before RF and before the first ATU relay moves; with no stricter limit it is at the profile's tune power (reference model; A3.4 rule 5, A3.9b item 3). |
-| T-A3-38 | After a power-on, a processor watchdog reset and a `RESTART` while armed, the first `TX_ARM_STATE` of the next session reads disarmed with drop reason 5 `RESET` until the next drop (Table A3-1 event 5). |
+| T-A3-38 | After a power-on, a processor watchdog reset and a `RESTART` while armed, the first `TX_ARM_STATE` of the next session reads disarmed with drop reason 5 `RESET` until the next drop (Table A3-1 event 5); after the processor watchdog reset `SAFETY_STATE` is 1 with `FAULT_CODE` `WDT_RESET_AT_START`, and the drop reason still reads 5, not 6; the `RESTART` itself pushed drop reason 11 `MAINTENANCE` before the reset (A1.9; Table A3-1). |
+| T-A3-39 | With a mean-only detector model, *L* = 100 W and class SSB, voice with a 12 dB crest factor at full drive is held to a PEP estimate of at most 100 W (mean about 6.3 W), not to the class bound of 25 W mean (reference model; A3.4c). |
+| T-A3-40 | With a mean-only detector model and class CW declared, SSB I&Q with a 6 dB crest factor at full drive is held to a PEP estimate of at most *L* (mean about *L* / 4), not to the CW bound of mean ≤ *L* (reference model; A3.4c). |
+| T-A3-41 | With a mean-only detector model and class AM, a 25 W carrier modulated to 150 % is held to a PEP estimate of at most *L* and a mean of at most 25 W; at 100 % sine modulation the bounds of Table A3-3 give the same result as before (reference model; A3.4c). |
+| T-A3-42 | With level 1 active and armed: KEY keys only while the owner has set DUC-specific byte 5 bit [1] in this session; after a takeover or session end it keys nothing until the new owner sets the bit; a controller request that reaches the main unit never keys (A3.1a, B10.1). |
+| T-A3-43 | With DDC0 at 7.1 MHz and DUC0 at 14.2 MHz, `ATU_TUNE` switches the RF path to the 14 MHz TX state and waits `t_settle` before the tune carrier; after the cycle and RF gone the path returns to the 7 MHz state, and the next PTT key switches to the 14 MHz state again (reference model; A3.9b items 2, 7). |
+| T-A3-44 | With forward power held above `P_rf_off` after a normal unkey, after a session end and after a takeover (reference model), the radio enters the fault state with `RF_NOT_KEYED` no later than `t_reset_wait` after the unkey, no relay moves while RF is present, and the session end completes (A3.9a item 1a). |
+| T-A3-45 | During the bounded wait of a PTT edge that needs the TX state, a DDC0 change alone does not refuse the key; it is applied after the next unkey; a DUC0 change to another `tx_band` entry during the wait refuses it (A3.9a item 3). |
+| T-A3-46 | With CW break-in and a hang delay of 200 ms, SEND and the T/R relay stay in their TX position between elements 100 ms apart and return only after 200 ms without an element and RF gone; a drop event during the hang delay releases SEND at once after RF gone (A3.9a item 4). |
+| T-A3-47 | A drop event while not armed (`TX_ARM` = 0, a C-3 change, the watchdog stop) changes no field of `TX_ARM_STATE` and issues no new token; the next session still starts with a new token (A3.2). |
 
 ### Discovery (B3)
 
@@ -2393,6 +2642,8 @@ To be implemented in g7250-testbench, first against the reference model, then on
 | T-B3-29 | Set IP with the unit's MAC sent to the unicast or directed broadcast address is accepted with the same effects as a broadcast Set IP. |
 | T-B3-30 | Byte 13 equals major × 10 + minor of `fw_version`, capped at 255; byte 23 is non-zero only on a beta build. |
 | T-B3-31 | 100 discoveries per second from one source get at most 10 replies per second; the excess is counted in `GET_STATS`. |
+| T-B3-32 | Set IP with the unit's MAC to the unicast or directed broadcast address from a source outside the radio's subnet is ignored and counted; to 255.255.255.255 from the same source it is accepted (B3.9, B11.15). |
+| T-B3-33 | A discovery request from source port 1024 gets no reply and is counted; two G7250s on one LAN with a discovery reply injected toward one of them exchange no further datagrams (B3.2). |
 
 ### Capability record (B4)
 
@@ -2404,7 +2655,7 @@ To be implemented in g7250-testbench, first against the reference model, then on
 | T-B4-04 | A `CAP_REQUEST`-only packet from a host without a session starts no session, takes nothing over, does not feed the watchdog, and is answered to its source IP and port. |
 | T-B4-05 | A `CAP_REQUEST` from host B while host A runs does not disturb A's session or arm. |
 | T-B4-06 | Writes to the record range are ignored and answered with the current values. |
-| T-B4-07 | The record is sent once, unasked, per session: at the session start when the owner's set-up phase holds a General packet, otherwise after the first General packet of the session. |
+| T-B4-07 | The record is sent once, unasked, per session: at the session start when the owner's set-up phase holds a General packet, otherwise after the first General packet of the session; also when the host's `CAP_REQUEST` was answered less than 1 s before the session start (B4.4 item 2). |
 | T-B4-08 | The record does not change during a session. |
 | T-B4-09 | `ddc_rates`, `num_ddc`, `streams`, `duc_format`, `wb_format`, `wb_frame`, `link` and `tx` match the behaviour tested in B5, B6 and B10. |
 | T-B4-10 | Unused bits and unused range, band and calibration entries are zero. |
@@ -2413,6 +2664,7 @@ To be implemented in g7250-testbench, first against the reference model, then on
 | T-B4-13 | A `CAP_REQUEST` from the future session socket before the first General packet is answered to that socket and does not make it the owner. |
 | T-B4-14 | `CAP_REQUEST`s from a non-owner source at 10 per second are answered at most once per second; from 20 sources, at most 10 answers per second in total. |
 | T-B4-15 | General packets from a source without a session get no record; under a takeover ping-pong between two hosts the unasked record reaches each destination at most once per second. |
+| T-B4-16 | On a 10 Mbit/s link a `CAP_REQUEST` is answered with the record and with `LINK_STATUS` and `STREAM_STATUS`; the status answers are at most one per 100 ms per source and 10 per second in total (B5.8). |
 
 ### Session, ownership, watchdog (B5)
 
@@ -2428,7 +2680,7 @@ To be implemented in g7250-testbench, first against the reference model, then on
 | T-B5-08 | Clearing the run bit stops all streams, resets sequence counters and drops the arm with `RUN_CLEARED`. |
 | T-B5-09 | On a 10 Mbit/s link discovery is answered, no stream starts, and `LINK_STATUS` gives the reason. |
 | T-B5-10 | With C&C every 900 ms the session stays; after the last C&C the unit is in standby within 1100 ms. |
-| T-B5-11 | A run bit without a preceding discovery starts the streams to the sender's source port. |
+| T-B5-11 | A run bit without a preceding discovery, after a DDC-specific packet that enables DDC0, starts the streams to the sender's source port. |
 | T-B5-12 | On a 10 Mbit/s link no High Priority status is sent; each run request and `CAP_REQUEST` is answered with `LINK_STATUS` and `STREAM_STATUS`, at most once per 100 ms. |
 | T-B5-13 | A link renegotiation from 100 to 10 Mbit/s while armed and keyed unkeys, disarms with `LINK_DOWN`, stops the streams and sets `LINK_STATUS` refusal reason 1; back at 100 Mbit/s nothing restarts until a new run. |
 | T-B5-14 | An arm before any General packet of the session or its set-up phase is rejected with `WATCHDOG_DISABLED`; after the B5.1 order (General with byte 38 bit [0] set, DDC-specific, DUC-specific, then run) it is accepted without a further General packet, also with a refused byte 39; a General packet with bit [0] set from another source before the run does not count. |
@@ -2463,6 +2715,7 @@ To be implemented in g7250-testbench, first against the reference model, then on
 | T-B6-23 | No microphone packets are sent unless `streams` bit 3 is set. |
 | T-B6-24 | The DDC0 sequence counter does not restart on a rate change, nor on a resume after a refusal or after DDC-specific byte 7 bit [0] was cleared. |
 | T-B6-25 | Each stream comes from its local port of B2.4a. |
+| T-B6-26 | A run bit with no DDC-specific packet from that host sends High Priority status but no DDC0 I&Q, `STREAM_STATUS` DDC0 reason 1; a DDC-specific packet with byte 7 bit [0] set then starts DDC0 (B5.2). |
 
 ### Field table and register map (B7, B8)
 
@@ -2473,6 +2726,7 @@ To be implemented in g7250-testbench, first against the reference model, then on
 | T-B7-03 | A non-default radio-side port in General bytes 5–22 or 29–30 is not honoured: the default stays, `LINK_STATUS` bit 17 is set and the request is logged; non-zero bytes 31–32 redirect register packets. |
 | T-B7-04 | General byte 37 bit [2] set stops DDC0 with reason 11. |
 | T-B7-05 | General byte 58 bit [0] = 0 keeps a TX request from keying and sets `TX_STATE` bit 4. |
+| T-B7-06 | A General packet whose byte 37 bit [3] differs from discovery byte 21 stops DDC0 with `STREAM_STATUS` reason 13, keeps PTT from keying and is logged; a General packet with the matching bit ends it (B3.8). |
 | T-B8-01 | All registers of Table B8-2 marked "on change" or "event" are pushed within 5 ms of a change. |
 | T-B8-02 | `TX_ARM` from a non-owner is rejected; `CAP_REQUEST` from any host is answered. |
 | T-B8-03 | `TX_ARM_TOKEN` is never 0, 0xFFFFFFFF or `ARM_MAGIC` and changes on every drop and every new session. |
@@ -2489,6 +2743,10 @@ To be implemented in g7250-testbench, first against the reference model, then on
 | T-B8-14 | An under-voltage `UNKEY` sets `LIMIT_INHIBIT` bit 5; a TX request does not key until the supply has been inside the range for 2 s; an under-voltage `REDUCE` sets no inhibit (reference model). |
 | T-B8-15 | A non-owner's write to `TX_ARM_TOKEN` is answered with the current token and `NOT_OWNER`; the owner's write with the token and `READ_ONLY`; neither changes it (B8.4a). |
 | T-B8-16 | `ATU_TUNE` = 1 while armed and unkeyed but inhibited, in fault or with DUC0 outside the ranges is rejected with `NOT_KEYABLE` and does not start later. |
+| T-B8-17 | The last `TX_ARM_TOKEN` before a `RESTART`, a processor watchdog reset and a power cycle differs from the first token after each (reference model with forced token values; B10.2 item 5). |
+| T-B8-18 | A `LIMIT_SWR` write looser than the persistent S2 is rejected with `LOOSER_LIMIT`; one between S1 and S2 replaces S2 and leaves S1; one below S1 lowers both; an `ATU_TUNE` = 1 that is both unarmed and from a non-owner gets `NOT_OWNER`, unarmed and with DUC0 outside the ranges gets `NOT_ARMED`, not `NOT_KEYABLE` (A3.9b item 1). |
+| T-B8-19 | A register write from a non-owner whose source port is 7250 gets no answer and is counted; from another port it gets `NOT_OWNER` (B8.5). |
+| T-B8-20 | Writing 0 to `LIMIT_FWD_POWER` after 10 000 mW returns the answer with the limit in force at the persistent value, and RF is not stopped (B8.6). |
 
 ### Telemetry (B9)
 
@@ -2534,7 +2792,7 @@ To be implemented in g7250-testbench, first against the reference model, then on
 | T-B10-27 | A `TX_MODE_CLASS` write with another value while keyed unkeys first with `TX_STATE` reason 10, arm kept, and then applies; a write of the value in force while keyed changes nothing. |
 | T-B10-28 | `ATU_TUNE` = 1 while a tune cycle runs is a no-op and the cycle continues; `ATU_TUNE` = 0 aborts it and the cycle ends unkeyed. |
 | T-B10-29 | With byte 5 bit [0] clear, bits [1] and [2] never key; with bit [0] set, a dot or dash 0→1 keys the keyer, whose elements follow the keyer speed of DUC-specific byte 9; bit [0] alone never keys. |
-| T-B10-30 | After a tune cycle that fails, is aborted or ends by a takeover, the ATU returns after RF gone to the stored state for the TX frequency or to bypass; `ATU_STATE` stays 4 until the next tune, and a TX request still keys (reference model; A3.9b item 7). |
+| T-B10-30 | After a tune cycle that fails, is aborted or ends by a takeover, the RF path returns after RF gone to the state for the receive frequency, the ATU to its stored state for that frequency or to bypass, and nothing is stored for the TX frequency; `ATU_STATE` stays 4 until the next tune, and a TX request still keys (reference model; A3.9b item 7). |
 | T-B10-31 | `ATU_TUNE` = 1 repeated 100 ms after a cycle ended is a no-op answered with `ATU_STATE`; 2 s after the end a new cycle starts. |
 | T-B10-32 | With TX source PTT and no DUC I&Q at the key, the radio unkeys with `TX_STATE` reason 3 between the underrun time and the underrun time + 10 ms after the key; a host that sends its first DUC I&Q packet 1.25 ms after the PTT edge is not cut; while the FIFO is empty the DUC gets zero samples (reference model); the underrun time is at least `t_rf_off` + `t_settle` + 1.25 ms and at most `KEYED_TIMEOUT` (B10.5). |
 
@@ -2551,12 +2809,13 @@ To be implemented in g7250-testbench, first against the reference model, then on
 | T-B11-07 | A DDC0 frequency outside `rx_range` is tuned without refusal. |
 | T-B11-08 | Datagrams to port 1028 and other closed ports get no reply from the firmware; whether the CH394Q sends ICMP is recorded. |
 | T-B11-09 | With the hardware timer disabled and the owner gone, the session stays until a takeover; an ICMP port unreachable is logged and does not end it. |
-| T-B11-10 | With a host that numbers its High Priority packets, a duplicate or older packet (PTT 1 after a newer PTT 0) is discarded and counted and does not key; numbering across 0xFFFFFFFF → 0 is accepted as newer. |
+| T-B11-10 | With a host that numbers its High Priority packets, a duplicate or older packet (PTT 1 after a newer PTT 0) is discarded and counted and does not key; numbering across 0xFFFFFFFF → 1 is accepted as newer; a packet numbered 0 after 0xFFFFFFFF is discarded (B11.6a). |
 | T-B11-11 | With unnumbered High Priority packets, PTT 1, 0, 1 within 5 ms keys once only; a 1 that arrives 10 ms or more after the latest packet with PTT 1 gives a new key (B11.6a). |
 | T-B11-12 | C&C, DUC I&Q and register packets from outside the radio's subnet start no session, take nothing over and get no answer; discovery from there is still answered (B11.15). |
 | T-B11-13 | The test vector of B11.6a, sent unnumbered after an arm confirmed at 0 ms, gives exactly the stated results on the reference model; on the radio the 8 ms and 12 ms cases give the stated results (B11.6a). |
 | T-B11-14 | Numbered packets 1, 2: unnumbered rule still applies (a PTT edge 5 ms after a packet with PTT 1 is ignored); after 3 the mode is numbered and a duplicate of 2 is discarded and counted; a single packet with number 0 after 3 is discarded (B11.6a). |
 | T-B11-15 | In numbered mode after 1000 a host restarts at 1: packets 1 to 4 are discarded and counted, packet 5 resynchronises (logged, counted) and its PTT 0→1 does not key, a later edge keys under the 10 ms rule; a packet older by more than 2¹⁶ resynchronises at once; a 0→1 edge in a discarded packet never keys (B11.6a). |
+| T-B11-16 | In numbered mode while keyed by PTT, an older packet with PTT 0 is discarded but unkeys (`TX_STATE` reason 1, arm kept); later accepted packets with PTT 1 do not key; an accepted PTT 0 and then 1 keys (B11.6a). |
 
 ---
 
@@ -2582,4 +2841,5 @@ To be implemented in g7250-testbench, first against the reference model, then on
 - Decisions 0001, 0002, 0003, 0004, 0005, 0006, 0007, 0008, 0009, 0011, 0012, 0014, 0015,
   0016, 0017, 0018, 0019, 0020 (proposed), 0021 (§2, §8, §10, §14, §16), 0022 (proposed);
   design note §6.
-- RFC 2119, RFC 8174 (BCP 14); RFC 1982 (serial-number arithmetic, B11.6a).
+- RFC 2119, RFC 8174 (BCP 14); RFC 1982 (serial-number arithmetic, B11.6a); RFC 1812 section
+  5.3.5.1 (limited broadcast not forwarded by routers, B3.9).

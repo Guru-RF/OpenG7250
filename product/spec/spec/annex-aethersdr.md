@@ -1,7 +1,7 @@
 # Annex — Changes needed in AetherSDR
 
-- Version: rc2, 2026-11-19
-- Status: release candidate rc2, for review by ON8ST. Informative annex to `spec/network-interface.md`
+- Version: rc3 draft, 2026-11-19
+- Status: rc3 draft, for review by ON8ST. Informative annex to `spec/network-interface.md`
   (0001, spec section 13; 0013, 0014, 0016).
 - © 2026 ON8ST, CC BY 4.0 (see `LICENSE.md`, decision 0018).
 
@@ -372,7 +372,8 @@ These parts of the ANAN P2 code already match the G7250 and need no change, only
   a readiness signal such as `independentTxReady()`, `IRadioBackend.h:794–795`) follows the
   confirmed arm and `tx` bit 1 of the record. Map each host TX mode to a mode class and
   write it before arming and on every change. Send PTT = 0 until the confirmation, then a
-  fresh 0→1 edge. A user-visible arm control (see Q-O3).
+    fresh 0→1 edge. A user-visible arm control; arming only on that explicit action or a
+  valid TCI `G7250_TX_ARM`, never on a key (Q-O3; part C C5.5.7).
 - **Set-up phase** (B5.1a; 0022 §34). AetherSDR sends the General packet at set-up, before
   the run bit, and its keepalive is the High Priority packet (§2.2; `P2Client.cpp:156–170`,
   `:547–556`). The radio keeps that General packet (byte 38 bit [0], byte 58 bit [0], byte 39)
@@ -491,15 +492,41 @@ These parts of the ANAN P2 code already match the G7250 and need no change, only
   `vfo_limits` (`:351`, and a different GET answer at `:612`), `receive_only:false`
   (`:378`), `modulations_list` (`:379`), `device:AetherSDR` (`:377`, chosen for WSJT-X
   behaviour, comment at `:370–376`). It sends both `trx_count` and `channels_count:2`
-  (`:360`, `:368`). No `hw_sensors`. G7250 functions (ATU, antenna, safety state, active
-  level) have no TCI mapping; AetherSDR's own extension mechanism exists
-  (`TciExtensionSet.h:13–18`).
-- **Change (to be confirmed by part C).** `vfo_limits` from `rx_range`; `receive_only` from
-  `tx` bit 1 and the arm state; `modulations_list` limited to what the G7250 profile allows;
-  `tx_enable` from band edges and arm state; `hw_sensors` and `tx_sensors` from G-07;
-  G7250-specific functions as the profile defines them (standard commands or an extension,
-  marked optional where level 2 may not carry them, 0014). Most of this is per-radio data
-  through `RadioCapabilities`, so it is a change to shared TCI code, not only to the backend.
+  (`:360`, `:368`). The burst starts with `vfo_limits` and sends `protocol` seventh, state
+  lines and `start` before `ready`, which comes last (`:345–535`, §2.4). No `hw_sensors`.
+  G7250 functions (ATU, antenna, safety state, active level) have no TCI mapping;
+  AetherSDR's own extension mechanism exists (`TciExtensionSet.h:13–18`).
+- **Change.** Most of this is per-radio data through `RadioCapabilities`, so it is a change
+  to shared TCI code, not only to the backend. For a G7250 radio:
+  - **Initialization order** (part C C3.1, C3.2, and the initialization test of C9): `PROTOCOL` first, then `DEVICE`,
+    `RECEIVE_ONLY`, `TRX_COUNT`, `CHANNELS_COUNT:2`, `VFO_LIMITS`, `IF_LIMITS`,
+    `MODULATIONS_LIST`, then `READY`, and only after `READY` the state lines (`start`,
+    `audio_samplerate`, `iq_samplerate` and the others).
+  - **Values** (C3.2): `TRX_COUNT:1`; `VFO_LIMITS:500000,54000000`, fixed by the profile, not
+    taken from `rx_range`, and the GET answer the same; `RECEIVE_ONLY` is an initialization
+    command ([TCI] §4.1), sent once per connection from record `tx` bit 1 (transmit
+    implemented), never from the arm state, which `TX_ENABLE` carries (C5.5.6);
+    `modulations_list` as C3.4; `tx_enable` from the arm state and the band edges (C5.5.6);
+    `hw_sensors` and `tx_sensors` from G-07.
+  - **Receiver 0 is the TX slice** (C5.6; 0021 §31). With `TRX_COUNT:1` the one TCI receiver
+    0 MUST be AetherSDR's TX slice, so that `MODULATION` of receiver 0 is the TX mode.
+    `TX_MODE_CLASS` follows the mode of the signal AetherSDR actually transmits, from its user
+    interface or from TCI, and is rewritten on every TX-mode change; a change while keyed
+    unkeys on P2 (A3.9c). A TCI `MODULATION` while keyed is refused with `KEYED` (C7.6.3).
+  - **Opt-in** (C5.2): G7250 extensions only after `G7250_EXT:true;`, next to AetherSDR's own
+    `aethersdr_ext_enable`.
+  - **Connection watchdog** (C8.2, Table C8-2): a WebSocket Ping to the arm holder at least
+    every 250 ms; 1 s without any frame drops the arm.
+  - **TCI CW onto P2** (C8.2.5; 0021 §36): TCI `KEYER` and CW text go to the radio as DUC
+    I&Q with PTT, shaped in AetherSDR's TX chain, not as CWX paddle bits, which cannot play
+    straight-key timing and whose 1 s cap would cut a long string (B10.5a). The caps that act
+    on level 1 are then: on the TCI side, applied by AetherSDR, the keyed-liveness rule of
+    Table C8-1, the `KEYER` key-down cap and the CW text liveness; on the P2 side, applied by
+    the radio, the watchdog, the keyed timeout, the DUC underrun check (keep DUC I&Q running
+    during key-up, B10.5) and the maximum TX time. The CWX cap does not act.
+  - **Arm trigger** (C5.5.7; 0021 §30): arm only on an explicit arm action in AetherSDR's own
+    user interface or a valid `G7250_TX_ARM`; never on a TCI, CAT or rigctl TX request, and
+    never on a key in the user interface (Q-O3).
 - **Fixed by part C (0021).** Keep port 50001 (0021 §2) and `protocol:ExpertSDR3,2.1`
   (0021 §4). `device:` SHOULD become `G7250` for a G7250 radio, MAY stay `AetherSDR` (0021 §5).
   Add the `G7250_` extension commands of part C C5, including `G7250_TX_POLICY` (0021 §1).
@@ -513,14 +540,6 @@ These parts of the ANAN P2 code already match the G7250 and need no change, only
   one TCI client onto the one P2 arm; write `TX_ARM` = 0 only when no holder remains (0021 §24).
   Broadcast `TRX:0,false;`/`TUNE:0,false;` after every radio-side unkey. Never retake the radio
   after a takeover; on a new session rewrite mode class, limits and keyed timeout (0021 §26).
-- **Added by the final rc1 review (0022 §33–§51).** Accept two holders of the one P2 arm, the
-  user interface and one TCI client, which joins without a new P2 arm; the holder that set
-  `G7250_TX_POLICY:holder` owns it (C5.5.5.1, C5.5.8; 0022 §46). Never start a session on a TCI
-  `START` while discovery answers 0x03 without the user's confirmation (C4; 0022 §47). Stop C&C
-  at once on a `TAKEOVER` notice and when the radio's streams restart at sequence 0 by
-  themselves (A2.4; C7.2.1; 0022 §48). Report `update` and `link` stream reasons and the
-  firmware-update state to TCI clients (C2.8, C5.11). Pass `NOT_KEYABLE` for a refused
-  `G7250_ATU_TUNE` on (C5.7).
 - **Added by the second review (0022 §22–§32).** Treat ownership as lost and stop C&C when
   neither DDC0 nor status packets arrive for more than 200 ms (A2.4; C7.2.1); expect the final
   `TX_ARM_STATE` (`TAKEOVER`) up to three times. Map TCI `STOP` to clearing the P2 run bit
@@ -529,6 +548,14 @@ These parts of the ANAN P2 code already match the G7250 and need no change, only
   code (C5.10). Derive the part C `inhibits` field from the new `LIMIT_INHIBIT` register
   (B8, 0x0221). Never start an ATU tune while keyed, and declare the mode class before arming;
   a class change while keyed unkeys on P2 (A3.9b, A3.9c).
+- **Added by the final rc1 review (0022 §33–§51).** Accept two holders of the one P2 arm, the
+  user interface and one TCI client, which joins without a new P2 arm; the holder that set
+  `G7250_TX_POLICY:holder` owns it (C5.5.5.1, C5.5.8; 0022 §46). Never start a session on a TCI
+  `START` while discovery answers 0x03 without the user's confirmation (C4; 0022 §47). Stop C&C
+  at once on a `TAKEOVER` notice and when the radio's streams restart at sequence 0 by
+  themselves (A2.4; C7.2.1; 0022 §48). Report `update` and `link` stream reasons and the
+  firmware-update state to TCI clients (C2.8, C5.11). Pass `NOT_KEYABLE` for a refused
+  `G7250_ATU_TUNE` on (C5.7).
 - **Added by the review of the rc2 draft (0022 §52–§61).** Number High Priority packets so
   that numbered mode engages, and start DUC I&Q with the PTT edge (B11.6a, B10.5; 0022 §55–§57).
   Expect the takeover notices at the register destination of General bytes 31–32 (or the
@@ -538,6 +565,30 @@ These parts of the ANAN P2 code already match the G7250 and need no change, only
   paddle bits between characters: a paddle bit held for more than 1 s is cut (B10.5a). A
   power limit written to `LIMIT_FWD_POWER` also bounds the mean and the tune power (Table
   A3-3; 0022 §52, §53).
+- **Added by the rc3 review (0021 §27–§41).** Apply the total keyed-liveness table (Table
+  C8-1): a generic client's microphone `TRX` in any mode and `TRX` in `CW` get the 1 s generic
+  keyed window, which only a restatement of the TX request feeds, not a read poll (0021 §27,
+  §28). Apply the CW text liveness, not the keyed timeout, while CW text is sent, also for an
+  opted-in client; ignore `G7250_ATU_TUNE` from a client that has not opted in; keep a
+  client's liveness rule until the unkey when it changes its opt-in while keyed (0021 §29).
+  Let every stop request, and `G7250_ATU_TUNE:0,abort;`, abort an ATU tune cycle by writing
+  `ATU_TUNE` = 0 (C5.7; 0021 §32). Ignore `KEYER` outside `CW`, clamp arg3 at 1000 ms, and
+  measure the key-down cap on the played key-down (0021 §33). Send `STOP;` to TCI clients when
+  the P2 session ends without a client `STOP`; after a 1→2 level switch while unarmed report
+  `level_change`, not `takeover` (C2.7, C2.9a; 0021 §41). Resend `G7250_FEATURES` when the
+  token set changes, at P2 session start and end. When the last TCI client leaves, write the
+  P2 `LIMIT_<name>` registers and `KEYED_TIMEOUT` back to the user interface's values
+  (C5.10.1 item 8). Refuse `TRX:0,true,tci;` when the client's TX audio block period exceeds
+  half the keyed timeout (C6.3.3).
+- **Other keying interfaces** (0021 §37). AetherSDR also has remote keying paths besides TCI
+  (CAT, rigctl and its own TCI extensions `aethersdr_ext`, as the rc3 review reports; not
+  surveyed in §2). Each of them SHOULD be bound by a keyed-liveness rule equivalent to part C
+  C8.2: unkey and clear the P2 PTT bit when the remote client stops restating its TX request
+  for 1 s, or stops sending for the keyed timeout where it can be told of one (0021 §37;
+  0007 Decision 2). Where AetherSDR does not do this, the known limit is that such a client
+  whose TX logic hangs is bounded on the radio only by the maximum TX time, because
+  AetherSDR's own High Priority keep-alive feeds the P2 keyed timeout (C8.2.4). None of these
+  paths may arm (C5.5.7).
 
 ### 3.3 Summary
 
@@ -653,6 +704,10 @@ piHPSDR was read only for this one field; no code was copied.
 - **Q-O3 Arm in the user interface.** Should arming be an explicit user action per session
   (a "TX arm" button), or may the backend arm automatically when the user first keys? 0007
   requires the handshake but not who triggers it. An explicit action is the safer default.
+  **Answered by 0021 §30 (proposed):** an explicit action. AetherSDR MUST arm only on an
+  explicit arm action in its own user interface or on a valid `G7250_TX_ARM` from a TCI
+  client, never on a TX request from TCI, CAT, rigctl or its own user interface (part C
+  C5.5.7).
 - **Q-O4 Management client.** A separate tool, or a page in AetherSDR (0008 allows both,
   with a go)? This annex assumes a separate tool.
 - **Q-O5 TCI identity on level 1.** AetherSDR sends `device:AetherSDR` for WSJT-X reasons
