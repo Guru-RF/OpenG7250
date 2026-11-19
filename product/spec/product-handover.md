@@ -5,18 +5,22 @@ on 2026-11-19, as recorded in `decisions/`.
 
 ## Where things stand
 
-- Spec release candidate rc1 is tagged locally as `spec-rc1` on branch `restructure/umbrella`
-  (not pushed). Two independent reviews and a P2 byte check were done; their fixes are 0022.
-  Files: `spec/network-interface.md` (parts A and B, draft 5), `spec/part-c-tci-profile.md`
-  (TCI profile), `spec/annex-aethersdr.md`, `spec/glossary.md`, generated
-  `spec/register-map.yaml` and `spec/traceability-auto.md`; `design-note.md` draft 2.
-- Checks: `python3 tools/spec_lint.py` (0 findings required), `python3 tools/trace.py`,
-  `python3 tools/budget.py`, `python3 tools/regmap.py` (regenerate after B8 or A1-2 changes).
-- Level 1 is G7250-P2: openHPSDR Protocol 2, board type 200 (0016, 0002). Analyses in
-  `analysis/`. Primary product source: the G7250 operation manual (`sources.md`).
-- Before any push: `.claude/settings.json` in the history contains local paths and the name of
-  a decrypted stock-firmware folder; it must be removed from the history or the push must be a
-  cleaned, squashed tree (ON8ST to decide).
+- Spec release candidate **rc4** is tagged locally as `spec-rc4` on branch `spec/rc1`
+  (tracks origin/spec/rc1; not pushed). `spec-rc1` (93c247b) is the earlier pushed tag.
+- rc4 passed repeated independent reviews; the last verification found OPEN HIGH 0,
+  OPEN MEDIUM 0. Remaining LOW clarifications for a later pass: which key starts the zero-run
+  count, the DUC sample tap before TX DC/IQ correction (HIS-18), leakage below `P_rf_off`
+  (HIS-11), the zero-sample rule on level 2, CWX request going to 0 through bit [0], DUC rate
+  change advice, and one key-latency definition with the DUC FIFO between the A3.1a key and
+  the PTT key.
+- Files: `spec/network-interface.md` (parts A, B), `spec/part-c-tci-profile.md`,
+  `spec/annex-aethersdr.md`, `spec/glossary.md`, `spec/CHANGELOG.md`, generated
+  `spec/register-map.yaml` and `spec/traceability-auto.md`; `design-note.md` draft 3.
+- Checks: `python3 tools/spec_lint.py` (0 findings, 483 test ids), `python3 tools/trace.py`,
+  `python3 tools/budget.py`, `python3 tools/regmap.py` (`--check` to verify).
+- Level 1 is G7250-P2: openHPSDR Protocol 2, board type 200 (0016, 0002).
+- Clean room: do not fetch, check out or read `his/` or the `his/integrate` branch until the RE
+  session reports that the HIS has passed its gate (it has not yet).
 
 ## Decisions
 
@@ -49,14 +53,11 @@ All numbers 0001–0018 are now in use.
 
 ## Open questions for ON8ST (rc1 review)
 
-1. Review and accept (or change) the proposed decisions 0020 (rc1 detail choices), 0021 (TCI
-   profile choices, incl. `PROTOCOL:ExpertSDR3,2.1`, TX policy `any`, generic TUNE 1 s window)
-   and 0022 (review fixes, incl. §8: management may unkey and disarm, `RESTART`,
-   `FACTORY_RESET`, `SWITCH_LEVEL` unkey and disarm first).
-2. `.claude/settings.json` in the history (local paths, decrypted-folder name): the RE session
-   has put the options to ON8ST; do not change the file or history until decided.
-3. Go for the RE session to push tag `spec-rc1` as branch `spec/rc1` to the fork, and later for
-   the spec PR to Guru-RF.
+1. Review and accept (or change) the proposed decisions 0020 (rc1 detail choices), 0021
+   §1–§47 (TCI profile choices) and 0022 §1–§88 (review fixes). They are all in rc4.
+2. `.claude/settings.json`: the home path was removed by the history rewrite; the rules that
+   name the decrypted-firmware folder are still in the file (ON8ST's call whether to keep them).
+3. Go for the RE session to push `spec-rc4` to the fork, and later for the spec PR to Guru-RF.
 4. Go for an AetherSDR RFC issue (annex Q-O1); shared P2 refactor vs. self-contained backend
    (Q-O2).
 5. Go to create `product/refmodel/` and the `g7250-testbench` submodule (0019).
