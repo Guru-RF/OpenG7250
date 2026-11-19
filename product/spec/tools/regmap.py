@@ -144,12 +144,25 @@ def main():
             header = ""
         if re.match(r"\|\s*`(%s)`" % SYM, l) and "modulation" not in header and "mode " not in header:
             cells = [c.strip() for c in l.strip().strip("|").split("|")]
-            names = re.findall(r"`(%s)`" % SYM, cells[0])
+            names = []
+            for tok in re.findall(r"`([A-Z_][A-Z0-9_]*\*?)`", cells[0]):
+                if tok.startswith("_") and names:      # `_SAVE` after `LINE_OUT_RECORDER_START`
+                    tok = names[-1].rsplit("_", 1)[0] + tok
+                names.append(tok)
             st = re.match(r"(MUST|SHOULD|MAY|NOT SUPPORTED|[Rr]eserved)", cells[1]) if len(cells) > 1 else None
             for nm in names:
                 tci.append(nm)
                 if st and nm not in status:
                     status[nm] = cells[1]
+    # initialization commands (C3.2 table rows "| n | `NAME:...;` | ... | MUST |")
+    for l in ptext.splitlines():
+        m = re.match(r"\|\s*\d+\s*\|\s*`([A-Z][A-Z0-9_]*)[:;]", l)
+        if m:
+            cells = [c.strip() for c in l.strip().strip("|").split("|")]
+            tci.append(m.group(1))
+            st = next((c for c in cells if re.match(r"(MUST|SHOULD|MAY)", c)), None)
+            if st and m.group(1) not in status:
+                status[m.group(1)] = st
     ext = sorted(set(re.findall(r"`(G7250_[A-Z0-9_]+)", ptext)) - {"G7250_"})
     tci = sorted(set(tci) - set(ext) - {"G7250_"})
     out.append("tci_commands:")
