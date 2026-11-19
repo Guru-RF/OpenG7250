@@ -1,5 +1,13 @@
 # D2 — FPGA fused model: action plan (M3)
 
+> **STATUS: DONE (2026-11-19).** The fused GPIOE+FPGA port
+> (models/csharp/G7250Gpioe.cs) is implemented and wired as `m1_run.py --fpga`.
+> The stock Main boots to "Check FPGA BUS... Check complete!" with zero FPGA bus
+> errors, version read 1.0.0, and DRDY-paced RX I/Q. Keys to the fix: (1) BSRR
+> set-wins ordering (a data byte is written as reset-0xFF + set-bits, and my
+> handler had reset clobbering set); (2) classify_tail treating the DRDY EXTI
+> servicing as a poll-hang. The notes below are the (now-completed) plan.
+
 Everything else in the A–E emulator job is done (A, B1, B2, C/C2, D1, E1–E4).
 D2 — the fused GPIOE+FPGA model for live RF I/Q — is the one open item. This is
 the concrete plan to finish it, based on what the in-session attempts established.
