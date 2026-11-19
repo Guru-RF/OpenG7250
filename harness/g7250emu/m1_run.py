@@ -20,6 +20,8 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 REPO = os.path.abspath(os.path.join(HERE, "..", ".."))
 REPL = os.path.join(REPO, "platforms", "g7250_main.repl")
 REPL_I2C1_MOCK = os.path.join(REPO, "platforms", "g7250_main_i2c1_mock.repl")
+REPL_I2C1_FUNC = os.path.join(REPO, "platforms", "g7250_main_i2c1_func.repl")
+CS_SLAVES = os.path.join(REPO, "models", "csharp", "G7250Slaves.cs")
 OUT = os.path.join(REPO, ".private", "m1")
 
 sys.path.insert(0, HERE)
@@ -38,9 +40,12 @@ def build_resc(image_path, log_path):
     lines = [
         'mach create "main"',
         'machine LoadPlatformDescription @%s' % REPL,
-        # minimal ACKing I2C1 slaves so the device bring-up completes instead of
-        # each byte burning a 100 ms HAL timeout (docs/M1-status.md)
-        'machine LoadPlatformDescription @%s' % REPL_I2C1_MOCK,
+        # compile the clean-room functional slaves (EEPROM) into Renode, then
+        # load the I2C1 overlay that uses the functional EEPROM at 0x50 plus
+        # ACKing dummies for the rest, so the device bring-up completes at full
+        # speed and settings load from the EEPROM (docs/M1-status.md).
+        'i @%s' % CS_SLAVES,
+        'machine LoadPlatformDescription @%s' % REPL_I2C1_FUNC,
         # give the NVIC the SysTick input clock so the 1 ms HAL tick advances
         'nvic Frequency %d' % CORE_HZ,
     ]
