@@ -82,7 +82,9 @@ openHPSDR project is informed of this value.
   account and text need a go from ON8ST before anything is sent (AGENTS.md rule 6).
   Sent with that go on 2026-11-19 as https://github.com/TAPR/OpenHPSDR-Firmware/issues/6
   (text in `outreach/openhpsdr-board-type-200.md`).
-- If the project later assigns 200 anyway, this decision has to be revised.
+- The notice proposes 200 and offers to use another value if openHPSDR prefers one
+  (ON8ST, 2026-11-19). If they name a value, or later assign 200 to another board, this
+  decision is revised.
 - The behaviour of P2 hosts that see an unknown board type is covered in 0015.
 
 ## Sources
