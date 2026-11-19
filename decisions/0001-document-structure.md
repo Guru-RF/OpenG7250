@@ -103,6 +103,7 @@ open-questions-his.md        questions only the hardware-interface spec (HIS) ca
 - ON8ST wants to look further at compatibility modes. An HL2 mode is not an option because
   the HL2 has no 100 W amplifier and no ATU (ON8ST, 2026-11-19). An ANAN mode may be
   considered. This conflicts with the principle "we do not impersonate another board"
-  (start brief) and would need an explicit decision revising it. Under discussion.
+  (start brief) and would need an explicit decision revising it. Decided: out of scope for
+  now (0010).
 - Should C&C be HL2-compatible where possible (proposed) or standard P1 plus own addresses?
 - Should a host that does not know the board id still be able to receive RX-IQ (generic P1)?
