@@ -145,16 +145,17 @@ _BUCKETS = [
     (0x40004800, 0x40004C00, "usart3"),
     (0x40005400, 0x40005800, "i2c1"),
     (0x40011000, 0x40011400, "usart1"),
+    (0x40003800, 0x40003C00, "spi2"),
+    (0x40003C00, 0x40004000, "spi3_i2s3"),
+    (0x40007400, 0x40007800, "dac1"),    # no model in this build (tagged)
     (0x40013000, 0x40013400, "spi1"),
-    (0x40013400, 0x40013800, "spi2"),
     (0x58020000, 0x58020400, "gpioa"),
     (0x58021000, 0x58021400, "gpioe"),   # FPGA bit-bang side (M0 finding R3)
     (0x58022000, 0x58022400, "gpioh"),   # PH5/PH9 power (§3.8)
     (0x58024400, 0x58024800, "rcc"),
     (0x58024800, 0x58024C00, "pwr"),
     (0x52002000, 0x52002400, "flash"),
-    (0x40015000, 0x40015400, "spi6"),    # CH394 (A1.12)
-    (0x40003C00, 0x40004000, "spi3_i2s3"),
+    (0x58001400, 0x58001800, "spi6"),    # CH394 (A1.12), APB4/D3
 ]
 
 
@@ -298,7 +299,7 @@ def _selftest():
 
     # _peri_for buckets
     assert _peri_for(0x58021020) == "gpioe"
-    assert _peri_for(0x40015010) == "spi6"
+    assert _peri_for(0x58001410) == "spi6"
 
     print(format_report(rep, detect_hang(poll)))
     print("observe.py selftest: OK")

@@ -37,6 +37,20 @@ axiSram:
 // TODO(M1): model RCC ready/lock flags and PWR SMPS/VOS0 so the boot polling
 // loops pass in strict mode (this is the first polling-loop work of M1).
 
+// --- SPI controllers absent from the H743 base (only spi4 is in the base) ---
+// The Main uses SPI1/SPI2 (sinks), SPI3/I2S3 (audio), and SPI6 (CH394). H7 base
+// addresses from RM0468 (SPI1 0x40013000 APB2, SPI2 0x40003800 APB1, SPI3
+// 0x40003C00 APB1, SPI6 0x58001400 APB4/D3). Registered without an rcc alias
+// (the base's RegistrationPeripheralAlias enum only carries SPI4); clock-gating
+// awareness is not needed for M1 boot. Verified to register on Renode.
+// TODO(M1): attach the CH394 SPI slave to spi6 (models/devices/ch394.py) and
+// the SPI sinks to spi1/spi2 (models/devices/spi_sink.py) once the image drives
+// them; add NVIC/DMA wiring if the firmware uses interrupt/DMA transfers.
+spi1: SPI.STM32H7_SPI @ sysbus 0x40013000
+spi2: SPI.STM32H7_SPI @ sysbus 0x40003800
+spi3: SPI.STM32H7_SPI @ sysbus 0x40003C00
+spi6: SPI.STM32H7_SPI @ sysbus 0x58001400
+
 // --- Peripherals present on Main (M1 inventory, spec §14 M1) ----------------
 // From the base we already get: RCC, PWR, FLASH, GPIO A..K, EXTI/SYSCFG, NVIC,
 // DWT, USART1/2, I2C1, SPI, TIM, ADC, DAC, IWDG, CRC, RTC.

@@ -51,9 +51,10 @@ def build_resc(image_path, log_path):
         'mach create "main"',
         'machine LoadPlatformDescription @%s' % REPL,
     ]
-    # H72x-only blocks absent from the H743 base: tag them so a touch is named
-    # and logged ("known H72x block, not modelled") rather than faulting.
-    lines += platform_extras.h72x_tag_commands()
+    # Blocks absent from the H743 base (H72x-only) and blocks with no STM32
+    # model in this build (DAC1, MDMA): tag them so a touch is named and logged
+    # ("not modelled") rather than faulting as a non-existing peripheral.
+    lines += platform_extras.all_tag_commands()
     # observe: strict logging + per-access log mirrored to a file the parser reads
     lines += observe.strict_logging_commands("machine", log_file=log_path)
     lines += [

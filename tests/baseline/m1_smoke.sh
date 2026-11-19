@@ -40,31 +40,36 @@ python3 models/devices/spi_sink.py >/dev/null 2>&1 && ok spi_sink || bad spi_sin
 if [ ! -x "$RN" ] && [ ! -f "$RN" ]; then
   echo "[3-4] SKIP (pinned Renode not found at tools/renode-1.17.0)"
 else
-  echo "[3] platform load + 320 KiB AXI SRAM override"
+  echo "[3] platform load: 320 KiB AXI SRAM + SPI1/2/3/6 controllers"
   cat > "$OUT/smoke_load.resc" <<EOF
 mach create "main"
 machine LoadPlatformDescription @platforms/g7250_main.repl
 peripherals
 quit
 EOF
-  if timeout 90 "$RN" --disable-xwt --console -e "path add @$REPO" \
-        -e "include @$OUT/smoke_load.resc" </dev/null 2>&1 \
-        | grep -q "<0x24000000, 0x2404FFFF>"; then
+  LOAD_OUT="$(timeout 90 "$RN" --disable-xwt --console -e "path add @$REPO" \
+        -e "include @$OUT/smoke_load.resc" </dev/null 2>&1)"
+  if echo "$LOAD_OUT" | grep -q "<0x24000000, 0x2404FFFF>"; then
     ok "axiSram = 0x24000000..0x2404FFFF (320 KiB)"
   else
     bad "axiSram override not found (expected 320 KiB)"
   fi
+  if [ "$(echo "$LOAD_OUT" | grep -cE 'spi[1236] \(STM32H7_SPI\)')" -eq 4 ]; then
+    ok "spi1/spi2/spi3/spi6 registered"
+  else
+    bad "expected 4 added SPI controllers"
+  fi
 
-  echo "[3b] H72x-only Tag regions apply on the platform"
+  echo "[3b] Tag regions apply (H72x-only + unmodelled DAC1/MDMA)"
   { echo 'mach create "main"'
     echo 'machine LoadPlatformDescription @platforms/g7250_main.repl'
     python3 harness/g7250emu/platform_extras.py
     echo 'echo TAGS_OK'; echo 'quit'; } > "$OUT/smoke_tags.resc"
   if timeout 90 "$RN" --disable-xwt --console -e "path add @$REPO" \
         -e "include @$OUT/smoke_tags.resc" </dev/null 2>&1 | grep -q "TAGS_OK"; then
-    ok "TIM23/24, UART9, USART10 tagged"
+    ok "TIM23/24, UART9, USART10, DAC1, MDMA tagged"
   else
-    bad "H72x Tag regions rejected"
+    bad "Tag regions rejected"
   fi
 
   echo "[4] observe end-to-end (log capture + parse)"

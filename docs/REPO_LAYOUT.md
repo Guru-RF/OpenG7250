@@ -54,14 +54,20 @@ g7250-emu/
 Image-independent scaffolding, verifiable now with `bash tests/baseline/m1_smoke.sh`:
 
 ```
-├── platforms/g7250_main.repl        Main platform (STM32H72x deltas on the H7 base;
-│                                     320 KiB AXI SRAM override, confirmed on Renode)
+├── platforms/g7250_main.repl        Main platform: STM32H72x deltas on the H7 base —
+│                                     320 KiB AXI SRAM, SPI1/2/3/6 controllers added
+│                                     (base has only spi4). Confirmed on Renode.
 ├── models/README.md                 model layout, sources/confidence, topology decisions
-├── models/devices/ch394.py          CH394 register-file logic + A1.12 default-IP check
+├── models/devices/ch394.py          CH394 register logic + A1.12 default-IP check (SPI6)
+├── models/devices/i2c_devices.py    EEPROM24C, AXP223, VC6, AIC3204 (I2C1 slaves)
+├── models/devices/bias_trim_plant.py  ADC1+DAC closed-loop PA-bias-trim plant
+├── models/devices/spi_sink.py       generic SPI1/SPI2 write-mostly sink
+├── models/system/power_model.py     PH5/PH9 power/reset state machine (R0, §3.8)
 ├── harness/g7250emu/imagemap.py     local image-map loader (hash-verified, no decryption)
 ├── harness/g7250emu/observe.py      strict mode + hang detector + MMIO heatmap
+├── harness/g7250emu/platform_extras.py  Tags for H72x-only + unmodelled (DAC1/MDMA) blocks
 ├── harness/g7250emu/m1_run.py       boot runner (refuses cleanly until the image is supplied)
-└── tests/baseline/m1_smoke.sh       the 5-check scaffolding regression gate
+└── tests/baseline/m1_smoke.sh       the scaffolding regression gate (11 checks, ALL PASS)
 ```
 
 The actual stock boot lights up when the decrypted Main image is supplied
