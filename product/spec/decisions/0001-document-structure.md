@@ -9,7 +9,7 @@
 The start brief from ON8ST (2026-11-19) asks for a first version of two documents:
 (1) a design note describing the product, its users, its milestones and what is out of
 scope, and (2) the network-interface spec. The structure is proposed first and agreed
-before the documents are written out (start brief, "Werkwijze").
+before the documents are written out (start brief, section "Werkwijze", quoted in the original Dutch: "Way of working").
 
 Source for all product intent below: the start brief from ON8ST, 2026-11-19.
 Protocol details are not yet verified against public documents; they will be cited in
