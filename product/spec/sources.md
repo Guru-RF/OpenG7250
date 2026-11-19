@@ -127,7 +127,7 @@ Facts from these secondary sources (to be confirmed against [G7250-RDY] or a man
 | Construction | separate RF deck (main unit) and controller with 7" touch screen | [G7250-PUDX], [G7250-RIGPIX] |
 | Network | "remote baseband signal transmission over a network"; the type of connection (Ethernet, Wi-Fi) is not stated | [G7250-PUDX], [G7250-RIGPIX] |
 | Ethernet | present on the main unit; tested and documented in a video by the YouTube channel "Temporarily Offline" | ON8ST, 2026-11-19; video [G7250-TOFF] not yet identified |
-| Ethernet controller | WCH CH394 (variant not known) | ON8ST, own hardware inspection, 2026-11-19; to be confirmed by the HIS |
+| Ethernet controller | WCH CH394Q (8 sockets, SPI) | ON8ST, own hardware inspection, 2026-11-19; to be confirmed by the HIS |
 | USB | present | [G7250-RIGPIX] |
 
 Note: neither written secondary source says that the main unit has an Ethernet port. ON8ST

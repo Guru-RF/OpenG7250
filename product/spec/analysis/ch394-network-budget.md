@@ -5,6 +5,9 @@
   inspection (2026-11-19). Not yet confirmed by the HIS. Which variant (CH394Q or CH394L) is
   not known.
 - Status: analysis, not a decision.
+- Outcome (ON8ST, 2026-11-19): the chip is a **CH394Q** (8 sockets, SPI), from his hardware
+  inspection. P2 stays (0016). The socket budget is 8 of 8; see "Ways out" for how the
+  management channel and any further ports fit.
 
 ## Sources
 

@@ -123,6 +123,13 @@ board type. Protocol 1 is out of scope. If AetherSDR does not have the needed P2
   including transmit, on the `IRadioBackend` seam [AETHER]. Any contribution upstream (pull
   request, issue) needs a go from ON8ST (AGENTS.md rule 6). AetherSDR is GPL-3.0, so code we
   contribute there is GPL-3.0 [AETHER].
+- **Socket budget (CH394Q).** ON8ST found a WCH CH394Q Ethernet controller (hardware
+  inspection, 2026-11-19): 10/100 Mbit/s, 8 sockets, SPI up to 62 MHz [CH394]. Standard P2
+  with one receiver plus the G7250 register map needs 8 sockets
+  (`analysis/ch394-network-budget.md`). ON8ST confirmed that P2 stays (2026-11-19). The
+  management channel (0008) cannot have its own socket unless another port is freed, for
+  example by sharing port 1024 or by leaving out DDC audio. Sample rates are limited by SPI
+  throughput (0004).
 - **HIS.** The compute and network budget becomes more pressing, because P2 is the heavier
   protocol (several UDP ports, 24-bit TX path at 192 ksps [P2]).
 
