@@ -1,6 +1,6 @@
 # 0021 — Choices in the G7250 TCI profile (spec part C)
 
-- Status: proposed (for ON8ST review at rc1; §27–§42 proposed for the rc3 draft; §43 proposed for rc3; §44 proposed for the rc4 draft; §45 and §46 proposed for rc4), 2026-11-19
+- Status: proposed (for ON8ST review at rc1; §27–§42 proposed for the rc3 draft; §43 proposed for rc3; §44 proposed for the rc4 draft; §45–§47 proposed for rc4), 2026-11-19
 - Date: 2026-11-19
 - Builds on: 0003 (discovery reply byte 4), 0004 (rates, SPI target), 0007 (watchdog and
   safety), 0008 (management channel, socket budget, LAN security), 0011 (two levels), 0012
@@ -1434,6 +1434,9 @@ selected would be dropped by the radio (0022 §85); and nine smaller gaps.
    inside AetherSDR's PTT transmission. Known limit, bounded by item 1's 2000 ms (part C
    C8.2.5 item 2; 0022 §87 item 7). Alternative: P2 CWX for TCI CW. Against: §36 (the paddle
    bits cannot play a client's straight-key timing, and the 1 s cap cuts strings).
+   *Corrected by §47 item 1:* the 2000 ms bound did not hold (the PTT does not clear while
+   gaps are shorter than the hang delay); the radio now checks zero-sample gaps inside the
+   PTT transmission (0022 §88 item 1).
 3. **TCI CW with hardware CW selected (L2).** AetherSDR refuses TCI CW with `NOT_KEYABLE`
    while the user has hardware CW (byte 5 bit [1]) selected, and does not clear the bit itself
    (part C C8.2.5 item 3; T-C8-22). Alternative: send a DUC-specific packet with bit [1] clear
@@ -1466,6 +1469,37 @@ selected would be dropped by the radio (0022 §85); and nine smaller gaps.
 
 **Reason.** Make level 1 behave as part B does where the radio forms the CW, state the one
 case where it cannot, and keep the user's keyer choice and the safety order of part B.
+
+## 47. Part C rc4: second review round of rc4 (rc4 review M1, L7)
+
+Status: proposed.
+
+**Problem.** §46 item 2 bounded the level-1 gap-check limit by the hang delay of at most
+2000 ms. With gaps shorter than the hang delay AetherSDR never clears the P2 PTT, so the
+bound was the maximum continuous TX time instead (part B Table A3-2). And C8.2.5 item 1 did
+not say what a hang delay of 0 costs on level 1.
+
+**Chosen rule.**
+
+1. **Gap check on level 1 (M1; corrects §46 item 2).** Part B now treats a run of all-zero
+   DUC samples longer than `t_blank` inside a PTT transmission with DUC I&Q as no RF
+   commanded (0022 §88 item 1), so the check "RF while not keyed" runs in every gap of TCI CW
+   on level 1 and detects RF there within `t_blank` + 10 ms. AetherSDR MUST send exact zeros
+   (I = Q = 0) in gaps and the hang delay. Remaining known limit: non-zero samples in a gap
+   hide that gap from the check (part C C8.2.5 item 2; annex G-13; T-C8-32). Alternative: P2
+   CWX for TCI CW. Against: §36, as in §46 item 2.
+2. **Hang delay 0 on level 1 (L7).** With a hang delay of 0 each element is a PTT
+   transmission: it costs the key latency (`t_settle` plus the RF delay, part B A3.9a items 2,
+   4) and a T/R cycle per element, the first samples survive only within the 25 ms unkeyed
+   FIFO (part B B10.7), and the 10 ms edge rule of part B B11.6a (Annex X1 D28) applies. A
+   hang delay above 0 is RECOMMENDED for break-in CW (part C C8.2.5 item 1 note).
+   Alternative: forbid a hang delay of 0 on level 1. Against: [P2] allows it (DUC-specific
+   bytes 11–12), and a user may accept the cost.
+
+Labels stay "rc4, 2026-11-19".
+
+**Reason.** The radio sees every DUC sample, so it can find the gaps itself instead of
+relying on a bound that does not hold.
 
 ## Consequences
 
@@ -1508,6 +1542,9 @@ case where it cannot, and keep the user's keyer choice and the safety order of p
   C8.5a, C9) and follows 0022 §84–§87 by reference; part B A3.9a item 6 is qualified by 0022
   §87 item 7; `spec/annex-aethersdr.md` (G-13) and the glossary ("Keyed", "Break-in") get the
   consequences.
+- Part C rc4 applies §47 (C8.2.5 items 1 and 2, T-C8-32) and follows 0022 §88 by reference;
+  §47 item 1 corrects §46 item 2; `spec/annex-aethersdr.md` (G-13) and the glossary ("Keyed")
+  get the consequences.
 
 ## Sources
 

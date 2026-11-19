@@ -2277,7 +2277,9 @@ that a standard host does not get; and eight smaller gaps.
    applies the per-element meaning of "RF commanded" where the radio forms the elements (on
    level 1 KEY and CWX, on level 2 TCI `KEYER` and CW text). CW that the host forms as DUC
    I&Q with PTT is RF commanded throughout; part C C8.2.5 bounds that known limit by its hang
-   delay of at most 2000 ms (0021 §46 item 2).
+   delay of at most 2000 ms (0021 §46 item 2). *Corrected by §88 item 1:* the 2000 ms bound
+   did not hold, and the check now runs inside such a PTT transmission in every run of
+   all-zero DUC samples longer than `t_blank`.
 8. **Refusal arriving while keyed (L7).** EER set or an invalid DUC0 rate or bit width that
    arrives while keyed is deferred to the unkey, as every DUC-specific state field (A3.9):
    the transmission continues with the settings in force; the refusal stands from the unkey,
@@ -2289,6 +2291,62 @@ that a standard host does not get; and eight smaller gaps.
    glossary "Keyed" and "Continuous TX" name the PTT transmission with break-in clear, and a
    "Break-in" entry is added. A3.9 "RF-path relays" lists the resent state fields of High
    Priority, DUC-specific and General packets, as A3.4d.
+
+## 88. rc4 review fixes, second round (rc4 review M1, L1–L7)
+
+Status: proposed.
+
+**Problem.** The known limit of §87 item 7 claimed that RF in a gap of host-formed CW on
+level 1 is seen at most 2000 ms late. That bound does not hold: TCI CW on level 1 is a PTT
+transmission with DUC I&Q (part C C8.2.5), and with gaps shorter than the hang delay the PTT
+never clears, so the check "RF while not keyed" would run only at the end of the PTT
+transmission, up to the maximum continuous TX time (Table A3-2) after the RF appeared. The
+review also found seven smaller gaps.
+
+**Rule.**
+
+1. **Zero-sample gaps inside a PTT transmission (M1; corrects §87 item 7).** Inside a PTT
+   transmission with DUC I&Q, RF is commanded only up to the last sample fed to the DUC with
+   I or Q non-zero (after the drive scaling, A3.4c; zero samples fed during an underflow,
+   B10.5, count as zero). A run of all-zero samples longer than `t_blank`, counted from the
+   key or from the last non-zero sample, is "no RF commanded" for the check "RF while not
+   keyed", which then runs as in any other gap. The firmware feeds every DUC sample (A3.4c),
+   so the rule needs nothing from the host and covers AetherSDR's TCI CW on level 1 and every
+   P2 host that sends CW as I&Q with PTT. For this case `t_blank` also covers the
+   DUC-to-coupler delay (HIS-18), and the threshold lies above the forward power with
+   all-zero samples (carrier leakage). Threshold and `t_blank` stay TBD (HIS-11, HIS-12).
+   Remaining known limit: non-zero samples in a gap (noise, dither, a DC offset) command RF,
+   so that gap is not checked; such RF is seen at the next all-zero run longer than `t_blank`
+   or after the unkey. Host guidance: send exact zeros in gaps. Table A3-2 "RF while not
+   keyed", A3.1a "Keyer elements", A3.4d, A3.9a item 6, B10.5; part C C8.2.5 item 2 (0021 §47
+   item 1); annex G-13; T-A3-57, T-C8-32. Alternative: keep the known limit and bound it by
+   the maximum TX time. Against: up to 5 min of RF in the gaps without a fault, while the
+   firmware already has the samples that show the gaps. Alternative: a power threshold on the
+   samples instead of exact zero. Against: the threshold would need its own value per drive
+   level and filter; exact zero is what a host sends for key-up and is testable bit for bit.
+2. **Which key starts what (L1).** With break-in clear, the T/R relay, the RX attenuator
+   during TX and SEND go to TX at the PTT 0→1 edge accepted under A3.1a, as the first steps of
+   the key sequence of A3.9a item 4, not "at the PTT key", which is the later moment RF is
+   enabled (§87 item 1). The maximum continuous TX time counts from the key of A3.1a. A3.4d,
+   A3.9a item 4, glossary "Continuous TX"; T-B10-40.
+3. **CWX with break-in clear (L2, L3).** With CW not selected, a CWX paddle edge in the PTT
+   transmission is refused because CWX needs CW selected with break-in clear, not "as from
+   another source". After the PTT key a CWX element needs a request-level edge: the CWX
+   request of B10.5a goes to 0, both paddle bits at 0, and rises again; a change from one held
+   bit to the other is not an edge. B10.5b items 2.2, 2.3; T-B10-39.
+4. **Cached PTT with break-in clear and CW selected (L4).** The underrun check is waived
+   there (B10.5b item 2.3), so a host whose I/O thread keeps sending a cached PTT bit holds
+   SEND, the T/R relay and an external amplifier in TX without RF until the maximum
+   continuous TX time. Added to the known limits of B10.5; T-B10-40.
+5. **DUC rate while keyed (L5).** A host SHOULD NOT change the DUC0 sampling rate or bit
+   width while keyed: the change is deferred (§87 item 8), so I&Q sent at the new rate is
+   played at the old rate until the unkey. B10.6 host note.
+6. **Takeover notice wording (L6).** Annex X1 D5: a standard host "is expected to ignore"
+   packets from port 7250 (a host SHOULD), not a statement of fact; [P2] does not require it.
+7. **Hang delay 0 on level 1 (L7).** Part C C8.2.5 item 1 notes the cost of PTT per element:
+   the key latency (`t_settle` plus the RF delay) per element, a T/R cycle per element, the
+   25 ms unkeyed FIFO of B10.7 for the first samples, and the 10 ms edge rule of B11.6a
+   (Annex X1 D28); a hang delay above 0 is recommended for break-in CW (0021 §47 item 2).
 
 ---
 
@@ -2371,6 +2429,14 @@ that a standard host does not get; and eight smaller gaps.
   `spec/glossary.md`. §87 item 2 replaces §86 item 1. Table B8-2 is unchanged, so
   `spec/register-map.yaml` needs no regeneration for it. Part C follows §87 item 7 in C8.2.5
   (0021 §46).
+- §88 (second review round of rc4) is applied in `spec/network-interface.md` rc4 (A3.1a,
+  Table A3-2, A3.4d, A3.9a items 4 and 6, B10.5, B10.5b items 2.2 and 2.3, B10.6, Annex X1
+  D5, T-A3-57, T-B10-39, T-B10-40), `spec/part-c-tci-profile.md` rc4 (C8.2.5 items 1 and 2,
+  T-C8-32; 0021 §47), `spec/annex-aethersdr.md` (G-13) and `spec/glossary.md` ("Keyed",
+  "Continuous TX"). §88 item 1 corrects §87 item 7. Table B8-2 is unchanged, so
+  `spec/register-map.yaml` needs no regeneration for it. HIS-11 gets the forward power with
+  all-zero DUC samples (carrier leakage), which the "RF while not keyed" threshold must
+  exceed; HIS-18 the DUC-to-coupler delay that `t_blank` must cover in a zero-sample gap.
 - `open-questions-his.md`: HIS-07 (filter plan, which frequencies share an RF-path state),
   HIS-11 (PEP detector, temperature filter), HIS-12 (`P_swr`, `P_temp`, hysteresis) are
   extended by the coordinator; this file does not edit it.

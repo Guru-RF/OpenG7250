@@ -136,6 +136,8 @@ Priority: **M1** = needed for milestone M1 (discovery, capability block, RX-IQ);
   in Table A3-2.
 - Added by 0022 §84: the shortest CW element gap in which the "RF while not keyed" check
   can still run, given `t_blank`.
+- Added by 0022 §88: the forward power with all-zero DUC samples (carrier leakage); the
+  "RF while not keyed" threshold must lie above it.
 
 ### HIS-12 — Power control and limits (M4)
 
@@ -217,6 +219,8 @@ Priority: **M1** = needed for milestone M1 (discovery, capability block, RX-IQ);
   log buffer, and whether an FPGA image is loaded by the main-unit firmware.
 - Added by 0022 §62, §63: the delay from DUC samples to the coupler (for the crest-factor
   window), and the DUC FIFO capacity while keyed.
+- Added by 0022 §88: the DUC-to-coupler delay, which `t_blank` must cover for the zero-sample
+  gap check.
 
 ### HIS-19 — Firmware loading and recovery (M5)
 

@@ -14,7 +14,7 @@ Line numbers are those of that commit and will drift.
 
 Spec sections cited as "B3.4" and similar refer to `spec/network-interface.md` rc2 of
 2026-11-19, and to its rc3, rc4 draft and rc4 for the sections added or changed by 0022 §62–§78, §81 and
-§84–§87 (A3.4d, A3.6a, A3.9a items 1a and 6; B5.4 by 0022 §78, B3.8 by 0022 §81, A2.4 and
+§84–§88 (A3.4d, A3.6a, A3.9a items 1a and 6; B5.4 by 0022 §78, B3.8 by 0022 §81, A2.4 and
 B10.5b by 0022 §85, §87).
 
 ---
@@ -679,9 +679,13 @@ These parts of the ANAN P2 code already match the G7250 and need no change, only
 - **Added by rc4 of part C (0021 §46; 0022 §84–§87).** Implement break-in and the hang delay
   of TCI CW by holding the P2 PTT bit with DUC I&Q at zero until the hang delay has run out
   without a new element; the hang delay is the value written to DUC-specific bytes 11–12,
-  clamped to 2000 ms as part B A3.4d; with hang delay 0, PTT per element (C8.2.5 item 1).
-  Known limit: on level 1 the radio's "RF while not keyed" check does not run inside that PTT
-  transmission, so RF in a gap is seen at most 2000 ms late (C8.2.5 item 2; A3.9a item 6).
+  clamped to 2000 ms as part B A3.4d; with hang delay 0, PTT per element, which costs the key
+  latency and a T/R cycle per element, so prefer a hang delay above 0 (C8.2.5 item 1; 0021
+  §47 item 2). Send exact zeros (I = Q = 0) in the gaps and the hang delay: the radio treats
+  a run of all-zero DUC samples longer than `t_blank` inside the PTT transmission as no RF
+  commanded, so its "RF while not keyed" check runs in every gap and detects RF there within
+  `t_blank` + 10 ms (C8.2.5 item 2; A3.9a item 6; 0022 §88 item 1). Non-zero noise in a gap
+  hides that gap from the check (the remaining known limit).
   While the user has hardware CW from KEY selected (DUC-specific byte 5 bit [1]), refuse TCI
   CW with `NOT_KEYABLE` and leave the bit set (C8.2.5 item 3). Wait for the P2 write echo
   (B8.4) of `TX_MODE_CLASS` and the `LIMIT_<name>` writes before the PTT edge (C5.10.1 item 6,

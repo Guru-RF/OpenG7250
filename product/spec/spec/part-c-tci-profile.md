@@ -3,8 +3,8 @@
 - Version: rc4, 2026-11-19; changes in `spec/CHANGELOG.md`
 - Status: rc4, for review by ON8ST; the choices it applies are proposed in
   0021 (§18–§26 added for draft 3, §27–§42 for the rc3 draft, §43 for rc3, §44 for the rc4
-  draft, §45 and §46 for rc4) and follow 0022 (proposed; §22–§32 applied in draft 4, §33–§51 in the rc2 draft,
-  §52–§61 in rc2, §62–§74 in rc3, §75–§83 in the rc4 draft, §84–§87 in rc4). This file is part C of the network interface specification;
+  draft, §45–§47 for rc4) and follow 0022 (proposed; §22–§32 applied in draft 4, §33–§51 in the rc2 draft,
+  §52–§61 in rc2, §62–§74 in rc3, §75–§83 in the rc4 draft, §84–§88 in rc4). This file is part C of the network interface specification;
   `spec/network-interface.md` points to it ("Part C — Level 2: TCI").
 - © 2026 ON8ST, CC BY 4.0 (see `LICENSE.md`); quoted TCI material © Expert Group LLC under its
   MIT notice.
@@ -13,7 +13,7 @@
   (telemetry), 0007 (watchdog and safety), 0008 (management channel, socket budget), 0015 (TX
   arm), 0017 (no audio on the main unit), 0019 (reference model), 0021 (profile choices,
   proposed), 0022 (rc1 review fixes, proposed), and `spec/network-interface.md` rc4
-  (parts A and B, with 0022 §62–§87; Table B8-3 is the single list of code names, 0022 §19).
+  (parts A and B, with 0022 §62–§88; Table B8-3 is the single list of code names, 0022 §19).
 
 Sources are cited by key (see `sources.md`) or by decision number (see `decisions/`).
 Citations of [TCI] give the section of TCI Protocol 2.1 and the command name, for example
@@ -1562,13 +1562,28 @@ way: with that bit set the radio's keyer forms the RF and drops DUC I&Q (part B 
    bytes 11–12 clamp it; with a hang delay of 0, PTT is set and cleared per element. Within
    one PTT transmission the elements count as one continuous transmission (A3.4d), and
    `TRX` stays `true` until the PTT is cleared (C7.4.1).
-2. **Gap check** (0021 §46 item 2). The check "RF while not keyed" runs in gaps between
-   elements only where the radio forms the elements (part B A3.9a item 6: level 2, and on
-   level 1 KEY and CWX). On level 1 the elements of TCI CW are DUC I&Q of a PTT
-   transmission, which is RF commanded throughout (A3.9a item 6), so the check does not run
-   inside it. Known limit: RF in a gap is seen only after the PTT is cleared, at most the
-   hang delay of item 1, 2000 ms, after the last element; the DUC underrun check and the
-   limits act throughout (annex G-13).
+   Note on a hang delay of 0 (0021 §47 item 2). Each element is then a PTT transmission of
+   its own, so each element costs the key latency, the T/R settle `t_settle` plus the RF
+   delay of DUC-specific byte 13 (part B A3.9a items 2, 4), and cycles the T/R relay, SEND
+   and an external amplifier. I&Q that AetherSDR sends with the PTT edge waits for the key
+   in the DUC FIFO, where samples are kept only within the 25 ms of part B B10.7, so the
+   start of an element is cut when the key latency exceeds that. Two PTT edges also need the
+   10 ms rule of part B B11.6a (Annex X1 D28): a 0→1 edge counts only 10 ms or more after
+   the latest packet with the bit at 1. For break-in CW on level 1 a hang delay above 0
+   is RECOMMENDED.
+2. **Gap check** (0021 §46 item 2, as corrected by 0021 §47 item 1; 0022 §88 item 1). The
+   check "RF while not keyed" runs in every gap between elements, also on level 1, where the
+   elements of TCI CW are DUC I&Q of a PTT transmission: inside a PTT transmission with DUC
+   I&Q, RF is commanded only up to the last non-zero DUC sample, and a run of all-zero
+   samples longer than `t_blank` is a gap for that check (part B A3.9a item 6; Table A3-2;
+   threshold and `t_blank` TBD HIS-11). RF in a gap is detected within `t_blank` plus the
+   reaction time of 10 ms, while the PTT stays set. AetherSDR MUST send exact zeros
+   (I = Q = 0) in the gaps between elements and during the hang delay of item 1. Remaining
+   known limit: non-zero samples in a gap (noise, dither, a DC offset, a ramp tail running
+   into the gap) command RF, so the check does not run in that gap; RF there that the
+   samples do not command is then seen only at the next all-zero run longer than `t_blank`
+   or after the unkey, at most the maximum continuous TX time later. The DUC underrun check
+   and the limits act throughout (annex G-13).
 3. **Hardware CW selected** (0021 §46 item 3). While the user has hardware CW from KEY
    selected in AetherSDR (DUC-specific byte 5 bit [1] set, part B B10.9), AetherSDR MUST
    refuse a TCI CW TX request (`KEYER` press, `CW_MACROS`, `CW_MSG`, `CW_TERMINAL` text) with
@@ -1823,6 +1838,7 @@ One line per test; tests run against the reference model on the product side (00
 | T-C8-28 | (L1) After a TCI `STOP;` and a new `START;`, AetherSDR, restarting from the same IP address and port (no takeover, reset, update, level or address change in between), sends the General packet with PA enable and the DUC-specific packet before it arms, and DDC0 runs with the RX settings of the ended session without a new DDC-specific packet; after a takeover by another host and a new session it sends the DDC-specific packet as well; with a TCI session value `G7250_LIMIT:LIMIT_FWD_POWER,30000;` in force before the `STOP;` and no stricter value in AetherSDR's user interface, the P2 `LIMIT_FWD_POWER` register reads 30 000 mW, and `TX_MODE_CLASS` the class of the current mode, before AetherSDR writes the arm (C5.10.1 item 6, C7.2.1, C8.5a item 3; 0022 §78; 0021 §44 item 11, §45 item 1). |
 | T-C8-29 | A client that has not opted in keys with `TRX:0,true,tci;` without a running `AUDIO_START` where a microphone path exists (row 3), then sends `AUDIO_START` and `TRX:0,true,tci;` every 500 ms: the radio stays keyed with the microphone, no TX_CHRONO is sent, the TX audio underrun does not act, and once the client stops restating the generic keyed window unkeys after 1 s (`unkey` 2); after `TRX:0,false;` a new `TRX:0,true,tci;` keys in row 1 (C8.2.3, C7.5 items 7 and 8; 0021 §45 item 12). |
 | T-C8-30 | (L1) With a hang delay of 300 ms written to DUC-specific bytes 11–12, two TCI `KEYER` elements 200 ms apart and a third 600 ms after the second: the P2 PTT bit stays set with DUC I&Q at zero across the first gap and is cleared 300 ms after the second element (one P2 transmission for the first two, a new PTT 0→1 edge for the third); with a hang delay of 3000 ms AetherSDR writes 2000 and clears PTT 2000 ms after the last element; with a hang delay of 0 PTT is set and cleared per element (C8.2.5 item 1; 0021 §46 item 1). |
+| T-C8-32 | (L1) With a hang delay of 300 ms, TCI `KEYER` elements 200 ms apart and `t_blank` below the gap (reference model): AetherSDR sends I = Q = 0 in every gap and in the hang delay; RF above the "RF while not keyed" threshold injected in a gap enters the fault state with `RF_NOT_KEYED` (`G7250_SAFETY`) no later than `t_blank` + 10 ms after the last non-zero sample of the element, while the P2 PTT bit is still set; RF that decays within `t_blank` after each element gives no fault (C8.2.5 item 2; part B A3.9a item 6; 0021 §47 item 1; 0022 §88 item 1). |
 | T-C8-31 | (L1) After a takeover, AetherSDR sets no PTT before the P2 write echoes of `TX_MODE_CLASS` and each `LIMIT_<name>` write have arrived (reference model delaying the echoes by 50 ms); after a watchdog standby, a link loss and an inferred loss every TCI client receives `STOP;` after the messages of C7.2.1 (C5.10.1 item 6, C8.5a item 3, C2.9a, C7.2.1; 0021 §46 items 4, 5). |
 
 ---
