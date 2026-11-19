@@ -31,6 +31,12 @@ python3 models/devices/i2c_devices.py >/dev/null 2>&1 && ok i2c_devices || bad i
 echo "[2c] power_model.py self-test"
 python3 models/system/power_model.py >/dev/null 2>&1 && ok power_model || bad power_model
 
+echo "[2d] bias_trim_plant.py self-test"
+python3 models/devices/bias_trim_plant.py >/dev/null 2>&1 && ok bias_trim_plant || bad bias_trim_plant
+
+echo "[2e] spi_sink.py self-test"
+python3 models/devices/spi_sink.py >/dev/null 2>&1 && ok spi_sink || bad spi_sink
+
 if [ ! -x "$RN" ] && [ ! -f "$RN" ]; then
   echo "[3-4] SKIP (pinned Renode not found at tools/renode-1.17.0)"
 else
