@@ -20,7 +20,15 @@
       "Bash(*G90tools*)",
       "Bash(*G7250_V1.0.1_decrypted*)",
       "Bash(*Repos/on8st/..*)",
-      "Bash(*cd ..*)"
+      "Bash(*cd ..*)",
+      "Bash(*git show*)",
+      "Bash(*git cat-file*)",
+      "Bash(*git log -p*)",
+      "Bash(*git diff*re/*)",
+      "Bash(*git checkout*re/*)",
+      "Bash(*git restore*re/*)",
+      "Bash(*sparse-checkout*)",
+      "Bash(*git archive*)"
     ]
   }
 }
