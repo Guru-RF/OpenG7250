@@ -490,6 +490,14 @@ These parts of the ANAN P2 code already match the G7250 and need no change, only
   one TCI client onto the one P2 arm; write `TX_ARM` = 0 only when no holder remains (0021 §24).
   Broadcast `TRX:0,false;`/`TUNE:0,false;` after every radio-side unkey. Never retake the radio
   after a takeover; on a new session rewrite mode class, limits and keyed timeout (0021 §26).
+- **Added by the second review (0022 §22–§32).** Treat ownership as lost and stop C&C when
+  neither DDC0 nor status packets arrive for more than 200 ms (A2.4; C7.2.1); expect the final
+  `TX_ARM_STATE` (`TAKEOVER`) up to three times. Map TCI `STOP` to clearing the P2 run bit
+  (C4; C5.5.5). Cap a TCI `KEYER` key-down at 1 s and require application frames at least every
+  30 s while CW text is sent (C8.2). Send `G7250_FAULT_CLEAR:<fault_code>;` with the current
+  code (C5.10). Derive the part C `inhibits` field from the new `LIMIT_INHIBIT` register
+  (B8, 0x0221). Never start an ATU tune while keyed, and declare the mode class before arming;
+  a class change while keyed unkeys on P2 (A3.9b, A3.9c).
 
 ### 3.3 Summary
 
