@@ -28,6 +28,7 @@ on 2026-11-19, as recorded in `decisions/`.
 | 0014 | One TCI profile (spec part C) for AetherSDR on level 1 and the firmware on level 2 | accepted |
 | 0015 | Host that does not know the board type: RX only; TX needs an arm in the G7250 register map | accepted |
 | 0016 | Level 1 uses openHPSDR Protocol 2 instead of Protocol 1; AetherSDR P2 support built by us if needed | accepted. Revises 0001, 0009, 0011; 0005 and 0015 rewritten |
+| 0017 | G7250-P2 offers no DDC audio stream (port 1028); frees one of the 8 CH394Q sockets | accepted |
 
 Numbers 0003, 0004 and 0006–0008 are reserved for: capability block,
 streams and sample rates, telemetry, watchdog and safety (including the TX arm from 0015),
@@ -53,10 +54,8 @@ ANAN-G2, TCI server announcing protocol 2.1) come from its README, read 2026-11-
 - Network hardware of the main unit: Ethernet is present (ON8ST, 2026-11-19, see
   `sources.md` [G7250-TOFF]). ON8ST saw a WCH CH394Q during hardware inspection: confirm,
   and which SPI clock to the processor, and socket or MACRAW mode. See `analysis/ch394-network-budget.md`. Wi-Fi still open.
-- Audio path: does the main unit have an audio DAC/codec that can drive the speaker,
-  headphone or GY-10 output, and is the speaker in the main unit or the controller? Decides
-  whether P2 DDC audio (port 1028) and microphone data are offered
-  (`analysis/ch394-network-budget.md`).
+- Microphone path: can the main unit sample a microphone for the host (P2 microphone data on
+  port 1026)? Audio playback is settled: the G7250 cannot play audio (ON8ST, 0017).
 - Compute resources (DSP/FPGA/MCU), memory, network stack (TCP, WebSocket). These are
   needed for gate G6.
 

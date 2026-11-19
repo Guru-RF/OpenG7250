@@ -123,7 +123,7 @@ count also a problem for TCI (level 2)?
 | 2 | 1025 | in: DDC-specific packets; out: High Priority status [P2] | required (receiver set-up; status incl. forward/reverse power) |
 | 3 | 1026 | in: DUC-specific packets; out: microphone data [P2] | required for TX set-up; the microphone stream on it is optional |
 | 4 | 1027 | in: High Priority packets (run, PTT, frequencies, drive); out: wideband data [P2] | required; the wideband stream on it is optional (enabled per ADC, General packet byte 23 [P2]) |
-| 5 | 1028 | in: DDC audio (audio for the radio's own DAC/speaker) [P2] | **optional**: only if the G7250 plays host audio itself |
+| 5 | 1028 | in: DDC audio (audio for the radio's own DAC/speaker) [P2] | **not offered**: the G7250 cannot play audio (ON8ST, 0017) |
 | 6 | 1029 | in: DUC I&Q (TX IQ) [P2] | required for TX (0012) |
 | 7 | 1035 | out: DDC0 I&Q (RX IQ) [P2] | required |
 | 8 | to be defined | in/out: memory-mapped registers, the G7250 register map (0005) | required for the G7250 (ATU, antenna, TX arm, 0015) |
