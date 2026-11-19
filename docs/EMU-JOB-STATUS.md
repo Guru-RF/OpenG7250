@@ -16,8 +16,11 @@ tests/baseline/boot_milestone.sh.)
   compiled in at runtime): the Main logs "[OK] Settings data successfully loaded
   from EEPROM". Wired by default (g7250_main_i2c1_func.repl).
 - B2 ◐ functional CH394 (`G7250Ch394`, ISPIPeripheral) compiles + registers on
-  spi6; the W5500 SPI-frame decode / SIPR read-back log still needs validating.
-  A1.12 is already confirmed firmware-side (E2), so this is a nicety.
+  spi6 and receives the SPI byte stream (confirmed writing CH394 reg 0x0039).
+  Full W5500 frame-sync needs the chip-select GPIO wired to the model: Renode
+  fires FinishTransmission per byte and the firmware holds a GPIO CS across the
+  frame, so frame boundaries come from CS, not FinishTransmission. A1.12 is
+  already confirmed firmware-side (E2), so the chip-side read-back is a nicety.
 
 ## C. Control boot — ✅ DONE (M2/C2)
 Boots through SLIP client, AIC3204 codec, FatFS mount attempt, **GT911 touch at
@@ -31,17 +34,22 @@ register: sdmmc IntStatus (no SD card modelled). (docs/M2-control-status.md.)
   wires USART2↔USART2 through a UART hub, and SLIP bytes (0xC0-delimited) are
   transmitted over the link. (RX is circular-DMA, not register-visible; full
   bidirectional confirmation would watch DMA1 S3.)
-- D2 ⏳ FPGA fused model (48 kHz I/Q over the GPIOE bit-bang) — explicitly M3;
-  needs the bit-bang bus protocol modelled. The Main's FPGA bus errors are
-  logged and tolerated, so the boot is unaffected.
+- D2 ⏳ FPGA fused model (48 kHz I/Q over the GPIOE bit-bang) — explicitly M3.
+  The interface is now fully specified in g7250-his HIS 80 (D0–7/CMD/STB/DRDY on
+  PE0–10, command set, NCO/rate). Modelling it needs a C# peripheral wired to the
+  GPIOE pins in BOTH directions (MCU-output→FPGA and FPGA→MCU-input) plus the
+  exact STB/CMD read/write handshake (which the RE marks partly unmeasured). The
+  Main's FPGA bus errors are logged and tolerated, so the service-loop boot is
+  unaffected; live I/Q is the M3 deliverable.
 
 ## E. Finishing / hardening
 - E1 ✅ dual-signal hang verdict (MMIO poll-hang + executed-frozen WFI idle).
 - E2 ✅ PW-1 emulator confirmation (r0_confirm.py): Main matches the prediction.
 - E3 ✅ boot-milestone regression (tests/baseline/boot_milestone.sh).
-- E4 ◐ g7250-his repo scaffolded (~/Repos/on8st/g7250-his): role, clean-room
-  process and section outline in place; sections are populated per fact under
-  the clean-room review (ongoing, M8b).
+- E4 ✅ g7250-his repo started (~/Repos/on8st/g7250-his): README (role +
+  clean-room process) and HIS sections 00–80 populated from the emulator-proven
+  behaviour + public RE (reset/clock, power, I2C, ethernet, audio, display/input,
+  SLIP interlink, RF/FPGA), behaviour-only with evidence cited. Local only.
 
 ## Not in scope (policy)
 No decryption; no push/PR/mail without Stan's "verstuur"; no shared GitHub org
