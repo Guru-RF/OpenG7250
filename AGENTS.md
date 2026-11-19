@@ -1,12 +1,15 @@
 # Agent instructions (OpenG7250)
 
-An agent working in this repository is on the **RE side**, because the tree
-contains RE material under `re/`. Follow [CLEANROOM.md](CLEANROOM.md) without
-exception.
+An agent working in a full work tree of this repository is on the **RE side**,
+because the tree contains RE material under `re/`. Follow
+[CLEANROOM.md](CLEANROOM.md) without exception.
 
-1. Never work on the product side (`g7250-spec`, `g7250-firmware`) from this
-   work tree or from a session that has read anything under `re/`. Product
-   agents work only in a separate product work tree.
+1. Never work on the product side (`product/`) from a full work tree or from a
+   session that has read anything under `re/`. Product agents work only in a
+   separate clone whose sparse checkout contains `product/` (and `his/`) but not
+   `re/`, and follow `product/spec/AGENTS.md`. Git history in such a clone still
+   contains `re/`; product agents never inspect it (`git show`, `git log -p` and
+   similar on `re/` paths are forbidden).
 2. Put generated artifacts under the git-ignored `re/analysis/analysis/generated/`.
    Never commit decrypted images, decompiler output, traces or dumps.
 3. Record findings in `re/analysis/docs/`, as conclusions with addresses and
