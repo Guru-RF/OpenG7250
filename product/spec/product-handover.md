@@ -54,8 +54,11 @@ ANAN-G2, TCI server announcing protocol 2.1) come from its README, read 2026-11-
 - Network hardware of the main unit: Ethernet is present (ON8ST, 2026-11-19, see
   `sources.md` [G7250-TOFF]). ON8ST saw a WCH CH394Q during hardware inspection: confirm,
   and which SPI clock to the processor, and socket or MACRAW mode. See `analysis/ch394-network-budget.md`. Wi-Fi still open.
-- Microphone path: can the main unit sample a microphone for the host (P2 microphone data on
-  port 1026)? Audio playback is settled: the G7250 cannot play audio (ON8ST, 0017).
+- CTRL link between main unit and controller (15-pin cable): what does it carry? In
+  particular: can the main unit send audio to the controller's speaker, and can it receive
+  microphone audio, PTT and Morse key from the controller? Speaker, microphone, key, USB and
+  Bluetooth are all on the controller [G7250-MAN]; the main unit has no audio connector
+  (ON8ST, 0017). Decides P2 microphone data (port 1026) and a possible later audio path.
 - Compute resources (DSP/FPGA/MCU), memory, network stack (TCP, WebSocket). These are
   needed for gate G6.
 
