@@ -23,6 +23,7 @@ grep -q "5p49v6965"                     "$C" && ok "VersaClock 6 ready"     || b
 grep -q "IP 192.168.3.199"              "$C" && ok "LAN default IP (A1.12)" || bad "LAN default IP"
 grep -q "aic3204"                       "$C" && ok "audio codec ready"      || bad "audio codec"
 grep -qi "Start RX mode"                "$C" && ok "TRX RX mode"            || bad "TRX RX mode"
+grep -q "source IP set to 192.168.3.199" "$OUT/m1_renode.log" && ok "CH394 chip-side default IP (A1.12)" || bad "CH394 chip-side IP"
 
 echo
 [ $fail -eq 0 ] && { echo "boot milestone: ALL PASS"; exit 0; } || { echo "boot milestone: FAILURES"; exit 1; }

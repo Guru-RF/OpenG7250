@@ -11,16 +11,14 @@ A1 PWR 0x08 ready ✅ · A2 chain chased ✅ · A3 FPGA errors tolerated (→ D2
 A4 60 s no hang ✅ · A5 A1.12 default IP ✅. (docs/M1-status.md,
 tests/baseline/boot_milestone.sh.)
 
-## B. Realistic I/O — B1 ✅ · B2 ◐
+## B. Realistic I/O — ✅ DONE (B1 + B2)
 - B1 ✅ functional EEPROM (models/csharp/G7250Slaves.cs `G7250Eeprom24C`,
   compiled in at runtime): the Main logs "[OK] Settings data successfully loaded
   from EEPROM". Wired by default (g7250_main_i2c1_func.repl).
-- B2 ◐ functional CH394 (`G7250Ch394`, ISPIPeripheral) compiles + registers on
-  spi6 and receives the SPI byte stream (confirmed writing CH394 reg 0x0039).
-  Full W5500 frame-sync needs the chip-select GPIO wired to the model: Renode
-  fires FinishTransmission per byte and the firmware holds a GPIO CS across the
-  frame, so frame boundaries come from CS, not FinishTransmission. A1.12 is
-  already confirmed firmware-side (E2), so the chip-side read-back is a nicety.
+- B2 ✅ functional CH394 (`G7250Ch394`, ISPIPeripheral) on spi6 with its CS#
+  (PG15) wired so W5500 register frames are delimited by the chip-select edge.
+  The model logs **"source IP set to 192.168.3.199"** when the firmware programs
+  SIPR — the chip-side A1.12 confirmation. Wired into m1_run by default.
 
 ## C. Control boot — ✅ DONE (M2/C2)
 Boots through SLIP client, AIC3204 codec, FatFS mount attempt, **GT911 touch at

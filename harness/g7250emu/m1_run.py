@@ -21,6 +21,7 @@ REPO = os.path.abspath(os.path.join(HERE, "..", ".."))
 REPL = os.path.join(REPO, "platforms", "g7250_main.repl")
 REPL_I2C1_MOCK = os.path.join(REPO, "platforms", "g7250_main_i2c1_mock.repl")
 REPL_I2C1_FUNC = os.path.join(REPO, "platforms", "g7250_main_i2c1_func.repl")
+REPL_SPI6_CH394 = os.path.join(REPO, "platforms", "g7250_main_spi6_ch394.repl")
 CS_SLAVES = os.path.join(REPO, "models", "csharp", "G7250Slaves.cs")
 OUT = os.path.join(REPO, ".private", "m1")
 
@@ -46,6 +47,9 @@ def build_resc(image_path, log_path):
         # speed and settings load from the EEPROM (docs/M1-status.md).
         'i @%s' % CS_SLAVES,
         'machine LoadPlatformDescription @%s' % REPL_I2C1_FUNC,
+        # functional CH394 Ethernet on SPI6 (CS# = PG15) so the forced default
+        # IP is programmed into the chip (A1.12 confirmed chip-side).
+        'machine LoadPlatformDescription @%s' % REPL_SPI6_CH394,
         # give the NVIC the SysTick input clock so the 1 ms HAL tick advances
         'nvic Frequency %d' % CORE_HZ,
     ]

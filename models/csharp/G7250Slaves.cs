@@ -84,7 +84,7 @@ namespace Antmicro.Renode.Peripherals.SPI
     // a frame. We log the source IP (SIPR, common block BSB=0, 0x0F..0x12) when
     // the firmware programs it — the A1.12 check that the forced default IP
     // 192.168.3.199 actually reaches the chip.
-    public class G7250Ch394 : ISPIPeripheral
+    public class G7250Ch394 : ISPIPeripheral, Antmicro.Renode.Core.IGPIOReceiver
     {
         private readonly byte[,] regs = new byte[0x20, 0x200];
         private int phase, bsb, addr; private bool write;
@@ -119,7 +119,12 @@ namespace Antmicro.Renode.Peripherals.SPI
             return outb;
         }
 
-        public void FinishTransmission() { phase = 0; }
+        public void OnGPIO(int number, bool value)
+        {
+            if(number == 0 && !value) { phase = 0; } // CS# asserted low: new frame
+        }
+
+        public void FinishTransmission() { } // frame boundary comes from CS#, not per-byte
     }
 }
 
