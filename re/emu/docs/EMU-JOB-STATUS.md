@@ -56,6 +56,6 @@ inserted is a valid real state); it does not block the GUI loop. CLOSED.
   sections written (not a stub). CLOSED.
 
 ## Not in scope (policy)
-No decryption; no push/PR/mail without Stan's "verstuur"; no shared GitHub org
-until the Belgian IP advice. Decrypted images stay outside any repo; the
+No decryption; no push/PR/mail without an explicit go from the repository owner
+(umbrella AGENTS.md rule 4). Decrypted images stay outside any repo; the
 manifest hash stays local/untracked.

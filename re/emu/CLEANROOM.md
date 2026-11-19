@@ -38,10 +38,10 @@ to run on a mismatch. See `SECURITY.md`.
 - Identity and trailer rules follow the owner's conventions (author ON8ST).
 - Findings about the stock firmware go as RE docs to `re/analysis/docs/`, never here.
 
-## Legal
+## Distribution
 
-A Belgian IP lawyer is consulted before any publication and before firmware
-work (`product/firmware/` F2). Nothing — images, packages, derived dumps — is ever
-distributed. Because no decryption loader exists in this tooling, the tooling
-itself raises no Art. 7(1)(c) (EU Directive 2009/24/EC) concern; obtaining and
-using the images remains the user's responsibility under that advice.
+Nothing — images, packages, derived dumps — is ever distributed. No decryption
+loader exists in this tooling; it decrypts, encrypts and packages nothing.
+Obtaining and using the images remains the user's responsibility. Pushes and
+PRs need an explicit go from the repository owner (umbrella `AGENTS.md`
+rule 4).

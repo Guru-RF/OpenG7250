@@ -47,7 +47,7 @@ All image-driven scripts skip/refuse cleanly (exit 2) with no image-map.
 - The emulator does NO decryption; decrypted images live outside any repo.
 - `images/manifest.yaml` carries hashes only; the decrypted-image hash is filled
   LOCALLY and never committed (it was discarded before the import).
-- Local commits on branches only; no push until the Belgian IP advice.
+- Local commits on branches only; no push without an explicit go (umbrella AGENTS.md rule 4).
 - The hardware-interface spec (HIS) lives in the separate `g7250-his` repo
   (sections 00–80); it migrates to `his/` only after review at the gate.
 

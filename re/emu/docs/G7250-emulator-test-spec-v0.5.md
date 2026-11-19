@@ -956,7 +956,7 @@ sleutelconfiguratie en geen sleutelopslag** (geen sleutelbestand, geen
 Keychain). Hij leest uitsluitend **reeds ontsleutelde
 applicatie-images** die de gebruiker zelf aanlevert. Hoe de gebruiker
 die images verkrijgt, valt buiten de emulator en buiten deze
-specificatie (zie §12.4 voor het juridische advies).
+specificatie.
 
 | Feit | Bron | Label |
 | --- | --- | --- |
@@ -1783,7 +1783,7 @@ komt, §15):
 | --- | --- | --- |
 | F0 | **R0 beantwoord** (§3.8) | Bepaalt of de HIL-opstelling EH is, of de Main met een stock-paneel enkel om in te schakelen (ES-regels) |
 | F1 | **Terugrol-oefening naar stock voor de Main** (kritiek pad) | Op de echte radio de officiële vendor-update voor de Main toepassen volgens de vendorprocedure, daarna de stock-HIL-smoke halen. Bewezen vóór de eerste NF-Main-flash. Track EE: dezelfde oefening voor de Control vóór de eerste NF-Control-flash |
-| F2 | Installatiepad van de NF opgehelderd en juridisch in orde | Een schriftelijk besluit van de eigenaar, na juridisch advies (§12.4) |
+| F2 | Installatiepad van de NF opgehelderd | Een schriftelijk besluit van de eigenaar |
 | F3 | **Alleen track EE:** een flashprocedure voor twee units | Volgorde, gedrag bij verschillende versies, herstel van elke tussentoestand naar stock |
 
 **HIL met de NF-Main** (pas na E0–E4, H-G1, F0, F1 en F2):
@@ -2003,29 +2003,25 @@ de NF niet sturen.
   testdefinities, het hash-manifest, de documentatie, de eigen
   testfirmwares en de NF-resultaten.
 
-### 12.4 Juridische aandachtspunten (geen juridisch advies)
+### 12.4 Juridische aandachtspunten
 
 | Onderwerp | Kern | Relevantie |
 | --- | --- | --- |
 | Richtlijn 2009/24/EG (softwarerichtlijn), art. 5 lid 3 | De rechtmatige gebruiker mag de werking van een programma observeren, bestuderen en testen tijdens het laden of uitvoeren | De kern van de emulatorbaseline: de eigen, rechtmatig verkregen firmware draaien om ze te bestuderen |
-| Idem, art. 6 (decompilatie voor interoperabiliteit) | Toegestaan onder voorwaarden | De NF werkt niet samen met stock; de externe protocollen van de NF (P1, TCI, CI-V) zijn publiek. Wat overblijft, is het gebruik van RE-afgeleide **hardwarekennis** via de HIS. Of dat onder art. 6 (interoperabiliteit met de hardware), onder art. 5 lid 3 valt, of dat hardwarefeiten als zodanig niet beschermd zijn, is een **vraag voor de advocaat** |
+| Idem, art. 6 (decompilatie voor interoperabiliteit) | Toegestaan onder voorwaarden | De NF werkt niet samen met stock; de externe protocollen van de NF (P1, TCI, CI-V) zijn publiek. Wat overblijft, is het gebruik van RE-afgeleide **hardwarekennis** via de HIS. Die loopt uitsluitend via de gereviewde HIS: hardwarefeiten, geen stock-implementatie (§12) |
 | Idem, art. 7 lid 1 onder c | Verbod op het in het verkeer brengen of het commercieel bezit van middelen die uitsluitend bedoeld zijn om technische beschermingen te omzeilen | **Vervalt voor onze eigen tooling:** de emulator bevat geen ontsleutelingscode, geen sleutelafhandeling en geen manier om images te ontsleutelen; hij leest alleen door de gebruiker aangeleverde images en hasht het vendorpakket als herkomst |
-| Verkrijgen en gebruiken van de images | Hoe de gebruiker de ontsleutelde images verkrijgt en gebruikt, valt buiten de emulator | **Blijft een vraag voor de advocaat** (ook in het licht van art. 7 en van richtlijn 2001/29/EG, art. 6) |
+| Verkrijgen en gebruiken van de images | Hoe de gebruiker de ontsleutelde images verkrijgt en gebruikt, valt buiten de emulator | Verantwoordelijkheid van de gebruiker; de emulator ontsleutelt, versleutelt of verpakt niets en verspreidt geen images |
 | Richtlijn 2001/29/EG, art. 6 | Bescherming van technische voorzieningen; voor software geldt in de eerste plaats de softwarerichtlijn (art. 1 lid 2 onder a) | idem |
 | Belgisch recht | De omzetting zit in het Wetboek van economisch recht, boek XI (de titel over computerprogramma's, vroeger de wet van 30 juni 1994) (HIGH) | De concrete toepassing in België |
-| Richtlijn 2014/53/EU (radioapparatuur) | Amateurapparatuur die niet op de markt wordt gebracht, en commerciële apparatuur die door en voor radioamateurs is aangepast, vallen buiten de richtlijn (bijlage I) (HIGH) | Eigen gebruik van de NF op de eigen radio; bij **publicatie** van de NF juridisch laten bekijken |
+| Richtlijn 2014/53/EU (radioapparatuur) | Amateurapparatuur die niet op de markt wordt gebracht, en commerciële apparatuur die door en voor radioamateurs is aangepast, vallen buiten de richtlijn (bijlage I) (HIGH) | Eigen gebruik van de NF op de eigen radio |
 | Vergunning (BIPT) | TX-tests binnen de amateurvergunning | De HIL-gates (§11.4) |
 | Bibliotheeklicenties | STemWin alleen op STM32 onder de ST-licentie; HAL BSD-3; CMSIS Apache-2.0 (`docs/libraries.md`, `control_unit/docs/gui.md`) | De NF-Control (track EE) MOET een eigen GUI-bibliotheek gebruiken of een met een passende licentie |
 | Vendordocumentatie | De CI-V-referentie, het rigbestand en de release notes zijn publiek gepubliceerd door de vendor | Mogen als bron dienen; niet herverspreiden zonder toestemming; de ExtIO-DLL alleen gebruiken, niet analyseren |
 | Merknamen | "Icom", "wfview", "Xiegu" alleen beschrijvend | Geen nabootsing van branding |
 
-**Aanbeveling.** Leg vóór elke publicatie van de emulator, de HIS of de
-NF, en vóór F2 van het firmwareproject, een **Belgische IE-advocaat**
-voor: (a) het verkrijgen en gebruiken van de ontsleutelde images door de
-gebruiker; (b) publicatie en licentie van de emulator, de HIS en de NF;
-(c) het gebruik van RE-afgeleide hardwarekennis via de HIS; (d) RED en
-de vergunning. Het verpakken van de NF in het vendor-updateformaat is een
-vraag van het firmwareproject (§15).
+Het verpakken van de NF in het vendor-updateformaat is een vraag van het
+firmwareproject (§15). Publicatie volgt alleen de regel van de umbrella: een
+expliciet akkoord van de eigenaar van de repository.
 
 ---
 
@@ -2185,7 +2181,7 @@ alleen: 22–32 pw.
 | R6 | De gebruiker kan voor een nieuwe release geen ontsleutelde images aanleveren (formaatwijziging of anti-tamper bij de vendor) | middel | middel | De emulator hangt niet van het formaat af; de release blijft "herkomst bekend, niet getest"; oudere releases blijven de baseline |
 | R7 | Een image- of pakketlek in git of artefacten | laag tot middel | hoog (juridisch, vertrouwen) | Pre-commit- en CI-scans op hashes, binaire bestanden en extensies; de imagemap buiten elke werkboom (afgedwongen); privé-runners |
 | R8 | Clean-room-besmetting (via de HIS of artefacten) | middel | hoog | §12-processen, HIS-review, agentinstructies, herkomstlog, check op de NF-repo |
-| R9 | Juridische onzekerheid rond het verkrijgen en gebruiken van de images, de HIS en publicatie | middel | hoog | Belgische IE-advocaat vóór publicatie en vóór F2; niets verspreiden |
+| R9 | Juridische onzekerheid rond het verkrijgen en gebruiken van de images, de HIS en publicatie | middel | hoog | Niets verspreiden: images, pakketten en afgeleide dumps blijven lokaal; de emulator ontsleutelt niets |
 | R10 | De NF beschadigt de persistente staat, zodat stock na een terugrol niet goed werkt | laag (met E-B1–E-B3) | hoog | §10.1.3; gate E3 |
 | R11 | FPGA-TX-gedrag onbekend, dus P1-TX niet goed te modelleren | hoog | middel | TX-sink met parameters; HIL H2 met stock; TX in de NF pas na H-G3 |
 | R12 | Het TCP- of WOL-gedrag van de CH394 wijkt af van de W5500 | middel | middel | P1-first; conservatieve socketinstellingen; HIL-verificatie |
@@ -2212,7 +2208,7 @@ ontsleutelt niets (§4.1) en levert de gates E0–E4 (§10.3).
 | O3 | **Het updatepad van de NF** (vendor-bootloader of een eigen updater) | Onderhoud en herstel | De regel "geen flashprogrammering in de app" (§10.1.2) geldt tot het firmwareproject anders beslist |
 | O4 | **Terugrol-oefening** (F1) voor de Main, en voor de Control in de track EE | Het enige bekende herstelpad zonder SWD | De stock-HIL-smoke; de hash-gecontroleerde herkomst van het vendorpakket (§4.4) |
 | O5 | **Alleen track EE:** flashprocedure voor twee units (F3) | Hoger brick-risico | E-B6 en §10.1.7 |
-| O6 | **Verpakking in het vendor-updateformaat** en de juridische toets (F2) | Juridisch gevoelig (§12.4) | Niets: de emulator ontsleutelt, versleutelt of verpakt niets |
+| O6 | **Verpakking in het vendor-updateformaat** (F2) | Vraag van het firmwareproject (§15) | Niets: de emulator ontsleutelt, versleutelt of verpakt niets |
 | O7 | **Topprioriteit (R0, F0): kan de Main inschakelen en werken zonder Control?** | Voorwaarde voor EH op de echte radio | §3.8: feiten, H1/H2, PowerModel met PW-1–PW-8, koudestartobservaties T0-P1–T0-P4. Het firmwareproject implementeert P-1–P-11 en beslist over de CH394-WOL-functie |
 | O8 | **Alleen track EE:** de NF-linkspecificatie (framing, baudrate, synchronisatie, eigenaarschap, protocolversie en capability-onderhandeling) | Basis voor C-L1…C-L11 | De generieke eisen van §8.3.1 en de LinkCable-faultinjectie |
 | O9 | **Het G7250-P1-profiel en het board-id**, de TCI-commandoset, het CI-V-commandoprofiel (met de publieke CI-V-referentie rev. 1.2 als bron) | Basis voor C-P, C-T en de CI-V-conformance | De referentieclients in het harnas |
