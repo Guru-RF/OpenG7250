@@ -1,77 +1,56 @@
-# Repository layout
+# Layout
 
-This repo follows the structure defined in spec §13
-(`G7250-emulator-test-spec-v0.5.md`). Generated artifacts go in `/.private/`
-(git-ignored); locally installed tooling in `/tools/` (git-ignored); decrypted
-images never enter the repo (see `SECURITY.md`).
+The emulator is component `g7250-emu` of the OpenG7250 umbrella, at `re/emu/`.
+Its internal structure follows spec §13 (`G7250-emulator-test-spec-v0.5.md`).
+Generated artifacts go in `re/emu/.private/` (git-ignored); locally installed
+tooling in `re/emu/tools/` (git-ignored); decrypted images never enter any
+repo (see `SECURITY.md`).
 
-## No shared organisation (for now)
+## Place in the umbrella
 
-The projects are kept as **separate local repositories under `~/Repos/on8st/`**.
-No `OpenG7250` GitHub organisation is created yet.
+The former separate repositories map onto the umbrella
+as follows (see the umbrella `README.md` for the full layout):
 
-| Repo | Status | Role |
-| --- | --- | --- |
-| `g7250-base` | exists | RE documentation (fork of fventuri/g7250-base) |
-| `g7250-emu` | exists (**this repo**) | RE-side tooling: emulator, harness, tests, hash manifest |
-| `g7250-his` | later (M8b) | clean-room hardware-interface spec — the only hardware source for the firmware |
-| `g7250-fw` | later | clean-room firmware (NF-Main first); holds the NF-link and P1 specs |
+| Former repo | Umbrella path | Side | Role |
+| --- | --- | --- | --- |
+| `g7250-base` | `re/analysis/` | RE | RE findings, consumed here as data (`deps/re-analysis.lock`). `fventuri/g7250-base` itself is now an external comparison source, not a part of the umbrella. |
+| `g7250-emu` | `re/emu/` (**this component**) | RE | Emulator, harness, tests, hash manifest |
+| `g7250-his` | `his/` (planned) | Gate | Clean-room hardware-interface spec, the only hardware source for the firmware. Still a separate repo; migrates after review at the gate. |
+| `g7250-fw` | `product/firmware/` | Product | Clean-room firmware (headless Main first). Never checked out in an RE work tree. |
+| — | `testbench/` (planned) | Shared | Black-box tests against the specs |
 
-## Target structure (§13.1)
+## Component structure (§13.1)
 
 ```
-g7250-emu/
+re/emu/
 ├── README.md CLEANROOM.md SECURITY.md LICENSE AGENTS.md
-├── deps/g7250-base.lock         pinned g7250-base commit (consumed as data)
-├── images/                      manifest.yaml (hashes/provenance) + verify.py
-├── platforms/                   .resc / .repl (two machines, headless Main, profiles)
-├── models/                      C# peripherals: stm32h7/, devices/, system/, python/
-├── harness/g7250emu/            Python: core io inject observe protocols targets report
-├── firmware-tests/              our own small clean-room test firmwares (incl. M0)
-├── tests/                       unit integration baseline conformance brick fault fuzz perf hil
-├── matrix/version_matrix.yaml
-├── ci/                          pipeline definitions
-├── docs/                        design docs, this spec, model docs (sourced)
-└── .private/  (git-ignored)     golden sets, recordings, heatmaps, runs, build output
+├── deps/re-analysis.lock        pinned re/analysis commit (consumed as data)
+├── images/                      manifest.yaml (provenance hashes) + verify.py
+├── platforms/                   .resc / .repl (Main, Control, overlays, SLIP)
+├── models/                      csharp/ (Renode peripherals), devices/, system/
+├── harness/g7250emu/            Python: bootcore, runners, observe, imagemap
+├── firmware-tests/              own small clean-room test firmwares (incl. M0)
+├── tests/baseline/              m1_smoke, boot_milestone, fpga_boot, acceptance_ae
+├── docs/                        design docs, this spec, status reports, architecture
+├── local.config (git-ignored)   image-map path, image hashes, HIS location
+├── tools/       (git-ignored)   renode-1.17.0/  pinned Renode portable (arm64)
+└── .private/    (git-ignored)   runs, logs, recordings, heatmaps, build output
 ```
 
-## What exists now (milestone M0 — platform spike)
+Directories from §13 not yet populated (`matrix/`, `ci/`, further `tests/`
+suites) are created when the work that needs them begins (see spec §14).
 
-```
-├── docs/G7250-emulator-test-spec-v0.5.md   the study
-├── docs/REPO_LAYOUT.md                      this file
-├── docs/M0-report.md                        M0 go/no-go + measurements
-├── images/manifest.yaml  images/verify.py
-├── deps/g7250-base.lock
-├── firmware-tests/m0/      m0_test.c  m0.ld  Makefile   (clean-room M0 test firmware)
-├── platforms/m0_probe.resc                             (generic STM32H743 spike script)
-├── harness/g7250emu/m0_run.py                           (runs Renode, measures, reports)
-└── tools/   (git-ignored)  renode-1.17.0/   pinned Renode portable (arm64)
-```
+## Key artifacts
 
-## What M1 adds (stock Main boot — scaffolding)
+- `harness/g7250emu/`: `bootcore`, `m1_run` (`--fpga`), `control_run`,
+  `slip_run`, `r0_confirm`, `observe` (strict / hang / heatmap), `imagemap`,
+  `platform_extras`.
+- `models/csharp/`: `G7250Slaves` (EEPROM, CH394), `G7250Gpioe` (fused
+  GPIOE+FPGA).
+- `models/devices/`, `models/system/`: host-tested device, plant and power
+  logic.
+- `platforms/*.repl`: `g7250_main`, `g7250_control`, the I2C/CH394/FPGA
+  overlays, SLIP.
 
-Image-independent scaffolding, verifiable now with `bash tests/baseline/m1_smoke.sh`:
-
-```
-├── platforms/g7250_main.repl        Main platform: STM32H72x deltas on the H7 base —
-│                                     320 KiB AXI SRAM, SPI1/2/3/6 controllers added
-│                                     (base has only spi4). Confirmed on Renode.
-├── models/README.md                 model layout, sources/confidence, topology decisions
-├── models/devices/ch394.py          CH394 register logic + A1.12 default-IP check (SPI6)
-├── models/devices/i2c_devices.py    EEPROM24C, AXP223, VC6, AIC3204 (I2C1 slaves)
-├── models/devices/bias_trim_plant.py  ADC1+DAC closed-loop PA-bias-trim plant
-├── models/devices/spi_sink.py       generic SPI1/SPI2 write-mostly sink
-├── models/system/power_model.py     PH5/PH9 power/reset state machine (R0, §3.8)
-├── harness/g7250emu/imagemap.py     local image-map loader (hash-verified, no decryption)
-├── harness/g7250emu/observe.py      strict mode + hang detector + MMIO heatmap
-├── harness/g7250emu/platform_extras.py  Tags for H72x-only + unmodelled (DAC1/MDMA) blocks
-├── harness/g7250emu/m1_run.py       boot runner (refuses cleanly until the image is supplied)
-└── tests/baseline/m1_smoke.sh       the scaffolding regression gate (11 checks, ALL PASS)
-```
-
-The actual stock boot lights up when the decrypted Main image is supplied
-locally (see `SECURITY.md`); until then `m1_run.py` refuses with a clear message.
-
-Directories from §13 not yet populated (`models/`, `tests/`, `matrix/`, `ci/`)
-are created as the milestones that need them begin (see spec §14).
+Milestone history (M0 spike, M1 scaffolding, M2, D2, M8c) is in the status
+reports under `docs/`.
