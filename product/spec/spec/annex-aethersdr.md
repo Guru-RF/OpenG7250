@@ -246,7 +246,7 @@ These parts of the ANAN P2 code already match the G7250 and need no change, only
 - **Required.** All G7250 functions outside the standard fields, and all TX safety, are
   registers carried by P2 memory-mapped packets: up to 240 pairs of 16-bit address and 32-bit
   data per packet [P2]. The G7250 uses one local UDP port for both directions; the port is
-  defined in part B (0005, Consequences; B2.3 Table B2-1 row 7, TBD). The spec defines how a
+  defined in part B: UDP 7250 (0020 §1; B2.3 Table B2-1 row 7). The spec defines how a
   write is confirmed (for example an echo) and the order against High Priority packets
   (0005, Consequences). Register packets do not feed the watchdog (0007 point 2).
 - **Today.** None. General bytes 29–32 are sent as zero (`P2Protocol.cpp:79–93`). The ingest
@@ -289,8 +289,7 @@ These parts of the ANAN P2 code already match the G7250 and need no change, only
 - **Change.** Rate list and pan limits from `ddc_rates` (G-02); snap only within it; never
   send a rate outside it. On missing IQ, read the stream status register (G-03) and show the
   reason (rate, format, link speed). Send byte 4 = `num_adc` and dither/random only for ADCs
-  that exist. After a live rate change, accept a sequence restart if the spec allows one
-  (B6.5, pending 0004); AetherSDR already resets its expectation on a rate change
+  that exist. After a live rate change, do not expect a sequence restart: counters continue (0020 §19); AetherSDR already resets its expectation on a rate change
   (`P2Client.cpp:534–543`).
 
 #### G-06 Wideband frames, 4096 samples × 20 frames/s (0004, M2) — M
@@ -337,7 +336,7 @@ These parts of the ANAN P2 code already match the G7250 and need no change, only
 - **Required.** DUC0 I&Q to port 1029, 192 ksps, 24 bits, 240 samples per packet, 1444-byte
   packets; a DUC-specific packet with rate 192 and 24 bits, else DUC I&Q is not accepted and
   TX is refused (0004 points 2 and 7; [P2] DUC I&Q packet, NOTE2). Drive level in High
-  Priority byte 345 (0005). A DUC FIFO underflow longer than a TBD time unkeys (0007 §2).
+  Priority byte 345 (0005). A DUC FIFO underflow longer than a hardware-dependent time (TBD, HIS-18) unkeys, arm kept (0007 §2; B10.5).
 - **Today.** No DUC code in the P2 backend (`P2Protocol.h:17–20`). The HL2 chain outputs
   48 kHz (`Hl2TxDsp.h:56`) into a P1 queue of 126-sample packets (`MetisProtocol.h:471`;
   `MetisClient.h:421–439`).
