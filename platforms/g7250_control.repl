@@ -1,0 +1,102 @@
+// g7250_control.repl — G7250 Control unit (STM32H743-class), skeleton.
+//
+// Clean-room: every value below is traced to the g7250-base RE docs
+// (control_unit/docs/*) or to ST's public reference manual RM0433 (H742/H743),
+// used as DATA. No stock firmware code. Confidence tags mirror the RE docs
+// (VERIFIED/HIGH/HYPOTHESIS).
+//
+// Starts from Renode's own STM32H7 base and overrides the Control-specific
+// facts. The image itself is loaded by the harness from the local image-map
+// (never from here); this file only models the reset state the bootloader
+// leaves behind (app vector table at 0x08020000).
+
+using "platforms/cpus/stm32h7.repl"
+
+// --- MCU identity -----------------------------------------------------------
+// STM32H743-class, Cortex-M7. The single strongest pointer is the initial MSP
+// 0x24080000 = top of a 512 KiB AXI SRAM (the H743/H750/H753 size), VERIFIED.
+// The reset handler also runs the rev-Y AXI-SRAM errata workaround and the
+// standard CMSIS SystemInit (SCB->VTOR = 0x08020000). cortex-m7 + 16 MPU
+// regions come from the base.
+
+// --- Memory map (control_unit/docs/memory_map.md, VERIFIED) -----------------
+// AXI SRAM is the FULL 512 KiB 0x24000000..0x24080000 on this part, which is
+// exactly the H743 base default (0x80000). So, unlike the Main unit (320 KiB
+// H72x), NO axiSram override is needed here. Nothing is placed in ITCM, DTCM
+// or D2 SRAM; the base sizes (DTCM 128 KiB, SRAM4 64 KiB, backup 4 KiB) all
+// match the MPU regions in memory_map.md and are left as the base provides.
+//
+//   .data  0x24000000..0x24001698 (<- flash 0x080DD568)   VERIFIED
+//   .bss   0x240016A0..0x240614A4 (zeroed)                 VERIFIED
+//   heap+stack up to 0x24080000, initial MSP 0x24080000    VERIFIED
+//
+// Application image: 0x08020000..0x080DEC10 (781 328 B), vector table
+// @0x08020000. flashBank1 (1 MiB @0x08000000) from the base covers the app +
+// the absent bootloader region.
+
+// --- SDRAM framebuffer (docs/memory_map.md + display subsystem, VERIFIED) ---
+// External SDRAM on FMC bank 1 @0xC0000000, 32 MiB (9 col / 13 row bits, 4
+// banks, 16-bit). The base sdramBank1 is 256 MiB; narrow it to the real 32 MiB
+// so an out-of-range framebuffer access is caught rather than silently
+// absorbed. Framebuffers at 0xC0000000 / 0xC012C000, emWin pool at 0xC0800000
+// all fall inside. sdramBank2 (0xD0000000) is unused by the Control and left
+// as the base provides.
+sdramBank1:
+    size: 0x2000000          // 32 MiB @0xC0000000 (VERIFIED)
+
+// --- SPI controllers absent from the H743 base (base has only spi4) ---------
+// SPI1 drives the W25Qxx SPI NOR flash (FatFS `1:` + the USB mass-storage
+// LUN), master/mode-0/48 MHz, CS on PG13 (VERIFIED, docs/peripherals.md).
+// SPI2 runs as I2S2, the full-duplex 48 kHz audio link to the Control AIC3204
+// (VERIFIED). H7 base addresses from RM0433 (SPI1 0x40013000 APB2, SPI2
+// 0x40003800 APB1). Registered without an rcc alias (the base's
+// RegistrationPeripheralAlias enum only carries SPI4); clock-gating awareness
+// is not needed for the boot skeleton. Verified to register on Renode.
+// TODO(control): attach the W25Qxx SPI slave to spi1 and the AIC3204 I2S slave
+// to spi2 once the image drives the frames; add DMA1 wiring (S0 RX / S1 TX
+// circular for I2S2) if the boot uses it.
+spi1: SPI.STM32H7_SPI @ sysbus 0x40013000
+spi2: SPI.STM32H7_SPI @ sysbus 0x40003800
+
+// --- Peripherals already present in the H743 base (Control inventory) -------
+// The Control is a plain H743-class part, so the base already provides every
+// block the boot needs: RCC (0x58024400), PWR (0x58024800, Python stub),
+// FLASH (0x52002000), FMC (0x52004000, Python stub), GPIO A..K, EXTI/SYSCFG,
+// NVIC, DWT, I2C1/2/3, DMA1/2, DMAMUX, TIM1..17, LTDC, DMA2D, SDMMC
+// (0x52007000), USB OTG (usb2 @0x40080000 = OTG_FS), RTC, IWDG, CRC.
+// Nothing H72x-only is needed (contrast g7250_main.repl's TIM23/24,
+// UART9/USART10 tags): the Control part class carries all of these natively.
+//
+// TODO(control) device models to add in models/devices/ and wire here when the
+// image drives the buses (host-testable logic first, Renode shims after):
+//   - W25Qxx SPI NOR on SPI1: JEDEC-ID (0xEF4014/15/17/18), 0x03 read, 0x02
+//     page-program, 0x20 sector-erase, 0x05 WIP status. FatFS `1:` + USB LUN.
+//   - AIC3204 codec on I2C2 0x18 (I2S master): a Control-side peer of the
+//     Main codec stub in models/devices/i2c_devices.py (different init: PLL
+//     98.304 MHz, 48 kHz, codec drives BCLK/WCLK). Reset on PH2.
+//   - GT911 capacitive touch on I2C1 0x14 (fallback 0x5D): 186-byte config
+//     block + checksum, 42-byte report. INT on PE2 (EXTI2), RST on PG14.
+//   - PCA9557 I/O expander on I2C2 0x19: all-outputs, boot value 0x8B; bits 4
+//     (BT power), 5 (shutdown pulse), 6 (TX path), 7 (RX path). Reset on PG3.
+//   - LTDC panel + FMC SDRAM: the base models cover register access; the
+//     panel power sequence (PE6/PI3/PF9) and backlight (TIM4 PD12/PD13) are
+//     GPIO/timer wiggles the base absorbs for the skeleton.
+//
+// TODO(control) front panel (later milestone, needs the image's scan frames):
+//   - GPIO button matrix (5x5 + direct), 8 GPIO quadrature encoders, TIM2
+//     main-dial encoder, H-22 mic keypad on TIM8/PI5 (ratio-coded serial).
+
+// --- Inter-MCU link (docs/peripherals.md, VERIFIED) -------------------------
+// USART2 (PD5/PD6 AF7, 460 800 8N1, DMA1 S2 TX / S3 RX circular) is the SLIP
+// link to the Main USART2. Present in the base as usart2. The Control is the
+// SLIP client (TIM13 50 Hz). USART1 (PA9/PA10, 115 200 8N1) is the Bluetooth
+// module link; also present in the base. No peripheral to add; wiring the two
+// MCUs together over SLIP is a later (multi-machine) milestone.
+
+// --- Faults (control_unit/docs/startup.md, VERIFIED) ------------------------
+// Default handler 0x08023600 (loop); NMI/MemManage/BusFault/UsageFault are bare
+// loops; SVC/DebugMon/PendSV return at once. HardFault logs one line via the
+// console logger and halts (no register dump). IWDG is refreshed from SysTick
+// every 256 ticks, so a stuck superloop does NOT trip the watchdog by itself.
+// Modelled at firmware level; the emulator just needs USART1 (the stdout
+// console) to accept the log line without blocking.

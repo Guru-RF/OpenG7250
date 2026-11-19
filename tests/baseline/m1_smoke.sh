@@ -75,6 +75,27 @@ EOF
     bad "Tag regions rejected"
   fi
 
+  echo "[3c] Control platform load: 512 KiB AXI SRAM + 32 MiB SDRAM + SPI1/2"
+  cat > "$OUT/smoke_ctrl.resc" <<EOF
+mach create "control"
+machine LoadPlatformDescription @platforms/g7250_control.repl
+sysbus GetRegistrationPoints sdramBank1
+peripherals
+quit
+EOF
+  CTRL_OUT="$(timeout 90 "$RN" --disable-xwt --console -e "path add @$REPO" \
+        -e "include @$OUT/smoke_ctrl.resc" </dev/null 2>&1)"
+  if echo "$CTRL_OUT" | grep -q "<0xC0000000, 0xC1FFFFFF>"; then
+    ok "control sdramBank1 = 32 MiB (framebuffer window)"
+  else
+    bad "control SDRAM not narrowed to 32 MiB"
+  fi
+  if [ "$(echo "$CTRL_OUT" | grep -cE 'spi[12] \(STM32H7_SPI\)')" -eq 2 ]; then
+    ok "control spi1 (W25Qxx) + spi2 (I2S2) registered"
+  else
+    bad "control expected 2 added SPI controllers"
+  fi
+
   echo "[4] observe end-to-end (log capture + parse)"
   LOG="$OUT/smoke_e2e.log"; : > "$LOG"
   cat > "$OUT/smoke_e2e.resc" <<EOF
