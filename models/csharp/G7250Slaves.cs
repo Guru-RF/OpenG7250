@@ -148,3 +148,90 @@ namespace Antmicro.Renode.Peripherals.Miscellaneous
         public void WriteDoubleWord(long offset, uint value) { regs[offset] = value; }
     }
 }
+
+namespace Antmicro.Renode.Peripherals.Miscellaneous
+{
+    // G7250 RF FPGA — 8-bit bit-banged GPIOE bus (HIS 80). Minimal fused model:
+    // handles the boot loopback bus-test (command 0x00 echoes the written byte)
+    // and the 3-byte version read (0x08), so the Main stops logging FPGA bus
+    // errors. Live 24-bit I/Q + DRDY streaming is the full M3 deliverable.
+    //
+    // Wiring (repl): gpioPortE.[0-9] -> fpga.[0-9]  (MCU writes reach us) and
+    // fpga.[0-7] -> gpioPortE.[0-7] (we drive the data lines on reads). Data
+    // direction is inferred: an STB pulse whose data pins did not change since
+    // the previous pulse is a read (we drive the stored byte), else a write.
+    public class G7250Fpga : Antmicro.Renode.Core.IGPIOReceiver,
+                             Antmicro.Renode.Core.INumberedGPIOOutput
+    {
+        private readonly Antmicro.Renode.Core.GPIO[] outs;
+        private int dataIn, prevLatched, cmd;
+        private bool stbPrev, cmdPin;
+        private bool dataChangedSinceStb;
+        private byte testReg;
+        private readonly byte[] version = { 1, 0, 0 };
+        private int verIdx;
+
+        public G7250Fpga()
+        {
+            outs = new Antmicro.Renode.Core.GPIO[11];
+            for(int i = 0; i < outs.Length; i++) outs[i] = new Antmicro.Renode.Core.GPIO();
+            Reset();
+        }
+
+        public System.Collections.Generic.IReadOnlyDictionary<int, Antmicro.Renode.Core.IGPIO> Connections
+        {
+            get
+            {
+                var d = new System.Collections.Generic.Dictionary<int, Antmicro.Renode.Core.IGPIO>();
+                for(int i = 0; i < outs.Length; i++) d[i] = outs[i];
+                return d;
+            }
+        }
+
+        public void Reset()
+        {
+            dataIn = prevLatched = cmd = 0; stbPrev = cmdPin = false;
+            dataChangedSinceStb = false; testReg = 0; verIdx = 0;
+        }
+
+        private void DriveData(byte b)
+        {
+            for(int i = 0; i < 8; i++) outs[i].Set(((b >> i) & 1) != 0);
+        }
+
+        public void OnGPIO(int number, bool value)
+        {
+            if(number >= 0 && number <= 7)
+            {
+                int m = 1 << number;
+                int nv = value ? (dataIn | m) : (dataIn & ~m);
+                if(nv != dataIn) { dataIn = nv; dataChangedSinceStb = true; }
+                return;
+            }
+            if(number == 8) { cmdPin = value; return; }   // CMD
+            if(number == 9)                                // STB
+            {
+                bool rising = value && !stbPrev;
+                stbPrev = value;
+                if(!rising) return;
+                if(cmdPin)                                 // CMD+STB: latch command
+                {
+                    cmd = dataIn & 0xFF; verIdx = 0;
+                    dataChangedSinceStb = false;
+                    return;
+                }
+                if(dataChangedSinceStb)                     // a write strobe
+                {
+                    if(cmd == 0x00) testReg = (byte)(dataIn & 0xFF);
+                    dataChangedSinceStb = false;
+                }
+                else                                        // a read strobe: drive data
+                {
+                    if(cmd == 0x00) DriveData(testReg);
+                    else if(cmd == 0x08) DriveData(version[(verIdx++) % 3]);
+                    else DriveData(0);
+                }
+            }
+        }
+    }
+}
