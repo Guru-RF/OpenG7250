@@ -43,31 +43,16 @@ Level 1 is called G7250-P2 (ON8ST, 2026-11-19).
 Analysis: `analysis/p1-vs-p2.md`. AetherSDR facts (P1 TX via HL2, P2 receive-only via
 ANAN-G2, TCI server announcing protocol 2.1) come from its README, read 2026-11-19.
 
-## Open questions for the HIS (to put into `open-questions-his.md`)
+## Open questions for the HIS
 
-- ADC type and sample clock: which sample rates are feasible?
-- Sensors: forward/reflected power, SWR, temperature, supply voltage.
-- ATU control.
-- Antenna and filter switching, including a safe RX default state for a host that has not
-  armed TX (0015).
-- Where PTT and TX interlock sit.
-- Network hardware of the main unit: Ethernet is present (ON8ST, 2026-11-19, see
-  `sources.md` [G7250-TOFF]). ON8ST saw a WCH CH394Q during hardware inspection: confirm,
-  and which SPI clock to the processor, and socket or MACRAW mode. See `analysis/ch394-network-budget.md`. Wi-Fi still open.
-- CTRL link between main unit and controller (15-pin cable): what does it carry? In
-  particular: can the main unit send audio to the controller's speaker, and can it receive
-  microphone audio, PTT and Morse key from the controller? Speaker, microphone, key, USB and
-  Bluetooth are all on the controller [G7250-MAN]; the main unit has no audio connector
-  (ON8ST, 0017). Decides P2 microphone data (port 1026) and a possible later audio path.
-- Compute resources (DSP/FPGA/MCU), memory, network stack (TCP, WebSocket). These are
-  needed for gate G6.
+In `open-questions-his.md` (HIS-01 to HIS-19).
 
 ## Next step
 
 1. (Done: 0013, `sources.md`.) Still open in `sources.md`: read the Radioddity product page
    (HTTP 429 on 2026-11-19), read the TCI 2.1 PDF and check its terms, find a manufacturer
    manual.
-2. Create `open-questions-his.md` from the list above.
+2. (Done: `open-questions-his.md`.)
 3. Write `design-note.md` (both levels on G7250-P2, milestones M1–M7 and G6, out-of-scope list
    as amended by 0010–0012 and 0016).
 4. Decisions 0003 (capability block) and 0007 (watchdog and safety).
