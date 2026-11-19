@@ -1,18 +1,20 @@
 # G7250 network interface specification
 
-- Version: draft 2, 2026-11-19
+- Version: draft 3 (rc1 candidate), 2026-11-19
 - Status: draft. Brings the text in line with decisions 0003, 0004, 0006, 0007 and 0008, all
-  accepted by ON8ST on 2026-11-19. Focus: milestone M1 (discovery, capability block, RX IQ on
-  G7250-P2); sections for M2–M5 are written as far as the decisions allow.
+  accepted by ON8ST on 2026-11-19, and applies the detail choices of 0020 (proposed, for
+  ON8ST review at rc1) and the points of 0021 that concern parts A and B. Focus: milestone M1
+  (discovery, capability block, RX IQ on G7250-P2); sections for M2–M5 are complete except for
+  values that depend on the hardware.
 - © 2026 ON8ST, CC BY 4.0 (see `LICENSE.md`).
 - Structure: decision 0001, "(2) Network-interface spec", as revised by 0016, split into parts
   A, B and C by 0011.
 
 Sources are cited by key (see `sources.md`) or by decision number (see `decisions/`).
 Citations of [P2] give the packet name and byte number of [P2] V4.4. A value that depends on
-an open hardware question is written "TBD (HIS-xx)" (see `open-questions-his.md`). A value
-that no accepted decision fixes yet is written "TBD" with the decision or section that has to
-fix it. Register names in `CODE` style are symbolic; their addresses are in B8.
+an open hardware question is marked "TBD" together with its HIS id, for example HIS-14 (see
+`open-questions-his.md`). Every other value is fixed by a decision; detail choices are cited
+as "0020 §n". Register names in `CODE` style have their addresses in B8 (Table B8-2).
 
 The key words of B1.2 apply to the whole document, parts A, B and C.
 
@@ -25,9 +27,10 @@ selection and ownership, and the safety behaviour that a host can see on the net
 
 ### A1 Management channel
 
-This section fixes the requirements of the management channel. Packet formats, the port
-number and the timeouts are TBD (0008, Consequences: "Spec part A gets a section 'Management
-channel' with: the port number, the packet framing, …").
+This section fixes the requirements of the management channel: port, framing, commands,
+status codes and timeouts (0008, Consequences; 0020 §2, §24, §27). Payload layouts of the
+individual commands are fixed with the reference model (0019) before M5 and do not change the
+framing (0020 §27).
 
 A1.1 **Purpose.** The management channel carries identification, configuration, logs and
 firmware update, on a connection separate from G7250-P2 and TCI (0001 spec section 10; 0008).
@@ -37,18 +40,79 @@ socket of the CH394Q (0008, Decision, Transport 1; 0017). That socket is reserve
 levels, MUST be open whenever the network is up, and MUST NOT be closed to make room for
 another level (0008, Transport 1; Socket budget).
 
-A1.3 **Port number.** TBD (0008, Transport 2). It MUST lie outside 1024–1029 and outside the
-DDC range 1035–1114 ([P2] General packet bytes 17–18; 0008, Transport 2). If a General packet
-moves a P2 port onto the management port, the G7250 MUST NOT give the management socket away;
-it MUST keep the default for that P2 port and log the conflict (0008, Transport 2; B2.3;
-Annex X1, D21). The port is announced in the capability record field `mgmt` (B4, 0003).
+A1.3 **Port number.** The management channel uses local UDP port **7251** (0020 §2). This
+lies outside 1024–1029, outside the wideband default ports 1027–1034 and outside the DDC
+range 1035–1114 ([P2] General packet bytes 17–22; 0008, Transport 2), and differs from the
+TCI port 50001 (0021 §2). If a General packet asks to move a P2 port onto the management
+port, the G7250 MUST NOT give the management socket away; it MUST keep the default for that
+P2 port and log the conflict (0008, Transport 2; B2.3; Annex X1, D21, D22). The port is
+announced in the capability record field `mgmt` (B4, 0003).
 
 A1.4 **Framing.** The channel is request/response. Every request MUST carry a request id;
 every reply MUST echo it and carry a status code. Large transfers MUST be split into numbered
 blocks, each acknowledged; the host retransmits on a timeout (0008, Transport 3). The channel
 has its own protocol version, reported in identification, independent of the P2 version and
-of the capability-record version (0008, Transport 4). Formats, status codes and timeouts: TBD
-(0008, Consequences).
+of the capability-record version (0008, Transport 4). Every message is one UDP datagram,
+big-endian, with the header of Table A1-1 (0020 §27).
+
+Table A1-1 — Management message header (0020 §27)
+
+| Bytes | Field |
+|-------|-------|
+| 0–3 | magic 0x47374D47 ("G7MG") |
+| 4, 5 | protocol version major, minor; 1, 0 in this version |
+| 6 | type: 1 request, 2 reply |
+| 7 | flags: bit 0 authenticated (HMAC trailer present); bit 1 more blocks follow |
+| 8–11 | request id, chosen by the host, echoed in the reply |
+| 12–13 | command (Table A1-2) |
+| 14–15 | status (Table A1-3); 0 in requests |
+| 16–17 | payload length *N* |
+| 18 … 17 + *N* | payload |
+| next 32 bytes | HMAC-SHA256 [RFC2104], [FIPS180-4] over the challenge and bytes 0 … 17 + *N*; present only if flag bit 0 is set |
+
+- A request MUST NOT exceed 1000 bytes, so that it fits a 1 KB socket receive buffer with the
+  8-byte CH394Q receive header ([CH394] section 12.2.4); a reply MUST NOT exceed 1400 bytes;
+  an update block carries 512 data bytes (0020 §27).
+- A repeated request id from the same host (IP address and port) MUST be answered with the
+  stored reply and MUST NOT be executed again (0020 §27).
+- A host SHOULD retransmit after 500 ms without a reply, at most 5 times (0020 §24).
+- A datagram with another magic MUST be dropped without reply. A datagram with the right
+  magic but shorter than 18 bytes, or whose length does not match *N*, MUST be answered with
+  status 17 if bytes 8–11 are present, else dropped. A request with an unknown major version
+  MUST be answered with status 18, the G7250's own version in bytes 4–5 (0020 §27; B11.13).
+
+Table A1-2 — Management commands (0020 §27)
+
+| Code | Command | Auth | Function |
+|------|---------|------|----------|
+| 0x0001 | `IDENTIFY` | no | A1.5 |
+| 0x0002 | `GET_STATS` | no | packet, error and gap counters (B11) |
+| 0x0010 | `GET_CHALLENGE` | no | fresh challenge for one authenticated request (A1.10) |
+| 0x0011 | `SET_FIRST_SECRET` | no (window only) | A1.10 |
+| 0x0012 | `CHANGE_SECRET` | yes | A1.10 |
+| 0x0013 | `END_WRITE_SESSION` | yes | releases the write session (A1.10) |
+| 0x0020, 0x0021 | `GET_CONFIG`, `SET_CONFIG` | no, yes | A1.6 |
+| 0x0022 | `FACTORY_RESET` | yes | A1.6 C-5 |
+| 0x0023 | `SWITCH_LEVEL` | yes | A1.6 C-2 |
+| 0x0024 | `RESTART` | yes | reset; also clears class 2 faults (A3.5) |
+| 0x0030, 0x0031 | `READ_LOG`, `CLEAR_LOG` | no, yes | A1.7 |
+| 0x0040–0x0046 | `UPDATE_BEGIN`, `UPDATE_BLOCK`, `UPDATE_VERIFY`, `UPDATE_ACTIVATE`, `UPDATE_ABORT`, `UPDATE_STATUS`, `ROLLBACK` | yes (`UPDATE_STATUS` no) | A1.8 |
+
+Table A1-3 — Management status codes (0020 §27)
+
+| Code | Meaning | Code | Meaning |
+|------|---------|------|---------|
+| 0 | OK | 48 | invalid configuration |
+| 1 | accepted, in progress | 49 | not allowed (would loosen a limit or touch TX) |
+| 16 | unknown command | 50 | refused while armed or transmitting |
+| 17 | malformed | 51 | wrong hardware |
+| 18 | unsupported protocol version | 52 | older image without downgrade flag |
+| 19 | too large | 53 | bad block CRC |
+| 32 | authentication required | 54 | block out of order |
+| 33 | authentication failed | 55 | verification failed |
+| 34 | rate-limited | 56 | not supported in this firmware |
+| 35 | busy (another writer) | 57 | refused while a P2 session runs |
+| 36 | first-secret window closed or secret already set | | |
 
 A1.5 **Identification** (read; no authentication) (0008, Functions):
 
@@ -63,7 +127,7 @@ A1.5 **Identification** (read; no authentication) (0008, Functions):
 - uptime, last reset cause (HIS-13), and the management, P2 and capability-record protocol
   versions (I-5).
 
-Identification MUST also be answered to a broadcast request (I-6).
+Identification MUST also be answered to a broadcast request (0008, I-6).
 
 A1.6 **Configuration** (write needs authentication, A1.10) (0008, Functions):
 
@@ -80,7 +144,16 @@ A1.6 **Configuration** (write needs authentication, A1.10) (0008, Functions):
   back to the previous configuration and log it (C-4);
 - a factory reset of network configuration and secrets MUST be possible over this channel
   (authenticated) and MUST also be possible locally without the network; the local path is
-  TBD (HIS-17, HIS-19) (C-5).
+  TBD (HIS-17, HIS-19) (C-5);
+- the region whose transmit ranges apply (C-6): factory default is the intersection of the
+  transmit ranges of all regions in [G7250-MAN]; a change MUST be refused with status 57
+  while a P2 session runs, so that the record stays constant within a session (0020 §23;
+  B4.7);
+- an optional TCI client allow-list (C-7) of 0 to 8 entries, each an IPv4 address with a
+  prefix length 0–32; empty (the factory default) means any address in the radio's own
+  subnet. It applies to TCI connections only; when a new list is applied, open TCI
+  connections it no longer allows MUST be closed and logged (0021 §10; 0020 §31). TCI
+  connections are accepted only from the radio's own subnet in any case (0021 §10).
 
 A1.7 **Logs** (read without authentication; clearing needs authentication) (0008, Functions):
 a ring buffer of events with an uptime timestamp in ms, wall-clock time only if the main unit
@@ -88,7 +161,8 @@ knows it (HIS-17) (L-1). The log MUST record at least: resets and their cause, s
 trips and faults, TX arm and disarm, host takeover, level changes, configuration changes with
 the source address (including P2 Set IP, B3.9), every update step, authentication failures and
 port conflicts (L-2; 0007, Consequences). It is read in pages by sequence number (L-3). Size
-and persistence across reset: TBD (HIS-18).
+and persistence across reset: TBD (HIS-18). Packet, error and sequence-gap counters are read
+with `GET_STATS` (0020 §19, §28).
 
 A1.8 **Firmware update** (authenticated) (0008, Functions, U-1 to U-10):
 
@@ -96,7 +170,7 @@ A1.8 **Firmware update** (authenticated) (0008, Functions, U-1 to U-10):
   starts, the G7250 MUST leave RUN, refuse any new P2 RUN or arm, and stay in the receive-safe
   state of 0015 until it restarts (U-1; 0007 drop event 11, `MAINTENANCE`).
 - One package per update, with a header: magic, target hardware id and revision, component
-  list, versions, length, SHA-256 [FIPS-180-4] per component, and a signature field that is
+  list, versions, length, SHA-256 [FIPS180-4] per component, and a signature field that is
   reserved and empty in this version. An image for other hardware MUST be refused before
   anything is written (U-2; 0008 option I1).
 - Transfer in numbered blocks with a CRC-32 each, into a staging area that is not the running
@@ -104,15 +178,15 @@ A1.8 **Firmware update** (authenticated) (0008, Functions, U-1 to U-10):
 - The staged image MUST be hashed and compared with the header before activation. No
   signature is checked in this version (U-4; 0008, Resolved 5).
 - Activation MUST be atomic; power loss before the switch leaves the old image running (U-5).
-- The first boot of a new image is a trial; without self-confirmation within a time TBD, the
-  boot loader MUST return to the previous image and log the rollback (U-6). Feasibility of
-  two slots and atomic boot choice: TBD (HIS-18, HIS-19) (U-10).
+- The first boot of a new image is a trial; without self-confirmation within 60 s of start,
+  the boot loader MUST return to the previous image and log the rollback (U-6; 0020 §24).
+  Feasibility of two slots and atomic boot choice: TBD (HIS-18, HIS-19) (U-10).
 - The boot loader is not updated through this channel (U-7).
 - An image older than the running one MUST be refused unless the request carries an explicit
   "downgrade" flag; a downgrade is logged; configuration the older image does not understand
   is kept but not used, and the reply says so (U-8; 0008, Resolved 3).
-- A recovery path that does not depend on this firmware MUST exist; which one is TBD
-  (HIS-19, HIS-17) (U-9).
+- A recovery path that does not depend on this firmware MUST exist; which one: TBD (HIS-19,
+  HIS-17) (U-9).
 - The G7250 MUST NOT program itself through P2 Erase and Program packets (B3.9).
 
 A1.9 **Management never keys the radio.** No request on this channel MAY set PTT, the TX
@@ -123,27 +197,30 @@ A1.10 **Security on a LAN** (0008, Security):
 
 - Writes (configuration, level switch, log clear, update, rollback) MUST require a per-radio
   secret, proven by challenge and response: a fresh random challenge from the radio, answered
-  with HMAC-SHA256 [RFC2104], [FIPS-180-4] over the challenge and the request. The secret
-  never crosses the network. Reads need no authentication (S2). Source of randomness: TBD
-  (HIS-20).
+  with HMAC-SHA256 [RFC2104], [FIPS180-4] over the challenge and the request. The secret
+  never crosses the network. Reads need no authentication (S2). A challenge is valid for one
+  request and 10 s (0020 §24). Source of randomness: TBD (HIS-20).
 - **First secret.** In factory state, during a one-time window after the first power-on or
   after a factory reset, the first host that sends a "set first secret" request sets it,
-  without confirmation on the controller. Window length: TBD (a few minutes, 0008 S3). The
-  window MUST open only while no secret is set, MUST NOT reopen without a factory reset, and
-  the claim MUST be logged with its source address (S3; 0008, Resolved 1). Risk, stated by
-  0008: anyone on the LAN during the window can claim the radio.
+  without confirmation on the controller. The window lasts 300 s of uptime from the moment
+  the network is up; it is used up when it has run to its end or a secret is set, and a
+  restart before that opens a fresh 300 s window (0020 §24; 0008 S3, "a few minutes"). The
+  window MUST open only while no secret is set, MUST NOT reopen once used up without a
+  factory reset, and the claim MUST be logged with its source address (S3; 0008, Resolved 1).
+  Risk, stated by 0008: anyone on the LAN during the window can claim the radio.
 - Requests MUST be answered only from the radio's own subnet and never from a broadcast
   source, except identification; authentication failures MUST be rate-limited and logged
   (S4).
-- One writer at a time: a write session is held by one host (address and port) with an idle
-  timeout (TBD); others get "busy" for writes and normal answers for reads (S5).
+- One writer at a time: a write session is held by one host (address and port), opened by its
+  first authenticated write and ended by `END_WRITE_SESSION` or after 60 s without a request
+  (0020 §24); others get status 35 ("busy") for writes and normal answers for reads (S5).
 - No confidentiality in this version (S6).
 - P2 Set IP on port 1024 is the one unauthenticated write (B3.9; S7).
 
 A1.11 **DHCP.** Provisional (0008, Socket budget, "Proposed … to be fixed in spec part A;
 depends on HIS-14"): the DHCP exchange at power-on runs before the P2 sockets are opened;
-lease renewals borrow the management socket for the few seconds the exchange takes. TBD
-(HIS-14).
+lease renewals borrow the management socket for the few seconds the exchange takes; final
+rule TBD (HIS-14).
 
 ### A2 Ownership and level selection
 
@@ -173,8 +250,10 @@ A2.5 **Active level.** The active level MUST be visible in the capability record
 is active, P2 discovery MUST answer with byte 4 = 0x03, and `level` bits [7:4] = 2 (0003,
 Resolved). The default level at power-on and a level switch are set over the management
 channel (A1.6, C-2). A change of active level MUST drop the arm (`LEVEL_CHANGE`, 0007 drop
-event 10), and an arm is accepted only while level 1 is active (0007 rule 1). Whether P2 C&C
-from a host can take the RF chain from an active level 2: TBD (part C; no decision).
+event 10), and an arm is accepted only while level 1 is active (0007 rule 1). While level 2
+is active a P2 host MUST NOT be able to take the RF chain: the P2 C&C ports have no socket on
+level 2, a P2 C&C packet starts no session and no takeover, and the level changes only through
+the management channel (0021 §16; 0020 §25; 0008, Socket budget; Annex X1, D23).
 
 A2.6 **Read without ownership.** Any host MAY read the capability record without taking over
 or starting a session (B4.4; 0003 §2) and MAY read management identification, logs and status
@@ -207,11 +286,13 @@ Table A3-1 — Arm drop events (0007 sub-decision 1, rule 5)
 | 6 | Entry into the fault state (A3.5) | `FAULT` |
 | 7 | Limit trip with action `DISARM` or `FAULT` (A3.4) | `LIMIT_<name>` |
 | 8 | Ethernet link down, if the CH394Q reports it (HIS-14) | `LINK_DOWN` |
-| 9 | Loss of the socket or port set-up the session uses (for example a General packet moving the High Priority or DUC ports) | `SESSION_CHANGED` |
+| 9 | Loss of the socket or port set-up the session uses (for example a new address by Set IP, B3.9; General packet port moves are not honoured, B2.3) | `SESSION_CHANGED` |
 | 10 | Change of active level (A2.5) | `LEVEL_CHANGE` |
 | 11 | Start of a firmware update or of a configuration change of limits over the management channel (A1.8) | `MAINTENANCE` |
 | 12 | New Discovery from the owner while armed | `REDISCOVERY` |
 | 13 | A TX path that must be blocked is found not blocked (A3.7) | `FAULT` |
+
+The numeric reason codes are in B8.7, Table B8-3 (0020 §8).
 
 Not drop events (they end the transmission but keep the arm): the keyed timeout and TX IQ
 underrun (B10.5), maximum continuous TX time and other `UNKEY`-level limit trips; changes of
@@ -237,23 +318,24 @@ Rules (0007, Decision 4, rules 1–5):
    is management configuration (A1.6).
 3. The host MUST declare a TX mode class before arming (B10.3).
 4. The mapping of P2 drive level 0–255 ([P2] High Priority byte 345) to power is TBD (HIS-12).
-5. All limits apply on both levels (0011). ATU tuning uses its own SWR and power profile, TBD
-   (HIS-08, HIS-12).
+5. All limits apply on both levels (0011). ATU tuning uses its own SWR and power profile,
+   values TBD (HIS-08, HIS-12).
+6. Per-session limit registers, their units and codes are in B8 (0020 §8, §10).
 
-Table A3-2 — TX limits (0007, Decision 4; values TBD unless a public source is given)
+Table A3-2 — TX limits (0007, Decision 4; open thresholds carry their HIS id; timing values from 0020 §29)
 
 | Limit | Measured by | Threshold(s) | Action | Recovery |
 |-------|-------------|--------------|--------|----------|
-| TX frequency | DUC0 frequency ([P2] High Priority bytes 329–332) | outside the transmit ranges of [G7250-MAN] for the configured region (region configuration: TBD) | TX request ignored (no key) | inside a range again |
-| SWR | forward and reflected power (HIS-11) | above S1: `REDUCE`; above S2: `UNKEY`; evaluated only above a minimum forward power; S1, S2, minimum TBD (HIS-11, HIS-12) | as listed | `UNKEY`: next TX request; N trips in T s → `FAULT`; N, T TBD |
+| TX frequency | DUC0 frequency ([P2] High Priority bytes 329–332) | outside the transmit ranges of [G7250-MAN] for the configured region (A1.6 C-6; 0020 §23) | TX request ignored (no key) | inside a range again |
+| SWR | forward and reflected power (HIS-11) | above S1: `REDUCE`; above S2: `UNKEY`; evaluated only above a minimum forward power; S1, S2, minimum TBD (HIS-11, HIS-12) | as listed | `UNKEY`: next TX request; 3 trips within 10 s → `FAULT`, class 1 (0020 §29) |
 | PA temperature | PA sensor (HIS-11) | T1 `WARN`, T2 `REDUCE`, T3 `UNKEY` with inhibit, T4 `FAULT`; all TBD (HIS-11, HIS-12) | as listed | inhibit lifts below T3 minus hysteresis (TBD) |
-| Forward power | forward power (HIS-11) vs band and TX mode class | 100 W SSB/CW/NFM, 25 W AM [G7250-MAN]; 50 MHz TBD (90 W in [G7250-PUDX], [G7250-RIGPIX]; HIS-12); margin TBD | `REDUCE`; if still over after TBD ms, `UNKEY` | next TX request |
-| Supply voltage | supply sensor (HIS-11) | starting values 13.8 V ±15 % (11.73–15.87 V) [G7250-MAN]; final HIS-11, HIS-12 | under-voltage while keyed: `REDUCE`, below a lower value (TBD) `UNKEY`; over-voltage: `UNKEY` with inhibit | inside range for TBD s |
+| Forward power | forward power (HIS-11) vs band and TX mode class | 100 W SSB/CW/NFM, 25 W AM [G7250-MAN]; 50 MHz TBD (90 W in [G7250-PUDX], [G7250-RIGPIX]; HIS-12); margin TBD | `REDUCE`; if still over 200 ms after `REDUCE` started, `UNKEY` (0020 §29) | next TX request |
+| Supply voltage | supply sensor (HIS-11) | starting values 13.8 V ±15 % (11.73–15.87 V) [G7250-MAN]; final HIS-11, HIS-12 | under-voltage while keyed: `REDUCE`, below a lower value (HIS-12) `UNKEY`; over-voltage: `UNKEY` with inhibit | inside range for 2 s (0020 §29) |
 | Supply / PA current | current sensor, if any (HIS-11) | above 23 A [G7250-MAN]; final HIS-12 | `UNKEY` | next TX request |
 | Maximum continuous TX time | firmware timer, any TX source | 5 min built-in (0007, Resolved 3); may be set stricter, never looser; to be checked against the thermal rating (HIS-12) | `UNKEY` (arm kept) | next TX request |
 | ATU tune time | firmware timer | initial tuning ≤ 10 s [G7250-MAN] plus margin TBD (HIS-08) | `UNKEY`, tune reported failed | next tune command |
 | Sensor plausibility | all of the above | sensor missing, stuck or out of range (HIS-11) | `FAULT` | A3.5 |
-| RF while not keyed | forward power (HIS-11) | above TBD with no TX active | `FAULT` | A3.5 |
+| RF while not keyed | forward power (HIS-11) | above a threshold TBD (HIS-11) with no TX active | `FAULT` | A3.5 |
 
 A3.5 **Fault state** (0007, Decision 5):
 
@@ -265,7 +347,7 @@ A3.5 **Fault state** (0007, Decision 5):
 - **Effect.** Unkey, drop the arm (`FAULT`), release SEND and the TUNER trigger, refuse arm
   requests. RX MUST continue, so that the host can still see the radio and the fault.
 - **Reporting.** `SAFETY_STATE`, `FAULT_CODE` (first cause), `FAULT_FLAGS` (latched bitmask
-  since the last clear), `FAULT_CLASS` and a trip counter, pushed on change (B8) and logged
+  since the last clear), `FAULT_CLASS` and `TRIP_COUNT`, pushed on change (B8; codes 0020 §8) and logged
   (A1.7). The P2 High Priority status packet stays standard (0005; B9.2).
 - **Clearing.** Class 1: the owner writes the current fault code to `FAULT_CLEAR`; accepted
   only if the condition is gone. Class 2: only by a reset (power cycle, or a reset over the
@@ -325,9 +407,9 @@ meaning are carried in the G7250 register map on the P2 memory-mapped register p
 (0005; B8). Reserved bytes in the standard P2 packets MUST NOT be given a G7250 meaning (0005,
 rule 3). This rule also covers the discovery reply, bytes 14–19 and 24–59 included (0003 §1).
 
-B1.8 **Scope of this draft.** B1–B6 cover M1. B7–B11 are written as far as decisions
-0003–0008 allow; open values are TBD. Wideband data is M2 (0004 point 4); transmit (B10) is M4
-and only after M3 (design note §6; 0007, header).
+B1.8 **Scope of this draft.** B1–B6 cover M1. B7–B11 are complete; the only open values
+depend on the hardware and carry their HIS id (0020, Context). Wideband data is M2 (0004
+point 4); transmit (B10) is M4 and only after M3 (design note §6; 0007, header).
 
 ### B2 Transport
 
@@ -358,35 +440,48 @@ Table B2-1 — Local UDP ports of the G7250 (level 1)
 | – | 1028 | DDC audio | – | MUST NOT be opened | 0017 |
 | 5 | 1029 | DUC0 I&Q | – | MUST be open (used from M4) | [P2] General bytes 15–16; 0012 |
 | 6 | 1035 | – | DDC0 I&Q | MUST be open | [P2] General bytes 17–18 |
-| 7 | TBD (B8.1) | G7250 register map (memory-mapped registers from PC) | G7250 register map (memory-mapped registers from hardware) | MUST be open | [P2] General bytes 29–32; 0005 |
-| 8 | TBD (A1.3) | Management channel | Management channel | MUST be open, at both levels | 0008, Transport 1 |
+| 7 | 7250 | G7250 register map (memory-mapped registers from PC) | G7250 register map (memory-mapped registers from hardware) | MUST be open | [P2] General bytes 29–32; 0005; 0020 §1 |
+| 8 | 7251 | Management channel | Management channel | MUST be open, at both levels | 0008, Transport 1; 0020 §2 |
 
 - Ports 1036 and up (DDC1 and further, [P2] General bytes 17–18) are not opened while the
   G7250 implements one DDC (0004 point 1). Number of DDCs: TBD (HIS-02).
 - **Memory-mapped register port.** [P2] gives the default of General bytes 29–30 and 31–32 as
   "xxxx", so it is undefined; this document defines it (0005; 0003, "left to spec part B").
-  The port number is TBD (B8.1). The G7250 MUST use one and the same local port for both
+  The port number is 7250 (0020 §1). The G7250 MUST use one and the same local port for both
   directions (0005, Consequences; 0017). Using a defined default is a deviation (Annex X1, D2).
 - **Port 1028.** The G7250 opens no socket on port 1028 (0017). A host SHOULD NOT send DDC
   audio packets. The G7250 accepts General packet bytes 13–14 and ignores them (0017). How
-  the CH394Q reacts to a datagram for a closed port (silent drop or ICMP port unreachable) is
-  TBD (0017, Consequences; [CH394] does not say). This is a deviation (Annex X1, D1).
+  the CH394Q reacts to a datagram for a closed port is not stated in [CH394]; the firmware
+  rule and the host rule are in B11.9 (0020 §28). This is a deviation (Annex X1, D1).
 - **Non-default ports.** [P2] lets the host set every port in General bytes 5–22 and 29–32,
-  zero meaning the default. Whether the G7250 honours non-default values is TBD (no decision).
-  In any case: the G7250 MUST NOT use more sockets than Table B2-1
-  (`analysis/ch394-network-budget.md`); it MUST NOT move a P2 port onto the management port
-  (A1.3; 0008, Transport 2); and a General packet that moves a port the armed session uses
-  drops the arm (`SESSION_CHANGED`, Table A3-1 event 9). Until this is decided, a host SHOULD
-  send zero in these bytes.
+  zero meaning the default. Bytes 5–12, 15–22 and 29–30 name G7250 local ports ([P2] General
+  packet). For these, zero and the default value MUST be honoured; any other value MUST NOT be
+  honoured: the G7250 keeps the default port, logs the request and sets `LINK_STATUS` bit 17
+  (0020 §13; Annex X1, D22). Reason: the default set shares sockets between pairs of fields,
+  so a single relocation would need a ninth socket (0020 §13;
+  `analysis/ch394-network-budget.md`). In particular no P2 port is ever moved onto the
+  management port (A1.3; 0008, Transport 2). Bytes 31–32 name the host's destination port and
+  are honoured when non-zero; zero means the owner's source port (B8.1; 0020 §13). A host
+  SHOULD send zero in bytes 5–30 (0020 §13).
 - **Socket budget.** Table B2-1 uses all 8 CH394Q sockets: 7 for G7250-P2, one for the
   management channel (0008, Socket budget; 0017; [CH394]). The division of the 16 + 16 KB
-  socket buffers is TBD (indicative split in 0004, Consequences, "CH394Q buffer split";
-  HIS-14).
+  socket buffers: TBD (HIS-14); indicative split in 0004, Consequences, "CH394Q buffer split".
 
 B2.4 **Remote endpoint.** The G7250 MUST reply to the discovery from local port 1024 to the
 IP address and source port of the host's discovery packet ([P2] "Detailed operation";
-Discovery reply, "Source Port", "Destination Port"). The G7250 MUST send DDC I&Q data to the
-source port of the host that initiated the discovery ([P2] DDC packet, "Destination Port").
+Discovery reply, "Source Port", "Destination Port"). The G7250 MUST send every stream of a
+session (DDC0 I&Q, High Priority status, microphone, wideband and register pushes) to the
+owner's source IP address and UDP port (A2.2), fixed when the session starts. [P2] sends these
+streams to "the Source Port of the Host that initiated the Discovery Packet" and has the host
+send its General packet from that same port ([P2] DDC packet, "Destination Port"; General
+packet, "Source Port"), so for a P2 host both are one port; where they differ, the owner's
+port is used (0020 §14; Annex X2, C12). Answers to a non-owner's register request go to that
+request's source address and port (B8.5).
+
+B2.4a **Local source ports.** So that a host can demultiplex by sender port, the G7250 MUST
+send: discovery replies from 1024, High Priority status from 1025, microphone data from 1026,
+wideband data from 1027, DDC0 I&Q from 1035, register-map packets from 7250 and management
+replies from 7251 (Table B2-1; 0020 §14).
 
 B2.5 **Byte order and integer interpretation.** Multi-byte fields MUST be sent and read MSB
 first (network byte order, big-endian), and all values are unsigned integers unless stated
@@ -406,9 +501,10 @@ rolls over after 0xFFFFFFFF ([P2] DDC packet, Memory mapped registers from hardw
 "Sequence Number"). The counter MUST be reset to zero at power-on and whenever a stop is
 received (B5.4) ([P2] DDC packet, "Sequence Number"). The discovery reply always carries
 sequence number 0 ([P2] Discovery reply bytes 0–3). On the receive side the G7250 SHOULD NOT
-reject a packet because of its sequence number (provisional, B11; [P2] General, DDC-specific
-and High Priority packets give the host's sequence number as 0x00000000, Annex X2, C2).
-Detection and reporting of gaps: TBD (B11).
+reject or reorder a packet because of its sequence number ([P2] General, DDC-specific and
+High Priority packets give the host's sequence number as 0x00000000, Annex X2, C2; 0020 §19).
+A DDC0 rate change, a resume after a refusal, or a resume after DDC-specific byte 7 bit [0]
+was cleared MUST NOT restart an outgoing counter (0020 §19). Gaps are handled in B11.6.
 
 ### B3 Discovery
 
@@ -426,11 +522,16 @@ host; bytes 5–59 are zero ([P2] Discovery packet). The G7250:
   "Destination Address");
 - MUST answer regardless of the endian mode selected by an earlier General packet ([P2]
   Discovery packet, NOTE; Discovery reply byte 22, NOTE);
-- SHOULD NOT require bytes 0–3 or 5–59 to be zero to answer (provisional, B11);
+- SHOULD NOT require bytes 0–3 or 5–59 to be zero, nor the packet to be longer than 5
+  bytes, to answer (B11.3; 0020 §28);
 - MUST answer every request with exactly one reply.
 
-A discovery from the owner while TX is armed drops the arm (`REDISCOVERY`, Table A3-1 event
-12). A discovery from any other host has no effect on the session.
+A discovery from the owner (same IP address and UDP port, A2.2) while TX is armed drops the
+arm (`REDISCOVERY`, Table A3-1 event 12). A discovery from any other host has no effect on the
+session. This includes a discovery from the owner's IP address on another UDP port, for
+example a host's separate discovery socket: it is answered with 0x03 while the session runs
+(B3.4) and MUST NOT drop the arm (0020 §14; 0007, Resolved 4; [AETHER-SRC]
+`AnanDiscovery.cpp:240–263`).
 
 B3.3 **Discovery reply.** The G7250 MUST reply with the [P2] short reply (format 1), a 60-byte
 payload (bytes 0–59), from local port 1024 to the host's IP address and source port ([P2]
@@ -474,8 +575,9 @@ decimal number with one implied decimal place: 104 is version 10.4 ([P2] Discove
   field `p2_version` (0003 §3).
 - Byte 13 MUST carry the G7250 firmware version in P2 form, major × 10 + minor ("15 = 1.5"),
   taken from record field `fw_version` (0003 §1 and §3). The full version, with build number,
-  is in `fw_version` (B4). The numbering scheme of G7250 releases, and byte 13 for a minor
-  version above 9 or a result above 255, are TBD (no decision; 0008 does not fix it).
+  is in `fw_version` (B4). G7250 releases are numbered major.minor with minor 0–9 (after x.9
+  comes (x+1).0) plus a 16-bit build number; byte 13 = major × 10 + minor, capped at 255
+  (0020 §15). Byte 23 is non-zero for a beta build ([P2] byte 23).
 
 B3.6 **MAC address.** Bytes 5–10 MUST hold the MAC address the G7250 uses on the link, MSB
 first ([P2] Discovery reply, "MAC"). The MAC address MUST be unique per unit, because the
@@ -487,14 +589,13 @@ B3.7 **Endian modes and DDC data format (byte 22).** The G7250 offers only Big-E
 3-byte I&Q: no little-endian, float or double format (0004 point 1, option 2A). Byte 22 MUST
 therefore be 0x00, which [P2] defines as "Big-Endian and I&Q data is in 3 Byte format" ([P2]
 Discovery reply byte 22). A General packet byte 39 that asks for another format is refused
-(B6.3; B11).
+(B6.3; B11.2).
 
 B3.8 **Frequency or phase word (byte 21).** The value MUST match what the G7250 accepts in the
 High Priority frequency fields ([P2] High Priority packet bytes 9–12, 329–332) and in General
 packet byte 37 bit [3]. If the G7250 reports phase (1), the host computes
 `phase_word = 2^32 × f(Hz) / DSP clock (Hz)` ([P2] General packet byte 37); the DSP clock is
-given in record field `dsp_clock_hz` (0003 §3; Annex X2, C4). Value and DSP clock: TBD
-(HIS-04).
+given in record field `dsp_clock_hz` (0003 §3; Annex X2, C4). Value and DSP clock: TBD (HIS-04).
 
 B3.9 **Other port-1024 commands.**
 
@@ -514,9 +615,10 @@ B3.9 **Other port-1024 commands.**
   address conflict (0008 point 6; C-4). Applying a new address ends the network set-up of a
   running session; while armed this is drop event 9 (`SESSION_CHANGED`, Table A3-1). A Set IP
   packet whose bytes 5–10 hold another MAC address is not for this unit and MUST be ignored
-  ([P2] Set IP Address packet, "MAC Address"). Whether a Set IP sent to the unicast address is
-  accepted: TBD (B11). Risk stated in 0008 S7: any host on the LAN that knows the MAC can
-  change the address and so cut a running session; it cannot key the radio.
+  ([P2] Set IP Address packet, "MAC Address"). A Set IP sent to the unit's unicast address or
+  to the subnet's directed broadcast address MUST be accepted under the same rules (0020 §21;
+  Annex X2, C13). Risk stated in 0008 S7: any host on the LAN that knows the MAC can change
+  the address and so cut a running session; it cannot key the radio.
 
 ### B4 Capability block
 
@@ -526,8 +628,9 @@ hardware" packets (0003, Decision option A). It is not in the discovery reply (0
 
 B4.2 **Place.** The record occupies `CAP_BASE` to `CAP_BASE + CAP_LENGTH − 1`, at most 239
 registers, so that one memory-mapped packet (240 pairs [P2]) carries the request echo plus the
-whole record and a host always sees one consistent copy (0003 §2). Proposed: `CAP_BASE` =
-0x0000 (0003 §2), so the version 1.0 record occupies 0x0000–0x00B8. Final address: TBD (B8.1).
+whole record and a host always sees one consistent copy (0003 §2). `CAP_BASE` = 0x0000
+(0003 §2; 0020 §3): the version 1.1 record occupies 0x0000–0x00CE, and the block
+0x0000–0x00FF is reserved for it (B8.3).
 
 B4.3 **Encoding.** One field per 32-bit register, big-endian ([P2] memory-mapped packets, Data
 [31:0]; 0003 §2). Text is ASCII, 4 characters per register, first character in bits [31:24],
@@ -536,24 +639,29 @@ padded with 0x00. Frequencies in Hz. Power in units of 0.1 W. Bit numbers: 0 = L
 
 B4.4 **When the record is sent** (0003 §2):
 
-1. **On request.** The host writes the register `CAP_REQUEST` (address TBD, B8). The G7250
-   MUST answer with one memory-mapped packet that holds the echo of the `CAP_REQUEST` pair and
-   the whole record. The data value to write: TBD.
+1. **On request.** The host writes 0x00000001 to the register `CAP_REQUEST` (0x0100, B8;
+   0020 §3, §5). The G7250 MUST answer with one memory-mapped packet that holds the echo of
+   the `CAP_REQUEST` pair and the whole record. Any other value MUST be rejected with
+   `WRITE_STATUS` reason `BAD_VALUE` and no record (B8.4; 0020 §5).
 2. **Unasked, once,** when a host starts a session, which 0003 places at the host's first
    General packet.
 3. **Destination.** To the source IP address and UDP port of the request when the requesting
    host is not the owner (has no session); otherwise to the owner's memory-mapped port set in
-   General packet bytes 31–32, or to the default port (B8.1) if those bytes are zero ([P2]
-   General packet bytes 31–32; 0003 §2).
+   General packet bytes 31–32, or to the owner's source port (A2.2) if those bytes are zero
+   ([P2] General packet bytes 31–32; 0003 §2; 0020 §13).
 
 B4.5 **Request-only packet is not C&C.** A memory-mapped packet that contains only a write to
 `CAP_REQUEST` MUST NOT take over a session, MUST NOT start one, and MUST NOT feed the watchdog
 (0003 §2; Resolved). More generally, no memory-mapped packet is C&C on the G7250 (B5.6; 0007
-sub-decision 2.1). Listed in Annex X1, D11.
+sub-decision 2.1). This holds also when a host sends the request from its future session
+socket before its first General packet: the answer goes to that socket, and the port does not
+become the owner; only the run bit makes a host the owner (A2.3; 0020 §14). Listed in Annex
+X1, D11.
 
 B4.6 **Read-only.** Writes to any address in the record range MUST be ignored, and the G7250
 MUST answer with the current values of the addresses written, so that the host sees that the
-write had no effect (0003 §2).
+write had no effect (0003 §2), plus `WRITE_STATUS` reason `READ_ONLY` (B8.4; 0020 §11). The
+pair (0x0000, 0x00000000) is padding and is not answered (B8.1; 0020 §4).
 
 B4.7 **Stability.** Record values MUST be constant for the duration of a session. They MAY
 change only between sessions: after a firmware update, a region change of the TX bands, a
@@ -562,17 +670,19 @@ Dynamic state is not in the record: TX armed, fault state and limits in force, t
 values, current link speed and session refusal reason are separate status registers (B8;
 0003 §2).
 
-B4.8 **Fields, record version 1.0.** Offsets are relative to `CAP_BASE`. "HIS-nn" means the
-value is not known yet; the value shown is the current assumption (0003 §3).
+B4.8 **Fields, record version 1.1.** Offsets are relative to `CAP_BASE`. "HIS-nn" means the
+value is not known yet; the value shown is the current assumption (0003 §3). Offsets
+0x00–0xB8 are version 1.0 (0003 §3); offsets 0xB9–0xCE are added by version 1.1 (B4.9; 0020
+§26). The G7250 sends version 1.1.
 
-Table B4-1 — Capability record, version 1.0 (0003 §3)
+Table B4-1 — Capability record, version 1.1 (0003 §3; 0020 §26)
 
 | Offset | Name | Content | Value / source |
 |--------|------|---------|----------------|
 | 0x00 | `cap_magic` | ASCII "G725" = 0x47373235; never changes | 0003 §3, §4 rule 5 |
-| 0x01 | `cap_version` | [31:16] major, [15:0] minor of the record format | 0x00010000 (1.0) |
-| 0x02 | `cap_length` | number of registers in the record, header included | 0xB9 (185) for version 1.0 (0003 §3, notes) |
-| 0x03 | `regmap_version` | [31:16] major, [15:0] minor of the G7250 register map | TBD (B8) |
+| 0x01 | `cap_version` | [31:16] major, [15:0] minor of the record format | 0x00010001 (1.1) (0020 §26) |
+| 0x02 | `cap_length` | number of registers in the record, header included | 0xCF (207) for version 1.1; 0xB9 (185) was version 1.0 (0003 §3, notes; 0020 §26) |
+| 0x03 | `regmap_version` | [31:16] major, [15:0] minor of the G7250 register map | 0x00010000 (1.0) (0020 §6) |
 | 0x04–0x07 | `product_name` | "G7250-P2", padded with 0x00: 0x47373235, 0x302D5032, 0, 0 | 0002, 0016 |
 | 0x08 | `fw_version` | [31:24] major, [23:16] minor, [15:0] build | as built; B3.5 |
 | 0x09 | `p2_version` | as discovery byte 12 | 44 ([P2]; B3.5) |
@@ -594,14 +704,21 @@ Table B4-1 — Capability record, version 1.0 (0003 §3)
 | 0x20 | `tx` | bit 0 TX hardware present; bit 1 TX implemented in this firmware (0 before M4); bit 2 TX arm required (always 1); bit 3 declared TX mode class required for arm (always 1) | bit 0 = 1 [G7250-MAN]; bit 1 per milestone; bit 2 = 1 (0015); bit 3 = 1 (0007) |
 | 0x21 | `tx_band_count` | number of valid entries below (max 16) | 10 [G7250-MAN] |
 | 0x22–0x51 | `tx_band[0..15]` | 3 registers per band: start Hz; stop Hz; [31:16] maximum power SSB/CW/FM, [15:0] maximum power AM, both in 0.1 W | ranges per region [G7250-MAN]; 1000 (100 W) and 250 (25 W) [G7250-MAN]; 50 MHz TBD (HIS-12; 90 W in [G7250-PUDX], [G7250-RIGPIX]) |
-| 0x52 | `mgmt` | bit 0 management channel present; [31:16] its port | bit 0 = 1 (0008); port TBD (A1.3) |
-| 0x53 | `regmap_groups` | bit mask of register groups present in the G7250 map | bit assignment TBD (B8.3; 0003 §3) |
+| 0x52 | `mgmt` | bit 0 management channel present; [31:16] its port | 0x1C530001: bit 0 = 1 (0008), port 7251 (A1.3; 0020 §2) |
+| 0x53 | `regmap_groups` | bit mask of register groups present in the G7250 map | bit *n* = group *n* of Table B8-1: bits 0, 1 = 1; bit 2 from M3; bit 3 per HIS-11; bit 4 per HIS-08; bit 5 per HIS-06; bits 6, 7 = 0 until HIS-07, HIS-09 (B8.3; 0020 §3) |
 | 0x54 | `link` | [15:0] minimum link speed in Mbit/s for a session | 100 (0004 point 9; [CH394]) |
 | 0x55 | `wb_format` | wideband: [31:16] samples per packet, [15:8] bits per sample, [7:0] update rate in ms; 0 when `streams` bit 4 = 0 | from M2: 0x02001032 (512, 16, 50 ms; 0004 point 4) |
 | 0x56 | `wb_frame` | wideband: [7:0] packets per frame; 0 when `streams` bit 4 = 0 | from M2: 8 (0004 point 4) |
 | 0x57 | `cal_info` | bit 0 power constants per band (set *i* applies to `tx_band[i]`; else set 0 applies to all bands); bits 1–4 forward power, reverse power, exciter power, supply volts filled; [15:8] number of power constant sets (1, or `tx_band_count`); [31:16] ADC full-scale divisor *N* | 0006; per unit and per band HIS-11; *N* = 4095 in [P2] Appendix A |
 | 0x58 | `cal_supply_c` | supply constant *c* in units of 10⁻⁶, for `V = x / N × c` | this unit's calibration (0006; HIS-11) |
 | 0x59–0xB8 | `cal_power[0..15]` | 6 registers per set, units of 10⁻⁶: forward *c1*, *c2*; reverse *c1*, *c2*; exciter *c1*, *c2*, for `W = (x / N × c1)² / c2` | this unit's calibration (0006; HIS-11); unused sets 0 |
+| 0xB9 | `status_fill` | High Priority status fields filled: bit 0 byte 4 [0]; bit 1 byte 4 [1]–[2]; bit 2 byte 4 [4]; bit 3 byte 5; bit 4 bytes 6–7; bit 5 bytes 14–15; bit 6 bytes 22–23; bit 7 byte 30; bit 8 bytes 31–36; bit 9 bytes 39–40; bit 10 bytes 49–50 | per Table B9-1 (0006; 0020 §26); HIS-11, HIS-17 |
+| 0xBA | `clock_ref` | bit 0 reference PLL present; 0 means "no reference PLL" and status byte 4 [4] is always 0 | HIS-05 (0020 §26) |
+| 0xBB | `coupler` | [3:0] coupler position: 0 not reported, 1 between PA and ATU, 2 antenna side of the ATU | HIS-08, HIS-11 (0006; 0020 §26) |
+| 0xBC | `tlm_rates` | [31:16] snapshot period, ms; [15:8] fast period during TX, ms; [7:0] minimum spacing of event pushes, ms | 1000, 10, 1 (B9.4; 0006; 0020 §26) |
+| 0xBD | `status_rates` | [31:16] High Priority status period when not transmitting, ms; [15:0] while transmitting, ms | 50, 1 (B9.4; 0020 §26) |
+| 0xBE | `tlm_count` | number of valid telemetry descriptors (max 8) | HIS-11 (0020 §26) |
+| 0xBF–0xCE | `tlm_desc[0..7]` | 2 registers each: [31:16] telemetry register address, [15:0] sensor update period in ms; [31:16] resolution, [15:0] hysteresis, both in the register's milli-units; a register is present when it has a descriptor | HIS-11 (0006; 0020 §26); unused entries 0 |
 
 Notes (0003 §3):
 
@@ -614,13 +731,14 @@ Notes (0003 §3):
   (0017), and only as many DDC I&Q ports as `num_ddc`.
 - The record carries no serial number (0003, Resolved).
 
-B4.9 **Fields still to be added.** 0006 ("What the host learns from the capability block")
-asks the record to also state: for each standard status field whether it is filled; the
-coupler position relative to the ATU (HIS-08, HIS-11); for each telemetry register presence,
-resolution, sensor update rate and hysteresis; the telemetry rates in use; and "no reference
-PLL" (B9.2, byte 4 bit [4]). Version 1.0 (0003 §3) covers only part of this (`telemetry`,
-`cal_info`). The extra fields are TBD and will be added at the end of the record in a minor
-version (0003 §4 rule 1).
+B4.9 **Fields added in version 1.1.** 0006 ("What the host learns from the capability block")
+asks the record to also state: for each standard status field whether it is filled
+(`status_fill`); the coupler position relative to the ATU (`coupler`); for each telemetry
+register presence, resolution, sensor update rate and hysteresis (`tlm_count`, `tlm_desc`);
+the telemetry rates in use (`tlm_rates`, `status_rates`); and "no reference PLL"
+(`clock_ref`; B9.2, byte 4 bit [4]). Version 1.0 (0003 §3) covered only part of this
+(`telemetry`, `cal_info`). Version 1.1 adds these fields at the end of the record (0003 §4
+rule 1; 0020 §26); a version 1.0 host ignores them (B4.10 rule 1).
 
 B4.10 **Versioning rules** (0003 §4):
 
@@ -665,8 +783,9 @@ B5.2 The G7250 MUST NOT send DDC I&Q data before it has received a High Priority
 the run bit set ([P2] "Detailed operation": run "in order to start data from the Hardware").
 If the run bit arrives before any General or DDC-specific packet, the G7250 MUST use the [P2]
 defaults and the G7250 safe RX state (0015, Consequences; A3.6; RX default state TBD, HIS-06,
-HIS-07). Behaviour for a run bit from a host that sent no discovery (no known destination port
-for DDC data, B2.4): TBD (B11).
+HIS-07). A discovery is not a precondition: a run bit from a host that sent no discovery
+starts the session normally, and the streams go to that host's source address and port
+(B2.4; [P2] "Detailed operation", restart path; 0020 §14).
 
 B5.3 **Run.** High Priority byte 4 bit [0] set enables the G7250, clear disables it ([P2] High
 Priority packet, "Byte 4"). While run is set, DDC0 is enabled (B6.5) and no refusal applies
@@ -693,7 +812,9 @@ B5.6 **Watchdog** (0007, sub-decision 2):
 - **Timeout.** In RUN, if no C&C packet from the owner arrives for 1 s, the G7250 MUST go to
   standby: unkey, drop the arm (`WATCHDOG`), release SEND and the TUNER trigger, and stop the
   RX streams, as in [P2] standby ([P2] "Detailed operation"; 0007 sub-decision 2.1). The host
-  SHOULD send a C&C packet every 100 ms ([P2] "Detailed operation"). Timing tolerance: TBD.
+  SHOULD send a C&C packet every 100 ms ([P2] "Detailed operation"). Tolerance: the G7250
+  MUST NOT go to standby while the last C&C packet from the owner is less than 1000 ms old,
+  and MUST be in standby no later than 1100 ms after it (0020 §16).
 - **Hardware-timer bit** (General packet byte 38 bit [0]) (0007 Decision 2.3, option 2F):
   - the G7250 MUST store the value last written; the effective timer is
     `written OR armed`;
@@ -703,7 +824,7 @@ B5.6 **Watchdog** (0007, sub-decision 2):
   - an arm request while the written bit is clear MUST be rejected (`WATCHDOG_DISABLED`,
     B10.2);
   - before any General packet the timer counts as enabled;
-  - `WATCHDOG_STATE` reports the value written and the effective state (B8).
+  - `WATCHDOG_STATE` reports the value written and the effective state (B8; 0020 §8).
 - **Keyed timeout** while transmitting: B10.5.
 
 Note: a session with the timer disabled (allowed only while not armed) holds the radio "in
@@ -721,9 +842,13 @@ B5.8 **Link below 100 Mbit/s.** On a link slower than 100 Mbit/s the G7250 MUST 
 session: it answers discovery but starts no stream (no DDC0, DUC0, microphone or wideband data),
 and reports the reason ("link speed below 100 Mbit/s") in a status register (`LINK_STATUS`,
 B8) (0004 point 9; Resolved). The record field `link` gives the minimum speed (B4.8; 0003 §3).
-How the firmware reads the negotiated speed from the CH394Q and the exact reason code: TBD
-(HIS-14; 0004, Consequences). Whether the High Priority status packet is sent on such a link:
-TBD. Annex X1, D15.
+On such a link a run bit makes no owner and starts no stream, and no High Priority status
+packet is sent. The G7250 MUST answer each High Priority packet with the run bit set, and each
+`CAP_REQUEST`, with a register packet holding `LINK_STATUS` (refusal reason 1) and
+`STREAM_STATUS` (reason 8), to the sender, at most once per 100 ms (0020 §20). The speed is
+read from the CH394Q PHY configuration register PHY_CFG, bits SPDS (speed) and LINKS (link
+up) ([CH394] section 7.1.15); whether the existing design leaves that register
+usable: TBD (HIS-14). Annex X1, D15.
 
 B5.9 **Transmit bit.** High Priority byte 4 bit [1] has no effect unless TX is armed (0015;
 B10). Bits [2]–[7] never key the G7250 (0007 sub-decision 1 rule 4; Annex X2, C5).
@@ -780,7 +905,7 @@ Table B6-2 — DDC-specific packet fields ([P2] DDC specific packet)
 | 7 | DDC enable DDC0–7 | bit [0] honoured: DDC0 sends I&Q only while set and run is set; bits [1]–[7] ignored | [P2] byte 7; B5.3; 0004 point 7 ("Enables for DDC1–DDC79 are ignored") |
 | 8–16 | DDC enable DDC8–79 | ignored | [P2] bytes 8–16; 0004 point 7 |
 | 17 | ADC for DDC0 | 0 (ADC0) honoured; other values TBD (HIS-01, HIS-03) | [P2] byte 17; 0004 point 1 |
-| 18–19 | Sampling rate DDC0, ksps | offered rates honoured (B6.7); any other value: refused, DDC0 does not run (B6.7) | [P2] bytes 18–19; 0004 points 1, 7 |
+| 18–19 | Sampling rate DDC0, in ksps (48, 96, 192, 384) | offered rates honoured (B6.7); any other value: refused, DDC0 does not run (B6.7) | [P2] bytes 18–19; 0004 points 1, 7; unit as written by [AETHER-SRC] `P2Protocol.cpp:123–125` and [PIHPSDR] `new_protocol.c:1403–1404` (0020 §30) |
 | 20–21 | CIC1, CIC2 DDC0 | ignored ("For future use" in [P2]) | [P2] bytes 20–21 |
 | 22 | Sample size DDC0 | 24 honoured; 0 read as the default 24; any other value: refused, DDC0 does not run | [P2] byte 22; 0004 point 7 |
 | 23–496 | ADC, rate, CIC, size DDC1–79 | ignored | [P2] bytes 23–496; 0004 point 7 |
@@ -789,8 +914,8 @@ Table B6-2 — DDC-specific packet fields ([P2] DDC specific packet)
 
 A change of DDC0 sampling rate to another offered rate while running SHOULD take effect
 without a stop, since [P2] sends the DDC-specific packet "when a parameter changes" ([P2] DDC
-specific packet, introduction). Whether the sequence counter restarts on a rate change, or
-when DDC0 resumes after a refusal: TBD (no decision; 0004 does not fix it).
+specific packet, introduction). The sequence counter does not restart on a rate change, nor
+when DDC0 resumes after a refusal (B2.7; 0020 §19).
 
 B6.6 **Time stamp.** Time stamps and VITA-49 are not offered: bytes 4–11 of each DDC packet
 MUST be sent as zero (0004 option 2C, point 1). A General packet with byte 37 bit [0] (time
@@ -816,12 +941,13 @@ B6.7 **Sample rates.**
 B6.8 **Receive frequency.** DDC0 frequency is set by High Priority bytes 9–12, in Hz or as a
 phase word as declared in discovery byte 21 ([P2] High Priority packet bytes 9–12; General
 packet byte 37 bit [3]; B3.8). Range: 0.5–30 MHz and 50–54 MHz [G7250-MAN], also in
-`rx_range` (B4.8). Behaviour outside the range: TBD (B11).
+`rx_range` (B4.8). Outside the range the G7250 MUST tune as requested, without refusal or
+clamping; receiver performance there is not specified (B11.8; 0020 §28).
 
 B6.9 **Pacing.** The G7250 SHOULD send a DDC0 packet as soon as 238 samples are available, to
 keep latency low (provisional, no decision; by analogy with [P2] "Detailed operation", which
 gives this advice for DUC data; the CH394Q has no flow control in UDP mode, [CH394] section
-12.2.4). Overrun behaviour: TBD (B11).
+12.2.4). Overrun behaviour: B11.7 (0020 §28).
 
 B6.10 **Wideband data (milestone M2).** (0004 point 4; option 5C; Resolved.)
 
@@ -851,8 +977,8 @@ B6.12 **DDC audio.** Not offered (0017; B2.3).
 
 ### B7 P2 field table
 
-Per standard P2 field of the host-to-radio packets: honoured, ignored, refused, or TBD (0005,
-Consequences). "Honoured" means as [P2] specifies (B1.4). "Ignored" means accepted with no
+Per standard P2 field of the host-to-radio packets: honoured, ignored, refused, or open on a
+hardware question with its HIS id (0005, Consequences). "Honoured" means as [P2] specifies (B1.4). "Ignored" means accepted with no
 effect. "Refused" means the request is not followed and the stream concerned does not run,
 with the reason in `STREAM_STATUS` (0004 point 7). The DDC-specific packet is in Table B6-2,
 the DUC-specific packet in Table B10-1, the High Priority status packet (radio to host) in
@@ -863,20 +989,21 @@ Table B7-1 — General packet ([P2] General packet to SDR)
 | Byte | Field | G7250 behaviour | Source |
 |------|-------|-----------------|--------|
 | 4 | Command 0x00 | honoured | [P2] byte 4 |
-| 5–12, 15–22 | Port numbers | zero = default honoured; non-default TBD; never onto the management port; moving a port the armed session uses drops the arm | B2.3; 0008 Transport 2; 0007 drop event 9 |
+| 5–12, 15–22 | Port numbers | zero or the default value honoured; any other value not honoured: default kept, logged, `LINK_STATUS` bit 17 (never onto the management port) | B2.3; 0008 Transport 2; 0020 §13; Annex X1, D22 |
 | 13–14 | DDC audio port | ignored | 0017 |
 | 23 | Wideband enable | before M2: not followed; from M2: bit [0] per B6.10; other bits not followed | 0004 point 7 |
 | 24–28 | Wideband parameters | from M2: 0 or the fixed values; otherwise refused | 0004 point 7; B6.10 |
-| 29–32 | Memory-mapped ports | zero = G7250 default port (B8.1); non-default TBD | 0005; B2.3 |
+| 29–30 | Memory-mapped port of the G7250 | zero or 7250 honoured; any other value not honoured, as bytes 5–22 | 0005; B2.3; 0020 §1, §13 |
+| 31–32 | Memory-mapped destination port of the host | non-zero honoured; zero = the owner's source port | B8.1; 0020 §13 |
 | 33–36 | Envelope PWM | ignored ("Reserved for future use" in [P2]) | [P2] bytes 33–36; 0005 rule 3 |
 | 37 [0], [1] | Time stamp, VITA-49 | set: refused (DDC0 does not run while it stands) | 0004 point 7 |
-| 37 [2] | VNA mode | TBD (no decision) | [P2] byte 37 |
+| 37 [2] | VNA mode | set: refused (VNA not offered; DDC0 does not run while it stands; `STREAM_STATUS` reason 11) | [P2] byte 37; 0004 point 7; 0020 §22 |
 | 37 [3] | Frequency or phase word | must match discovery byte 21; TBD (HIS-04) | B3.8 |
 | 38 [0] | Hardware timer enable | honoured while not armed; forced on while armed; must be set to arm | 0007 Decision 2.3; B5.6 |
 | 39 | Endian and I&Q format | Big-Endian 3-byte honoured; anything else refused | 0004 points 1, 7; B6.3 |
 | 40–55 | Reserved | ignored | [P2]; 0005 rule 3 |
 | 56, 57 | Atlas bus configuration, 10 MHz reference source | ignored ("For Atlas based systems" in [P2]) | [P2] bytes 56–57 |
-| 58 [0] | PA enable | TBD (no decision; HIS-12) | [P2] byte 58 |
+| 58 [0] | PA enable | honoured as an extra TX condition: while 0, a TX request does not key; `TX_STATE` bit 4; no exciter-only output | [P2] byte 58; 0005 rule 1; 0020 §22 |
 | 58 [1] | Apollo ATU enable | ignored; the internal ATU is controlled through the register map (`ATU_TUNE`) | 0005 option D; 0007 Decision 6 |
 | 58 [2], [3] | Mercury common frequency, clock source | ignored (Atlas only in [P2]) | [P2] byte 58 |
 | 59 | Alex enable | TBD; ignored unless HIS-06/HIS-07 show identical meaning | 0005 option D, rule 1 |
@@ -898,7 +1025,7 @@ Table B7-2 — High Priority packet ([P2] High Priority data packet)
 | 346–348 | DUC1–DUC3 drive | ignored (reserved) | [P2]; 0005 rule 3 |
 | 1396–1397 | Client control word | bit [0] TUNE accepted as information; does not start the internal ATU; other bits ignored | 0007 Decision 6; 0005 rule 1 |
 | 1398–1399 | CAT over TCP port | ignored; CAT stays on the host side | 0011 point 5 |
-| 1400 | Transverter and audio enable | TBD (no decision) | [P2] byte 1400 |
+| 1400 | Transverter and audio enable | ignored (no transverter output, no audio on the main unit) | [P2] byte 1400; 0017; 0020 §22 |
 | 1401 | Open-collector outputs | ignored; no such outputs [G7250-MAN] | 0007 Decision 6 |
 | 1402, 1403 | Metis user outputs, Mercury attenuator | ignored (Atlas only in [P2]) | [P2] bytes 1402–1403 |
 | 1404–1427 | Alex 2–7 | ignored (reserved) | [P2]; 0005 rule 3 |
@@ -910,84 +1037,148 @@ Table B7-2 — High Priority packet ([P2] High Priority data packet)
 Other host-to-radio packets: DUC I&Q (B10.7); memory-mapped registers from PC (B8); Erase,
 Program, Set IP (B3.9); DDC audio (not received, B2.3).
 
-The P2 field table is complete for M1. Rows marked TBD are closed when the HIS answers or a
-decision is taken (0005, Consequences).
+The P2 field table is complete. Rows that still depend on the hardware carry their HIS id
+and are closed when the HIS answers (0005, Consequences; 0020, Context).
 
 ### B8 G7250 register map
 
 B8.1 **Port and packets.** The G7250 register map is carried by [P2] "Memory mapped registers
-from PC" and "Memory mapped registers from hardware" packets: up to 240 pairs of a 16-bit
-address and a 32-bit data word, bytes 4–1443 ([P2]; 0005). The G7250 uses one local port for
-both directions (B2.3; 0005, Consequences). Default port number: TBD (0003, "left to spec part
-B"; 0005). It has to be fixed before M1, because a host needs it to send `CAP_REQUEST` (0003,
-Consequences). Informative: a number in 1024–1029 or 1035–1114 would collide with [P2]
-default or DDC ports ([P2] General bytes 5–22).
+from PC" and "Memory mapped registers from hardware" packets: pairs of a 16-bit address and a
+32-bit data word, bytes 4–1443 ([P2]; 0005). The G7250 uses local UDP port **7250** for both
+directions (B2.3; 0005, Consequences; 0020 §1). It sends register packets to the owner's
+source port, or to General packet bytes 31–32 when these are non-zero, and answers a
+non-owner's request to the request's source address and port (B2.4; 0020 §13, §14).
+
+- A packet carries *n* pairs, 1 ≤ *n* ≤ 240, and is 4 + 6*n* bytes long. The G7250 MUST send
+  only the pairs it has (0020 §4).
+- The G7250 MUST accept any length of at least 10 bytes and MUST ignore a trailing incomplete
+  pair. Pairs with address 0xFFFF, and the pair (0x0000, 0x00000000), are padding: they MUST
+  be ignored and are not answered (0020 §4).
+- Incoming sequence numbers are not checked (B2.7).
 
 B8.2 **Sending.** The G7250 sends a memory-mapped packet whenever data changes and optionally
 periodically ([P2] Memory mapped registers from hardware); B9.4 gives the telemetry rates.
 Register packets and High Priority status packets are not synchronised; a host MUST NOT
 assume they describe the same instant (0006, Consequences).
 
-B8.3 **Groups and addresses.** Addresses are TBD except the capability record (proposed
-0x0000–0x00B8, B4.2). The bit assignment of `regmap_groups` (B4.8) is TBD; candidate groups
-named in 0003: antenna, ATU, TX arm and safety, telemetry, external interfaces. Registers for
-antenna, filter and front-end control are reserved until the HIS answers (HIS-06, HIS-07,
-HIS-09; 0005, Consequences).
+B8.3 **Groups and addresses.** Addresses are grouped in blocks of 256; group *n* is present
+when bit *n* of the record field `regmap_groups` is set (B4.8; 0003 §4 rule 6; 0020 §3).
+Table B8-1 lists the groups, Table B8-2 the registers. Registers for antenna selection,
+filter and front-end control and external interfaces are reserved in their blocks until the
+HIS answers (HIS-06, HIS-07, HIS-09; 0005, Consequences). Addresses not listed are reserved;
+a write to one is rejected (`UNKNOWN_ADDRESS`, B8.4).
 
-B8.4 **Write confirmation and ordering.** For `TX_ARM` the confirmation is the push of
-`TX_ARM_STATE` and keying needs a TX-request edge after it (B10.2; 0007 rule 2). Writes to the
-capability record are answered with the current values (B4.6). The general confirmation rule
-for other writes and their ordering against High Priority packets: TBD (0005, Consequences).
+Table B8-1 — Register groups (0020 §3)
 
-B8.5 **Writes from a host that is not the owner.** `CAP_REQUEST` is accepted from any host
-(B4.4). `TX_ARM` from a host that is not the owner is rejected (0007 rule 1). `FAULT_CLEAR` is
-accepted only from the owner (0007 Decision 5). Other writes from non-owners: TBD (B11).
+| Bit in `regmap_groups` | Block | Group | Present |
+|---|---|---|---|
+| 0 | 0x0000–0x00FF | capability record (`CAP_BASE` = 0x0000; 0x0000–0x00EE usable, 239 registers; 0x00EF–0x00FF reserved) | always (0003 §2) |
+| 1 | 0x0100–0x01FF | session and stream status, requests | always |
+| 2 | 0x0200–0x02FF | TX arm, TX state, limits, faults | from M3; arm accepted only when record `tx` bit 1 = 1 (B10) |
+| 3 | 0x0300–0x03FF | telemetry | when at least one sensor exists (HIS-11) |
+| 4 | 0x0400–0x04FF | internal ATU | per HIS-08 |
+| 5 | 0x0500–0x05FF | antenna | per HIS-06 |
+| 6 | 0x0600–0x06FF | front end and filters (reserved) | 0 until HIS-07 |
+| 7 | 0x0700–0x07FF | external interfaces, SEND and TUNER (reserved) | 0 until HIS-09 |
+| 8–31 | 0x0800–0x1FFF | reserved for later groups | 0 |
+| — | 0x2000–0xFFFE | reserved | — |
+| — | 0xFFFF | padding (no operation) | — |
 
-B8.6 **Units.** Analogue telemetry registers are signed 32-bit integers in milli-units of an SI
-unit (mV, mA, mW, m°C; SWR as 1000 × SWR). Status registers are enumerations or bit fields
-(0006 option 3A).
+B8.4 **Write confirmation, rejection and ordering** (0020 §11; 0005, Consequences).
 
-Table B8-1 — G7250 registers (symbolic; "RO" = read-only, radio → host; "WO" = written by
-the host; address TBD unless stated)
+- The G7250 MUST process the pairs of a host packet in order. For each written address it
+  MUST answer with the pair (address, value now in force), in one or more packets sent within
+  5 ms of receipt. For `TX_ARM` the answer is `TX_ARM_STATE`; keying needs a TX-request edge
+  after it (B10.2; 0007 rule 2).
+- A rejected write MUST leave the value unchanged. The answer MUST carry the value in force
+  and a `WRITE_STATUS` pair: [31:16] the address, [15:8] a rejection counter (wraps at 255),
+  [7:0] the reason: 1 `UNKNOWN_ADDRESS` (including an address of an absent group),
+  2 `READ_ONLY`, 3 `NOT_OWNER`, 4 `BAD_VALUE`, 5 `LOOSER_LIMIT`, 6 `BUSY` (update in
+  progress) (0020 §11).
+- The value MUST take effect before the answer is sent. [P2] orders nothing between ports: a
+  host that needs a write in force before a High Priority action MUST wait for the answer
+  (0020 §11; 0007 rule 2). A host MAY repeat a write after 100 ms without an answer; repeated
+  writes are harmless (a correct `TX_ARM` while armed with the same token is a no-op, a
+  `FAULT_CLEAR` without a fault is rejected, an `ATU_TUNE` start while tuning is a no-op)
+  (0020 §7, §11).
+- Writes to the capability record and to other read-only registers are answered with the
+  current values and `READ_ONLY` (B4.6).
 
-| Name | Address | Dir / access | Content, units | Sent | Source |
-|------|---------|--------------|----------------|------|--------|
-| capability record (Table B4-1) | `CAP_BASE` + offset; proposed 0x0000–0x00B8 | RO | Table B4-1 | on `CAP_REQUEST`; once per session | 0003 §2, §3 |
-| `CAP_REQUEST` | TBD (control range) | WO, any host | write requests the record; value TBD | — | 0003 §2 |
-| `STREAM_STATUS` | TBD | RO | per stream (DDC0, DUC0, microphone, wideband): running or not, and refusal reason (for example "DDC0 rate not offered"); codes TBD | on change | 0004 point 7, Consequences |
-| `LINK_STATUS` | TBD | RO | current link speed; session refusal reason ("link speed below 100 Mbit/s"); codes TBD | on change | 0003 §2; 0004 point 9 |
-| `TX_ARM_TOKEN` | TBD | RO | 32-bit token, never 0 or 0xFFFFFFFF, differs from the previous token | at session start and on every change | 0007 Decision 1 |
-| `TX_ARM` | TBD | WO, owner | `token XOR ARM_MAGIC` arms; 0 disarms; any other value rejected | — | 0007 Decision 1 |
-| `TX_ARM_STATE` | TBD | RO | disarmed / armed / inhibited; arm generation counter (+1 per arm); last reject reason; last drop reason (Table A3-1); layout TBD | on every change | 0007 Decision 1; 0006 |
-| `TX_STATE` | TBD | RO | keyed or not (PA actually keyed); source of the current TX (PTT, CWX, KEY, ATU); active inhibits; `WARN` flags; last unkey reason (keyed timeout, underrun, limit) | on every change (event) | 0007 Decisions 1, 2, 4; 0006 |
-| `TX_MODE_CLASS` | TBD | WO, owner | declared TX mode class; enumeration TBD, with at least the power classes of [G7250-MAN] (SSB/CW/NFM 100 W; AM 25 W) | — | 0007 Decision 4 rule 3 |
-| `KEYED_TIMEOUT` | TBD | WO, owner | ms; default 500; host may write 100–500 | — | 0007 Decision 2; Resolved 2 |
-| `WATCHDOG_STATE` | TBD | RO | General byte 38 bit [0] as written; effective state | on change | 0007 Decision 2.3 |
-| `LIMIT_<name>` | TBD | WO, owner | per-session stricter value of a limit in Table A3-2 (for example maximum continuous TX time); units TBD; looser value rejected | — | 0007 Decision 4 rule 1 |
-| `LIMIT_STATUS` | TBD | RO | bit field, per limit (SWR, temperature, power, max TX time, supply): "limiting", "tripped" | event | 0006; 0007 |
-| `SAFETY_STATE` | TBD | RO | normal / fault | event | 0007 Decision 5 |
-| `FAULT_CODE` | TBD | RO | first cause; enumeration, 0 = none; codes TBD | event | 0007 Decision 5; 0006 |
-| `FAULT_FLAGS` | TBD | RO | latched bitmask of all causes since the last clear | event | 0007 Decision 5 |
-| `FAULT_CLASS` | TBD | RO | 1 host-clearable, 2 latched until reset | event | 0007 Decision 5 |
-| trip counter | TBD | RO | number of limit trips; name and scope TBD | event | 0007 Decision 5 |
-| `FAULT_CLEAR` | TBD | WO, owner | write the current fault code to clear a class 1 fault | — | 0007 Decision 5 |
-| `ATU_TUNE` | TBD | WO, owner | starts internal ATU tuning (a TX request under the arm); layout TBD | — | 0007 Decision 6; HIS-08 |
-| `ATU_STATE` | TBD | RO | off/bypassed, in line, tuning, tuned, failed | event | 0006; HIS-08 |
-| `ANT_STATE` | TBD | RO | antenna actually selected | event | 0006; HIS-06 |
-| `TLM_PA_TEMP` | TBD | RO | m°C, signed; one or more sensors | slow | 0006; HIS-11 |
-| `TLM_PA_CURRENT` | TBD | RO | mA | fast | 0006; HIS-11 |
-| `TLM_SUPPLY_CURRENT` | TBD | RO | mA (if separate from PA current) | fast | 0006; HIS-11 |
-| `TLM_SWR` | TBD | RO | 1000 × SWR as used by the safety core; 0 = not valid | fast | 0006; 0007 |
-| `SENSOR_VALID` | TBD | RO | bit field, one bit per sensor | event | 0006; HIS-11 |
+B8.5 **Writes from a host that is not the owner.** `CAP_REQUEST` MUST be accepted from any
+host (B4.4). Every other write from a host that is not the owner, or while there is no
+session, MUST be rejected with `NOT_OWNER` and answered to the writer's source address and
+port; it MUST have no other effect: no takeover, no watchdog feed (0020 §12; 0007 rule 1 and
+Decision 5).
 
-Constant `ARM_MAGIC`: 32-bit value TBD (0007, "Still open").
+B8.6 **Units.** Analogue registers are signed 32-bit integers in milli-units of an SI unit
+(mV, mA, mW, m°C, ms; SWR as 1000 × SWR). Status registers are enumerations or bit fields;
+bit 0 is the LSB, unused bits are 0, and codes not listed are reserved (0006 option 3A;
+0003 §2; 0020 §8, §10).
 
-Names introduced in this table and not in the decisions (`STREAM_STATUS`, `LINK_STATUS`,
-`LIMIT_STATUS`, `ATU_STATE`, `ANT_STATE`, `TLM_*`, `SENSOR_VALID`) label registers that 0003,
-0004 and 0006 describe without a name. 0006 "TX state: PA actually keyed" and "TX arm state,
-and reason of the last disarm" are carried by `TX_STATE` and `TX_ARM_STATE` of 0007. Every
-telemetry register exists only if the HIS confirms the sensor or state; absent sensors are
-flagged absent in the capability record, not reported as 0 (0006, Decision).
+Table B8-2 — G7250 registers ("RO" = read-only, radio → host; "W" = written by the host and
+echoed with the value in force, B8.4)
+
+| Name | Address | Access | Content, units | Sent | Source |
+|------|---------|--------|----------------|------|--------|
+| capability record (Table B4-1) | 0x0000–0x00CE | RO | Table B4-1 | on `CAP_REQUEST`; once per session | 0003 §2, §3; 0020 §26 |
+| `CAP_REQUEST` | 0x0100 | W, any host | 0x00000001 requests the record; other values `BAD_VALUE` | answer | 0003 §2; 0020 §5 |
+| `STREAM_STATUS` | 0x0101 | RO | one byte per stream: [7:0] DDC0, [15:8] DUC0, [23:16] microphone, [31:24] wideband; bit 7 running, [6:0] reason (Table B8-3) | on change | 0004 point 7; 0020 §8 |
+| `LINK_STATUS` | 0x0102 | RO | [15:0] speed in Mbit/s (0 = link down); bit 16 full duplex; bit 17 non-default P2 port not honoured (latched until the next session); [31:24] session refusal reason: 0 none, 1 link below 100 Mbit/s | on change; B5.8 | 0003 §2; 0004 point 9; 0020 §8, §13, §20 |
+| `WRITE_STATUS` | 0x0103 | RO | last rejected write, B8.4 | on every rejection, to the writer | 0020 §11 |
+| `TX_ARM_TOKEN` | 0x0200 | RO | 32-bit token; never 0, 0xFFFFFFFF or `ARM_MAGIC`; differs from the previous token | at session start and on every change | 0007 Decision 1; 0020 §7 |
+| `TX_ARM` | 0x0201 | W, owner | `token XOR ARM_MAGIC` arms; 0 disarms; any other value rejected (`BAD_TOKEN` in `TX_ARM_STATE`) | answer is `TX_ARM_STATE` | 0007 Decision 1; 0020 §7 |
+| `TX_ARM_STATE` | 0x0202 | RO | [3:0] state 0 disarmed, 1 armed, 2 inhibited; [15:8] last reject reason; [23:16] last drop reason; [31:24] arm generation (+1 per arm, wraps) (Table B8-3) | on every change | 0007 Decision 1; 0006; 0020 §8 |
+| `TX_STATE` | 0x0203 | RO | bit 0 keyed (PA actually keyed); bit 1 `WARN` active; bit 2 `REDUCE` active; bit 3 last TX request outside the TX ranges; bit 4 PA disabled by the host (General byte 58 bit [0]); bit 5 inhibit active; [11:8] TX source 0 none, 1 PTT, 2 CWX, 3 KEY, 4 ATU; [23:16] last unkey reason 0 none, 1 TX request released, 2 keyed timeout, 3 TX IQ underrun, 4 limit, 5 arm dropped; [31:24] limit id when reason 4 | on every change (event) | 0007 Decisions 1, 2, 4; 0006; 0020 §8, §22 |
+| `TX_MODE_CLASS` | 0x0204 | W, owner | 0 none declared (not writable); 1 SSB (including data modes sent as SSB), 2 CW, 3 AM, 4 FM; other values `BAD_VALUE`; power class 100 W for 1, 2, 4 and 25 W for 3 [G7250-MAN]; back to 0 at session end; a change while keyed applies at once | answer | 0007 Decision 4 rule 3; 0020 §9 |
+| `KEYED_TIMEOUT` | 0x0205 | W, owner | ms; default 500; 100–500 accepted, other values `BAD_VALUE`; back to 500 at session end | answer | 0007 Decision 2; Resolved 2; 0020 §17 |
+| `WATCHDOG_STATE` | 0x0206 | RO | bit 0 General byte 38 bit [0] as last written; bit 1 effective state; bit 2 no General packet yet (counts as enabled) | on change | 0007 Decision 2.3; 0020 §8 |
+| `SAFETY_STATE` | 0x0210 | RO | 0 normal, 1 fault | event | 0007 Decision 5; 0020 §8 |
+| `FAULT_CODE` | 0x0211 | RO | first cause, Table B8-3; 0 = none | event | 0007 Decision 5; 0006; 0020 §8 |
+| `FAULT_FLAGS` | 0x0212 | RO | bit *c* set for every fault code *c* (1–31) since the last clear | event | 0007 Decision 5; 0020 §8 |
+| `FAULT_CLASS` | 0x0213 | RO | 0 none, 1 host-clearable, 2 latched until reset | event | 0007 Decision 5 |
+| `TRIP_COUNT` | 0x0214 | RO | limit trips with action `UNKEY` or stronger since power-on; saturates at 0xFFFFFFFF; not cleared over P2 | event | 0007 Decision 5; 0020 §8 |
+| `FAULT_CLEAR` | 0x0215 | W, owner | write the current `FAULT_CODE` to clear a class 1 fault; other values `BAD_VALUE` | answer | 0007 Decision 5 |
+| `LIMIT_STATUS` | 0x0220 | RO | bit *n*: limit *n* limiting (`WARN` or `REDUCE`); bit 16 + *n*: limit *n* tripped (`UNKEY` or stronger) since the last TX request; limit ids in Table B8-3 | event | 0006; 0007; 0020 §8 |
+| `LIMIT_TX_TIME` | 0x0230 | W, owner | maximum continuous TX time, ms; built-in 300 000 | answer | 0007 Resolved 3; 0020 §10 |
+| `LIMIT_FWD_POWER` | 0x0231 | W, owner | upper bound on forward power, mW, all bands and classes | answer | 0007 Decision 4; 0020 §10 |
+| `LIMIT_SWR` | 0x0232 | W, owner | 1000 × SWR; replaces S2 when stricter, S1 becomes the lower of S1 and this value | answer | 0007 Decision 4; 0020 §10 |
+| `LIMIT_PA_TEMP` | 0x0233 | W, owner | m°C; replaces T3 when stricter | answer | 0007 Decision 4; 0020 §10 |
+| `TLM_PA_TEMP` | 0x0300–0x0303 | RO | m°C, signed; sensors 0–3 | slow | 0006; HIS-11 |
+| `TLM_PA_CURRENT` | 0x0304 | RO | mA | fast | 0006; HIS-11 |
+| `TLM_SUPPLY_CURRENT` | 0x0305 | RO | mA (if separate from PA current) | fast | 0006; HIS-11 |
+| `TLM_SWR` | 0x0306 | RO | 1000 × SWR as used by the safety core; 0 = not valid | fast | 0006; 0007 |
+| `SENSOR_VALID` | 0x0307 | RO | bit *n* as record `telemetry` bit *n*; bit 7 PA temperature sensors 1–3 | event | 0006; HIS-11; 0020 §8 |
+| `ATU_TUNE` | 0x0400 | W, owner | 1 starts internal ATU tuning (a TX request under the arm), 0 aborts; other values `BAD_VALUE` | answer | 0007 Decision 6; HIS-08; 0020 §8 |
+| `ATU_STATE` | 0x0401 | RO | 0 off or bypassed, 1 in line, 2 tuning, 3 tuned, 4 failed | event | 0006; HIS-08; 0020 §8 |
+| `ANT_STATE` | 0x0500 | RO | [7:0] connector actually selected, from 1; 0 unknown | event | 0006; HIS-06; 0020 §8 |
+
+Writing 0 to a `LIMIT_<name>` register returns that limit to its built-in value; a looser
+value is rejected with `LOOSER_LIMIT`; all limits return to their built-in values at session
+end (A3.4; 0007 rules 1–2; 0020 §10).
+
+Constant `ARM_MAGIC` = 0x47375458 (ASCII "G7TX") (0020 §7).
+
+B8.7 **Codes.** Table B8-3 gives the enumerations used in Table B8-2 (0020 §8).
+
+Table B8-3 — Reason and fault codes (0020 §8)
+
+| Set | Codes |
+|-----|-------|
+| Arm reject reason (`TX_ARM_STATE` [15:8]) | 0 none; 1 `NOT_OWNER`; 2 `NOT_RUNNING`; 3 `WATCHDOG_DISABLED`; 4 `IN_FAULT`; 5 `INHIBITED`; 6 `PTT_ACTIVE`; 7 `LEVEL_NOT_ACTIVE`; 8 `MAINTENANCE`; 9 `NO_MODE_CLASS`; 10 `BAD_TOKEN`; 11 `TX_NOT_IMPLEMENTED` |
+| Drop reason (`TX_ARM_STATE` [23:16]; Table A3-1) | 0 none; 1 `HOST_DISARM`; 2 `RUN_CLEARED`; 3 `WATCHDOG`; 4 `TAKEOVER`; 5 `RESET`; 6 `FAULT` (events 6 and 13); 8 `LINK_DOWN`; 9 `SESSION_CHANGED`; 10 `LEVEL_CHANGE`; 11 `MAINTENANCE`; 12 `REDISCOVERY`; 0x40 + limit id `LIMIT_<name>` (event 7) |
+| Limit id | 1 TX frequency; 2 SWR; 3 PA temperature; 4 forward power; 5 supply voltage; 6 supply or PA current; 7 maximum continuous TX time; 8 ATU tune time; 9 sensor plausibility; 10 RF while not keyed |
+| Fault code (`FAULT_CODE`) | 0 none; 1–10 the limit id whose `FAULT` action fired (for example 2 repeated SWR trips, 3 PA temperature T4); 16 TX path not blocked (drop event 13); 17 processor watchdog reset seen at start-up (HIS-13); 18 start-up self-test failed; 19 internal error |
+| Stream reason (`STREAM_STATUS` [6:0] per byte) | 0 none or running; 1 not enabled by the host; 2 not offered by this firmware; 3 sample rate not offered; 4 sample size not offered; 5 data format not offered (General byte 39); 6 time stamp or VITA-49 requested; 7 wideband parameters not offered; 8 link below 100 Mbit/s; 9 run bit clear; 10 update in progress; 11 VNA mode requested; 12 EER requested |
+| Write reject reason (`WRITE_STATUS` [7:0]) | B8.4 |
+
+Names introduced in this part and not in the decisions 0003–0008 (`STREAM_STATUS`,
+`LINK_STATUS`, `WRITE_STATUS`, `LIMIT_STATUS`, `TRIP_COUNT`, the four `LIMIT_<name>`
+registers, `ATU_STATE`, `ANT_STATE`, `TLM_*`, `SENSOR_VALID`) label registers that 0003, 0004,
+0006 and 0007 describe without a name, or that 0020 adds (0020 §3). 0006 "TX state: PA
+actually keyed" and "TX arm state, and reason of the last disarm" are carried by `TX_STATE`
+and `TX_ARM_STATE` of 0007. Every telemetry register exists only if the HIS confirms the
+sensor or state; absent sensors are flagged absent in the capability record, not reported as
+0 (0006, Decision; B4.8 `tlm_desc`).
 
 ### B9 Telemetry
 
@@ -1035,7 +1226,8 @@ band where the hardware needs it (0006, Resolved; HIS-11). Taking them from the 
 instead of [P2] Appendix A is listed in Annex X1, D20. The safety core uses its own calibrated
 values, not these words through the host formula; host display and firmware limits can differ
 where the formula does not fit exactly (0006 option 2A, "Against"). Which coupler position the
-forward and reverse values describe: TBD (HIS-08, HIS-11; B4.9). A generic P2 host has no
+forward and reverse values describe is stated in record field `coupler`; its value:
+TBD (HIS-08, HIS-11; B4.9). A generic P2 host has no
 constants for this unit and may show wrong power and supply values (0006, Consequences).
 
 B9.4 **Rates.**
@@ -1048,10 +1240,11 @@ B9.4 **Rates.**
   registers immediately on change, at most one packet per 1 ms; fast registers every 10 ms
   while transmitting, otherwise with the periodic snapshot; a periodic snapshot of all
   telemetry registers every 1 s in one memory-mapped packet; analogue registers also on change
-  beyond a hysteresis stated in the capability record (hysteresis field TBD, B4.9).
+  beyond the hysteresis stated per register in record field `tlm_desc` (B4.8, B4.9; 0020 §26).
+  The rates in use are stated in `tlm_rates` and `status_rates`.
 
 B9.5 **G7250 telemetry registers.** The registers of B8 marked slow, fast or event in Table
-B8-1, in the units of B8.6. The firmware computes SWR itself; the `TLM_SWR` register is the
+B8-2, in the units of B8.6. The firmware computes SWR itself; the `TLM_SWR` register is the
 value the limits act on. Forward and reverse power are not duplicated in registers (0006,
 Decision). Raw readings behind the engineering-unit registers and calibration writes go
 through the management channel, not the register map (0006, Consequences; A1).
@@ -1076,16 +1269,22 @@ B10.2 **Arm handshake** (0007, Decision 1, option 1C):
    effectively on and General byte 38 bit [0] was written as set (else `WATCHDOG_DISABLED`);
    the radio is not in fault; no limit inhibit is active; High Priority byte 4 bit [1] is 0 at
    that moment; level 1 is the active level; no firmware update is in progress; a TX mode class
-   has been declared in `TX_MODE_CLASS` for this session (else `NO_MODE_CLASS`) (0007 rule 1).
+   has been declared in `TX_MODE_CLASS` for this session (else `NO_MODE_CLASS`) (0007 rule 1);
+   and TX is implemented in this firmware, record `tx` bit 1 (else `TX_NOT_IMPLEMENTED`)
+   (B4.8; 0020 §8). Reason codes: Table B8-3.
 4. The arm takes effect when the G7250 pushes `TX_ARM_STATE` = armed with a new generation
    number. The host MUST wait for it. After arming, the G7250 MUST key only on a 0→1 edge of a
    TX request that arrives after the confirmation; a PTT bit that was already 1 does not key
    (0007 rule 2; [P2] does not order memory-mapped and High Priority packets).
-5. The token MUST differ from the previous one; it need not be unpredictable (0007 rule 3;
-   generation: HIS-18, HIS-20).
+5. The token MUST differ from the previous one and MUST NOT be 0, 0xFFFFFFFF or `ARM_MAGIC`
+   (with the token equal to `ARM_MAGIC` the arm value would be 0, which disarms); it need not
+   be unpredictable (0007 rule 3; 0020 §7; generation: HIS-18, HIS-20). A correct arm write
+   while already armed with the same token is a no-op: it is answered and does not raise the
+   generation (0020 §7).
 6. The arm is dropped by the events of Table A3-1.
 
-B10.3 **TX mode class.** The host MUST declare the class in `TX_MODE_CLASS` before arming and
+B10.3 **TX mode class.** Values: 1 SSB (including data modes sent as SSB), 2 CW, 3 AM, 4 FM
+(B8, Table B8-2; 0020 §9). The host MUST declare the class in `TX_MODE_CLASS` before arming and
 MUST update it whenever its TX mode changes. The AM limit (25 W [G7250-MAN]) applies whenever
 the declared class is AM. The power measurement applies whatever the host declares. A missing
 declaration is never replaced by a default class; the arm is refused (`NO_MODE_CLASS`) (0007
@@ -1104,8 +1303,10 @@ B10.5 **Keyed timeout and TX IQ underrun** (0007, Decision 2):
   within `KEYED_TIMEOUT`, the G7250 MUST unkey, keep the arm, and report the reason in
   `TX_STATE`. `KEYED_TIMEOUT` defaults to 500 ms; the host MAY write a shorter value, floor
   100 ms; a value above 500 ms or below 100 ms MUST NOT be accepted (0007 Decision 2;
-  Resolved 2). Whether it returns to 500 ms at session end, and how a rejected write is
-  reported: TBD. Annex X1, D7.
+  Resolved 2). A value outside 100–500 ms is rejected with `WRITE_STATUS` reason `BAD_VALUE`
+  and the value in force stays (B8.4); `KEYED_TIMEOUT` returns to 500 ms at session end
+  (0020 §17). Tolerance: the G7250 MUST NOT unkey before `KEYED_TIMEOUT` and MUST have unkeyed
+  no later than `KEYED_TIMEOUT` + 10 ms (0020 §16). Annex X1, D7.
 - In a non-CW TX, a DUC FIFO underflow ([P2] High Priority status byte 30 bit [2]) lasting
   longer than TBD ms (HIS-18) MUST unkey, arm kept (0007 Decision 2). Annex X1, D8.
 - After an unkey the host needs a new 0→1 TX request (A3.3).
@@ -1120,14 +1321,14 @@ Table B10-1 — DUC-specific packet ([P2] DUC specific packet)
 | 5 [1] | CW | honoured: selects hardware CW from KEY | [P2] byte 5; 0007 Decision 6 |
 | 5 [2]–[6] | Reverse keys, iambic, sidetone, mode B, strict spacing | honoured for the hardware keyer; sidetone TBD (no speaker on the main unit, HIS-17) | [P2] byte 5; 0007 Decision 6 |
 | 5 [7] | Break-in | honoured | [P2] byte 5; 0007 Decision 6 |
-| 5 [0] | EER | TBD (no decision) | [P2] byte 5 |
+| 5 [0] | EER | set: refused (EER not offered): DUC I&Q not accepted and transmit refused until cleared; `STREAM_STATUS` reason 12 | [P2] byte 5, DUC I&Q NOTE; 0004 point 7; 0020 §22 |
 | 6–8 | Sidetone level, frequency | TBD (HIS-17) | [P2] bytes 6–8 |
 | 9, 10 | Keyer speed, weight | honoured | [P2] bytes 9–10; 0007 Decision 6 |
 | 11–12 | Hang delay, ms | honoured | [P2] bytes 11–12; 0007 Decision 6 |
 | 13 | RF delay, ms | honoured; SEND asserted before RF | [P2] byte 13; 0007 Decision 6 |
-| 14–15 | DUC0 sampling rate | 192 honoured; any other value refused: DUC I&Q not accepted and transmit refused (PA off) until a valid packet; value 0 TBD | [P2] bytes 14–15; 0004 points 2, 7 |
-| 16 | DUC0 bits | 24 honoured; any other value refused, as bytes 14–15; value 0 TBD | [P2] byte 16; 0004 points 2, 7 |
-| 17 | CW ramp period | TBD (no decision) | [P2] byte 17 |
+| 14–15 | DUC0 sampling rate | 192 honoured; any other value refused: DUC I&Q not accepted and transmit refused (PA off) until a valid packet; 0 read as 192 | [P2] bytes 14–15; 0004 points 2, 7; 0020 §18 |
+| 16 | DUC0 bits | 24 honoured; 0 read as 24; any other value refused, as bytes 14–15 | [P2] byte 16; 0004 points 2, 7; 0020 §18 |
+| 17 | CW ramp period | 5–10 ms honoured; 0 and any other value: G7250 default 8 ms; whether the hardware CW path can shape the ramp: HIS-12 | [P2] byte 17; 0020 §22 |
 | 18–49 | Reserved | ignored | [P2]; 0005 rule 3 |
 | 50, 51 | Line in, mic boost, Orion mic; line-in gain | TBD (HIS-17) | [P2] bytes 50–51 |
 | 52–56 | Reserved | ignored | [P2]; 0005 rule 3 |
@@ -1159,34 +1360,107 @@ On level 1, controller inputs never key the radio (0007, Resolved 6).
 
 ### B11 Error handling and robustness
 
-Only the rules below are decided; the rest is TBD (0001 spec section 11; no decision yet).
+This section gives the complete error handling of G7250-P2 (0001 spec section 11; 0004
+point 7; 0020 §28). Values and reason codes are in B8 (Tables B8-2, B8-3).
 
-B11.1 **Requests not offered.** The G7250 MUST NOT clamp a request to an offered value and
+B11.1 **Principle.** A packet the G7250 does not act on MUST have no effect at all: it MUST NOT
+feed the watchdog, cause a takeover, start a session or change any state (0020 §28). Every
+discarded packet is counted per port and reason and can be read with `GET_STATS` over the
+management channel (A1.4, Table A1-2; 0020 §19, §28). Where a host can be told, the reason is
+reported in a status register.
+
+B11.2 **Requests not offered.** The G7250 MUST NOT clamp a request to an offered value and
 MUST NOT silently keep a previous setting. It refuses: the stream concerned does not run until
 a valid request arrives, and the reason is reported in `STREAM_STATUS` (0004 point 7; options
-6A–6C rejected). Cases: B6.3, B6.6, B6.7, B6.10, B10.6. Annex X1, D13.
+6A–6C rejected). Cases: B6.3, B6.6, B6.7, B6.10, B10.6, and VNA mode and EER (Table B7-1,
+Table B10-1; 0020 §22). Annex X1, D13.
 
-B11.2 **Session refusal** on a link below 100 Mbit/s, with the reason in `LINK_STATUS` (B5.8).
+B11.3 **Malformed and short packets.** A packet shorter than the minimum of Table B11-1 MUST be
+discarded whole; bytes beyond the [P2] length of the packet MUST be ignored (0020 §28).
 
-B11.3 **Register writes.** Writes to the capability record are ignored and answered with the
-current values (B4.6). Arm writes that fail a precondition are rejected with a reason in
-`TX_ARM_STATE` (B10.2). Looser limit writes are rejected, not clamped, and reported (A3.4).
+Table B11-1 — Minimum UDP payload length accepted (0020 §4, §28)
 
-B11.4 **Port 1024.** Erase and Program are ignored without a reply (B3.9).
+| Port | Packet | Minimum length (bytes) | Source |
+|------|--------|------------------------|--------|
+| 1024 | Discovery (byte 4 = 0x02) | 5 | [P2] Discovery packet; B3.2 |
+| 1024 | Set IP Address (0x03) | 15 | [P2] Set IP Address packet bytes 0–14 |
+| 1024 | General (0x00) | 60 | [P2] General packet bytes 0–59 |
+| 1025 | DDC-specific | 1444 | [P2] DDC specific packet bytes 0–1443 |
+| 1026 | DUC-specific | 60 | [P2] DUC specific packet bytes 0–59 |
+| 1027 | High Priority | 1444 | [P2] High Priority packet bytes 0–1443 |
+| 1029 | DUC I&Q | 1444 | [P2] DUC I&Q Data packet |
+| 7250 | Memory-mapped from PC | 10 (one pair) | [P2] Memory mapped registers from PC; B8.1 |
+| 7251 | Management | 18 | A1.4, Table A1-1 |
 
-B11.5 **TBD.** Malformed or short packets; unknown command bytes on port 1024; Set IP to a
-unicast address (B3.9); writes to unknown register addresses; register writes from hosts that
-are not the owner (B8.5); a run bit without a preceding discovery (B5.2); sequence gaps and
-their reporting (B2.7); RX and TX overruns (B6.9); frequencies outside the receive range
-(B6.8); the CH394Q reaction to packets on closed ports (0017); reason-code values for
-`STREAM_STATUS`, `LINK_STATUS`, `TX_ARM_STATE` and `FAULT_CODE`.
+A truncated High Priority packet is never acted on in part, because PTT and drive would then be
+read from missing bytes (0020 §28).
+
+B11.4 **Port 1024 commands.** Erase (0x04) and Program (0x05) are ignored without a reply
+(B3.9). A packet whose byte 4 is not 0x00, 0x02, 0x03, 0x04 or 0x05 MUST be ignored without a
+reply (0020 §28).
+
+B11.5 **Register writes** (B8.4, B8.5; 0020 §11, §12):
+
+- a write to an address not in Table B8-2, or in a group that is not present, is rejected with
+  `UNKNOWN_ADDRESS`;
+- a write to a read-only register, including the capability record, is ignored and answered
+  with the current value and `READ_ONLY` (B4.6);
+- a write from a host that is not the owner, other than `CAP_REQUEST`, is rejected with
+  `NOT_OWNER` and has no other effect;
+- a value outside the allowed set is rejected with `BAD_VALUE`; a looser limit with
+  `LOOSER_LIMIT` (A3.4); any write during a firmware update with `BUSY` (A1.8);
+- arm writes that fail a precondition are rejected with a reason in `TX_ARM_STATE` (B10.2);
+- padding pairs and a trailing incomplete pair are ignored (B8.1).
+
+B11.6 **Sequence numbers and gaps.** The G7250 MUST NOT reject or reorder an incoming packet
+because of its sequence number (B2.7). It counts gaps in the sequence numbers received on
+ports 1027 and 1029 per session; the counts are read with `GET_STATS` (0020 §19). Outgoing:
+a packet the G7250 drops (B11.7) still uses its sequence number, so that the host sees the
+loss as a gap (0020 §19).
+
+B11.7 **Overruns.**
+
+- **RX.** When a DDC0 packet cannot be handed to the CH394Q in time (socket transmit buffer
+  full), the G7250 MUST drop the whole packet, MUST NOT send a partial packet, and MUST set
+  High Priority status byte 30 bit [0] ([P2] High Priority Status packet; 0020 §28). The same
+  applies to wideband and microphone packets.
+- **TX.** A DUC I&Q packet that finds the DUC FIFO full MUST be discarded whole; the CH394Q has
+  no flow control in UDP mode ([CH394] section 12.2.4; 0020 §28). Underflow: B10.5.
+
+B11.8 **Frequencies outside the ranges.** A DDC0 frequency outside `rx_range` is tuned as
+requested, without refusal or clamping; receiver performance there is not specified (B6.8;
+0020 §28). A DUC0 frequency outside the transmit ranges is accepted, but a TX request then
+does not key (Table A3-2; `TX_STATE` bit 3).
+
+B11.9 **Packets to closed ports, including 1028.** [CH394] describes only how the CH394Q
+reports a received ICMP "port unreachable" (GINT bit UNREACH, registers UNIP and UNPORT,
+sections 7.1.7, 7.1.13 and 7.1.14); it does not state whether the chip sends one for a
+datagram to a port that has no open socket. Firmware rule: nothing for such a port reaches the
+firmware, and the firmware MUST NOT send any reply. A host MUST NOT depend on either silence or
+an ICMP message (0020 §28; 0017). Test T-B11-08 records what the chip does.
+
+B11.10 **Stale sessions and hosts.**
+
+- The 1 s watchdog ends a session whose host is gone (B5.6).
+- With the hardware timer disabled (allowed only while not armed) the session stays until a
+  takeover, as [P2] allows ([P2] General packet byte 38; 0007, option 2F "Against"). An ICMP
+  "port unreachable" for the owner's port ([CH394] section 7.1.7) MUST be logged and counted
+  and MUST NOT end the session (0020 §28).
+- A management write session ends after 60 s without a request (A1.10; 0020 §24).
+
+B11.11 **Session refusal** on a link below 100 Mbit/s, with the reason in `LINK_STATUS` (B5.8).
+
+B11.12 **Non-default ports.** A non-default radio-side port in a General packet is not
+honoured; the default is kept and `LINK_STATUS` bit 17 is set (B2.3; 0020 §13).
+
+B11.13 **Management channel errors.** A1.4 and Table A1-3 (0020 §27).
 
 ---
 
-## Part C — Level 2: TCI (placeholder)
+## Part C — Level 2: TCI
 
-Part C will define the single G7250 TCI profile, followed by both AetherSDR on level 1 and
-the firmware's TCI server on level 2 (0014). Base: [TCI] Transceiver Control Interface,
+Part C, the single G7250 TCI profile followed by both AetherSDR on level 1 and the firmware's
+TCI server on level 2 (0014), is in `spec/part-c-tci-profile.md`, with its choices in 0021. Base: [TCI] Transceiver Control Interface,
 protocol 2.1 (`sources.md`, read 2026-11-19 in part). Level 2 is built only after gate G6
 (0011 point 4). Level 2 sockets share the CH394Q with the management socket, which stays open
 (0008, Socket budget; A1.2).
@@ -1195,24 +1469,25 @@ protocol 2.1 (`sources.md`, read 2026-11-19 in part). Level 2 is built only afte
 
 ## Annex X1 — Differences from standard P2
 
-Every deviation of G7250-P2 from [P2] (B1.5). All decisions listed are accepted; values marked
-TBD in the sections concerned may still be open.
+Every deviation of G7250-P2 from [P2] (B1.5). Decisions 0003–0008 and 0017 are accepted; 0020
+is proposed for ON8ST review at rc1. Only hardware-dependent values (with their HIS id) remain
+open in the sections concerned.
 
 | Id | Deviation | [P2] behaviour | G7250 behaviour | Decision | Spec section |
 |----|-----------|----------------|-----------------|----------|--------------|
 | D1 | No DDC audio stream | Host may send DDC audio to port 1028 ([P2] DDC Audio packet; General bytes 13–14) | No socket on port 1028; General bytes 13–14 ignored; record `streams` bit 2 = 0 | 0017 | B2.3, B4 |
-| D2 | Memory-mapped register port defined | Default port "xxxx", undefined ([P2] General bytes 29–32) | Defined default port (TBD), one port for both directions; carries the G7250 register map | 0005, 0003 | B2.3, B8.1 |
+| D2 | Memory-mapped register port defined | Default port "xxxx", undefined ([P2] General bytes 29–32) | Default port 7250, one port for both directions; destination default (bytes 31–32 = 0) is the owner's source port; carries the G7250 register map | 0005, 0003, 0020 | B2.3, B8.1 |
 | D3 | TX needs an explicit token arm | High Priority byte 4 bit [1] enables transmit ([P2]) | No TX request (PTT, CWX, KEY, ATU) keys unless armed by token handshake; keying only on an edge after confirmation; arm dropped by the events of Table A3-1 | 0015, 0007 | B10.1, B10.2, A3.2 |
 | D4 | Hardware timer forced on while armed | Host may clear General byte 38 bit [0] ([P2]) | Clear honoured only while not armed; arming requires the bit set | 0015, 0007 | B5.6 |
 | D5 | Takeover drops the arm | Second host's C&C takes over ([P2] Discovery reply byte 4 NOTE) | Takeover always allowed, but unkeys and drops the arm first; new owner starts unarmed | 0007 | B5.7, A2.4 |
 | D6 | Owner is IP address and UDP port | "different Host" not defined ([P2]) | A C&C packet from the owner's IP on another source port is a takeover; host must use one source port per session | 0007 | B5.5, A2.2; X2 C7 |
 | D7 | Keyed timeout | Only the 1 s watchdog ([P2] "Detailed operation") | While keyed, High Priority at least every 100 ms; none within `KEYED_TIMEOUT` (500 ms) unkeys, arm kept | 0007 | B10.5 |
-| D8 | TX IQ underrun unkeys | No such rule ([P2]) | DUC underflow longer than TBD ms in non-CW TX unkeys | 0007 | B10.5 |
+| D8 | TX IQ underrun unkeys | No such rule ([P2]) | DUC underflow longer than a time TBD (HIS-18) in non-CW TX unkeys | 0007 | B10.5 |
 | D9 | TX mode class required | No such field ([P2]) | Arm refused without `TX_MODE_CLASS` | 0007 | B10.3 |
 | D10 | Safety core overrides PTT | Bit [1] enables transmit ([P2]) | Limits may reduce drive or unkey while PTT is set; 5 min maximum continuous TX; no key outside the TX ranges | 0007, 0011 | A3.4, B10.4 |
 | D11 | Memory-mapped packets are not C&C | "any C&C packet" feeds the watchdog; not stated for memory-mapped packets ([P2]) | No memory-mapped packet feeds the watchdog or takes over; a `CAP_REQUEST`-only packet does not start a session; its answer goes to the request's source when the host is not the owner | 0003, 0007 | B4.4, B4.5, B5.6; X2 C6 |
 | D12 | Erase and Program ignored | Erase/Program reprogram the EEPROM; Command Reply ([P2]) | Ignored without reply; V3.8 checksum not claimed; update only via the management channel | 0008 | B3.9, A1.8 |
-| D13 | Unsupported requests refused | No negative acknowledgement; radio follows the host ([P2]) | Unoffered DDC rate or size, format, time stamp, VITA-49, wideband parameters or DUC rate/bits: stream does not run, reason in `STREAM_STATUS`; never clamped | 0004 | B6.3, B6.6, B6.7, B6.10, B10.6, B11.1 |
+| D13 | Unsupported requests refused | No negative acknowledgement; radio follows the host ([P2]) | Unoffered DDC rate or size, format, time stamp, VITA-49, VNA mode, wideband parameters, DUC rate/bits or EER: stream does not run, reason in `STREAM_STATUS`; never clamped | 0004, 0020 | B6.3, B6.6, B6.7, B6.10, B7, B10.6, B11.2 |
 | D14 | Wideband defaults | Zero means 512 / 16 bit / 20 ms / 32 packets ([P2] General bytes 24–28) | From M2, fixed 512 / 16 bit / 50 ms / 8 packets; zero means these values; other values refused | 0004 | B6.10 |
 | D15 | Session refused below 100 Mbit/s | No link-speed rule ([P2]) | Discovery answered, no stream started, reason in `LINK_STATUS` | 0004 | B5.8 |
 | D16 | PTT1–PTT3 never key | Table lists PTT1–PTT3 in byte 4 bits [2]–[4] ([P2]) | Bits [2]–[7] ignored | 0007 | B5.9; X2 C5 |
@@ -1221,6 +1496,8 @@ TBD in the sections concerned may still be open.
 | D19 | Power fields filled without Alex | Status bytes 14–15, 22–23 "Set to zero if Alex not selected" ([P2]) | Always filled from the PA coupler | 0006 | B9.2 |
 | D20 | Conversion constants per unit | Constants per board type in Appendix A ([P2]) | Constants of this unit (per band where needed) from the capability record; words stay raw ADC values | 0006 | B9.3 |
 | D21 | No port relocation onto the management port | Host may move ports with General bytes 5–32 ([P2]) | A P2 port is not moved onto the management port; default kept, conflict logged | 0008 | B2.3, A1.3 |
+| D22 | Non-default radio-side ports not honoured | Host may move every radio-side port with General bytes 5–22, 29–30 ([P2]) | Zero or the default value honoured; any other value: default kept, logged, `LINK_STATUS` bit 17; bytes 31–32 (host side) honoured | 0020 §13 | B2.3, B7, B11.12 |
+| D23 | No P2 session while level 2 is active | C&C from another host takes over ([P2] Discovery reply byte 4 NOTE) | While level 2 is active, P2 C&C starts no session and no takeover; discovery answers 0x03; level changes only over management | 0021 §16, 0020 §25 | A2.5 |
 
 Not deviations, but G7250 choices within [P2]: board type 200 (0002); short discovery reply
 only, bytes 14–19 and 24–59 zero (0003); one DDC (0004; HIS-02); a contiguous subset of the
@@ -1245,6 +1522,8 @@ only if HIS-17 allows (0004); raw ADC words in the status fields (0006); P2 Set 
 | C9 | General byte 39: 0 selects Big-Endian 3-byte; bits [0] Big-Endian and [2] 3-byte select options "if indicated in the Discovery reply" | Provisional (no decision): 0x00, and values with only bits [0] and/or [2] set, select the offered format; any other bit refuses (B6.3) |
 | C10 | General bytes 29–30 "memory mapped data from the PC will be sent to", bytes 31–32 "to the PC will be sent to" | Bytes 29–30 name the G7250's receive port, bytes 31–32 the host's destination port; the G7250 sends from the same local port it receives on (0005, Consequences; B8.1) |
 | C11 | Set IP Address packet: success "can be verified by sending a Discovery Command"; Command reply packet: "Following a successful Set IP command, the hardware will respond with a Discovery reply packet" | Both hold: the G7250 sends a Discovery reply after a Set IP, and answers later discoveries with the new address (0008 point 6; B3.9) |
+| C12 | Streams go to "the Source Port of the Host that initiated the Discovery Packet"; the General packet is sent from that same port (DDC packet, status, microphone, wideband "Destination Port"; General packet "Source Port") | The destination is the owner's source IP address and port (A2.2), fixed at session start; for a P2 host this is the discovery port. A discovery from another socket of the same host does not move the streams, and a run bit without a discovery starts the session normally (0020 §14; B2.4, B5.2) |
+| C13 | Set IP Address packet: "Broadcast to Port 1024", destination 255.255.255.255 | Also accepted when sent to the unit's unicast or the subnet's directed broadcast address; the MAC in bytes 5–10 identifies the unit (0020 §21; B3.9) |
 
 ## Annex X3 — Conformance tests
 
@@ -1267,8 +1546,15 @@ To be implemented in g7250-testbench, first against the reference model, then on
 | T-A1-10 | A bad network configuration or an address conflict falls back to the previous one. |
 | T-A1-11 | A General packet that moves a P2 port onto the management port leaves the management socket in place and logs the conflict. |
 | T-A1-12 | Requests from outside the subnet are not answered, except identification. |
+| T-A1-13 | Wrong magic is dropped; a short or length-mismatched request gets status 17; an unknown major version gets status 18; an unknown command gets status 16. |
+| T-A1-14 | A repeated request id gets the stored reply and is not executed twice. |
+| T-A1-15 | A second host gets status 35 for writes while a write session is held; the session ends after 60 s idle. |
+| T-A1-16 | The first-secret window closes 300 s after network up; a restart inside the window reopens it for 300 s. |
+| T-A1-17 | A region change (C-6) is refused with status 57 while a P2 session runs; the factory default allows TX only in the intersection of all regions. |
+| T-A1-18 | With a non-empty TCI allow-list, a TCI connection from an address outside it is refused and logged; the management port stays reachable. |
 | T-A2-01 | Identification and record `level` report the active level and the owner (IP and port). |
 | T-A2-02 | A level change drops the arm with `LEVEL_CHANGE` (after G6). |
+| T-A2-03 | While level 2 is active, P2 C&C starts no session and no takeover (after G6). |
 | T-A3-01 | Each drop event of Table A3-1 unkeys, disarms, issues a new token and reports its reason (one test per row). |
 | T-A3-02 | Each limit row of Table A3-2 gives its action and recovery (one test per row, reference model). |
 | T-A3-03 | A looser `LIMIT_<name>` write is rejected, a stricter one accepted, and both revert at session end. |
@@ -1308,6 +1594,9 @@ To be implemented in g7250-testbench, first against the reference model, then on
 | T-B3-25 | Set IP with the unit's MAC sets and stores the address (0.0.0.0 selects DHCP), is answered with a Discovery reply, works while running and while armed, and is logged with its source. |
 | T-B3-26 | Set IP with another MAC changes nothing. |
 | T-B3-27 | A discovery from the owner while armed drops the arm with `REDISCOVERY`. |
+| T-B3-28 | A discovery from the owner's IP on another port while armed is answered with 0x03 and does not drop the arm or move the streams. |
+| T-B3-29 | Set IP with the unit's MAC sent to the unicast or directed broadcast address is accepted with the same effects as a broadcast Set IP. |
+| T-B3-30 | Byte 13 equals major × 10 + minor of `fw_version`, capped at 255; byte 23 is non-zero only on a beta build. |
 
 ### Capability record (B4)
 
@@ -1323,6 +1612,9 @@ To be implemented in g7250-testbench, first against the reference model, then on
 | T-B4-08 | The record does not change during a session. |
 | T-B4-09 | `ddc_rates`, `num_ddc`, `streams`, `duc_format`, `wb_format`, `wb_frame`, `link` and `tx` match the behaviour tested in B5, B6 and B10. |
 | T-B4-10 | Unused bits and unused range, band and calibration entries are zero. |
+| T-B4-11 | `CAP_REQUEST` with a value other than 1 is rejected with `BAD_VALUE` and sends no record. |
+| T-B4-12 | `cap_version` is 1.1, `cap_length` is 207, `mgmt` is 0x1C530001, `regmap_version` is 1.0, and the version 1.1 fields match the behaviour tested in B9. |
+| T-B4-13 | A `CAP_REQUEST` from the future session socket before the first General packet is answered to that socket and does not make it the owner. |
 
 ### Session, ownership, watchdog (B5)
 
@@ -1337,6 +1629,9 @@ To be implemented in g7250-testbench, first against the reference model, then on
 | T-B5-07 | An arm with General byte 38 bit [0] clear is rejected with `WATCHDOG_DISABLED`. |
 | T-B5-08 | Clearing the run bit stops all streams, resets sequence counters and drops the arm with `RUN_CLEARED`. |
 | T-B5-09 | On a 10 Mbit/s link discovery is answered, no stream starts, and `LINK_STATUS` gives the reason. |
+| T-B5-10 | With C&C every 999 ms the session stays; after the last C&C the unit is in standby within 1100 ms. |
+| T-B5-11 | A run bit without a preceding discovery starts the streams to the sender's source port. |
+| T-B5-12 | On a 10 Mbit/s link no High Priority status is sent; each run request and `CAP_REQUEST` is answered with `LINK_STATUS` and `STREAM_STATUS`, at most once per 100 ms. |
 
 ### Streams (B6)
 
@@ -1365,6 +1660,8 @@ To be implemented in g7250-testbench, first against the reference model, then on
 | T-B6-21 | Before M2, a wideband enable sends nothing; from M2, ADC0 wideband gives 8 packets of 1028 bytes every 50 ms. |
 | T-B6-22 | From M2, wideband parameters other than 0 or the fixed values stop wideband with a reason. |
 | T-B6-23 | No microphone packets are sent unless `streams` bit 3 is set. |
+| T-B6-24 | The DDC0 sequence counter does not restart on a rate change, nor on a resume after a refusal or after DDC-specific byte 7 bit [0] was cleared. |
+| T-B6-25 | Each stream comes from its local port of B2.4a. |
 
 ### Field table and register map (B7, B8)
 
@@ -1372,9 +1669,17 @@ To be implemented in g7250-testbench, first against the reference model, then on
 |----|-------------|
 | T-B7-01 | Every field marked "ignored" in Tables B7-1, B7-2 and B10-1 has no effect. |
 | T-B7-02 | High Priority byte 4 bits [2]–[7], the TUNE bit and byte 1401 never key or switch anything. |
-| T-B8-01 | All registers of Table B8-1 marked "on change" or "event" are pushed within 1 ms of a change. |
+| T-B7-03 | A non-default radio-side port in General bytes 5–22 or 29–30 is not honoured: the default stays, `LINK_STATUS` bit 17 is set and the request is logged; non-zero bytes 31–32 redirect register packets. |
+| T-B7-04 | General byte 37 bit [2] set stops DDC0 with reason 11. |
+| T-B7-05 | General byte 58 bit [0] = 0 keeps a TX request from keying and sets `TX_STATE` bit 4. |
+| T-B8-01 | All registers of Table B8-2 marked "on change" or "event" are pushed within 1 ms of a change. |
 | T-B8-02 | `TX_ARM` from a non-owner is rejected; `CAP_REQUEST` from any host is answered. |
-| T-B8-03 | `TX_ARM_TOKEN` is never 0 or 0xFFFFFFFF and changes on every drop and every new session. |
+| T-B8-03 | `TX_ARM_TOKEN` is never 0, 0xFFFFFFFF or `ARM_MAGIC` and changes on every drop and every new session. |
+| T-B8-04 | Every written pair is answered with the value in force within 5 ms, in write order. |
+| T-B8-05 | Writes to an unknown address, a read-only register, with a bad value or a looser limit are answered with the value in force and `WRITE_STATUS` with the reason of B8.4. |
+| T-B8-06 | Writes from a non-owner, other than `CAP_REQUEST`, are rejected with `NOT_OWNER`, answered to the source, and cause no takeover or watchdog feed. |
+| T-B8-07 | Padding pairs (0xFFFF, and 0x0000 with data 0) and a trailing incomplete pair are ignored and not answered. |
+| T-B8-08 | Register packets come from port 7250 and go to the owner's source port, or to General bytes 31–32 when non-zero. |
 
 ### Telemetry (B9)
 
@@ -1406,6 +1711,25 @@ To be implemented in g7250-testbench, first against the reference model, then on
 | T-B10-13 | SEND is asserted only while armed and keyed, before RF, and released on every drop event, standby and fault. |
 | T-B10-14 | `ATU_TUNE` without arm does not tune; with arm it tunes within its time limit. |
 | T-B10-15 | KEY keys hardware CW only when armed and CW is selected. |
+| T-B10-16 | A `KEYED_TIMEOUT` write outside 100–500 is rejected with `BAD_VALUE`; the value returns to 500 at session end; unkey happens between T and T + 10 ms. |
+| T-B10-17 | DUC-specific byte 5 bit [0] (EER) set refuses TX IQ with reason 12. |
+| T-B10-18 | DUC-specific bytes 14–15 = 0 and byte 16 = 0 are read as 192 ksps and 24 bits. |
+| T-B10-19 | `TX_MODE_CLASS` values 0 and above 4 are rejected; the class returns to 0 at session end. |
+| T-B10-20 | A repeated correct arm write while armed is answered and does not raise the generation. |
+
+### Error handling (B11)
+
+| Id | Description |
+|----|-------------|
+| T-B11-01 | Each packet type shorter than Table B11-1 is discarded with no effect (no watchdog feed, no takeover). |
+| T-B11-02 | A truncated High Priority packet with PTT set does not key. |
+| T-B11-03 | Unknown command bytes on port 1024 get no reply and change nothing. |
+| T-B11-04 | Packets with arbitrary or repeated sequence numbers are accepted; gaps on ports 1027 and 1029 are counted in `GET_STATS`. |
+| T-B11-05 | Under forced RX overrun only whole DDC0 packets are lost, the gap shows in the sequence numbers, and status byte 30 bit [0] is set. |
+| T-B11-06 | DUC I&Q arriving faster than 192 ksps loses whole packets only. |
+| T-B11-07 | A DDC0 frequency outside `rx_range` is tuned without refusal. |
+| T-B11-08 | Datagrams to port 1028 and other closed ports get no reply from the firmware; whether the CH394Q sends ICMP is recorded. |
+| T-B11-09 | With the hardware timer disabled and the owner gone, the session stays until a takeover; an ICMP port unreachable is logged and does not end it. |
 
 ---
 
@@ -1419,13 +1743,15 @@ To be implemented in g7250-testbench, first against the reference model, then on
   Memory mapped registers from PC / from hardware; Discovery reply bytes 0–59; Command reply
   packet (including "Set IP"); DDC packet bytes 0–1443; High Priority Status packet bytes
   0–59; Appendices A, B, C; revision history (V2.7, V3.8).
-- [CH394] WCH CH394 manual 1, V1.2: sections 1–3, 7.1.2–7.1.7, 7.2, 12.2.4.
+- [CH394] WCH CH394 manual 1, V1.2: sections 1–3, 7.1.2–7.1.7, 7.1.13–7.1.15 (UNIP, UNPORT,
+  PHY_CFG), 7.2, 12.2.4.
 - [G7250-MAN] Xiegu G7250 Operation Manual rev 0.1; [G7250-PUDX], [G7250-RIGPIX] (50 MHz
   power, secondary).
 - [TCI] Transceiver Control Interface 2.1 (read in part).
-- [FIPS-180-4] NIST FIPS 180-4 (SHA-256); [RFC2104] HMAC. Public standards cited by 0008, not
-  yet listed in `sources.md`.
+- [FIPS180-4] NIST FIPS 180-4 (SHA-256); [RFC2104] HMAC (`sources.md`).
+- [AETHER-SRC] AetherSDR source, commit 9f7cbeb; [PIHPSDR] piHPSDR source, commit 422bec5
+  (`sources.md`; used for the DDC rate unit and host behaviour, B3.2, B6.5, 0020).
 - `analysis/ch394-network-budget.md`; `open-questions-his.md` (HIS-01 to HIS-20).
 - Decisions 0001, 0002, 0003, 0004, 0005, 0006, 0007, 0008, 0009, 0011, 0012, 0014, 0015,
-  0016, 0017, 0018; design note §6.
+  0016, 0017, 0018, 0019, 0020 (proposed), 0021 (§2, §10, §16); design note §6.
 - RFC 2119, RFC 8174 (BCP 14).
