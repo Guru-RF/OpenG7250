@@ -23,12 +23,15 @@ namespace Antmicro.Renode.Peripherals.GPIOPort
         private bool stbPrev, cmdPrev;
         private byte testReg, fpgaOut;
         private uint rx;
+        private Antmicro.Renode.Core.IManagedThread drdy;
         private readonly byte[] ver = { 1, 0, 0 };
 
         public G7250GpioeFpga(IMachine machine)
         {
             pins = new GPIO[16];
             for(int i = 0; i < 16; i++) pins[i] = new GPIO();
+            drdy = machine.ObtainManagedThread(() => { pins[10].Set(true); pins[10].Set(false); }, 1000);
+            drdy.Start();
             Reset();
         }
 
