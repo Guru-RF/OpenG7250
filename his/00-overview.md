@@ -1,15 +1,15 @@
-# HIS 00 — Overview (outline)
+# HIS 00 — Overview
 
-**Scope.** The behavioural interface of the G7250 hardware as the native-SDR
-firmware must drive it. Two MCUs: Main (STM32H72x class) and Control (STM32H743
-class), linked by a serial inter-MCU protocol.
+**Scope.** The hardware interface of the G7250 as new firmware must drive it:
+parts, buses, addresses, pins, wiring, electrical values and the FPGA's bus
+interface. Two MCUs: Main (STM32H72x class) and Control (STM32H743 class),
+linked by a serial line over the CTRL cable.
 
-**Conventions.** Confidence tags (VERIFIED/HIGH/HYPOTHESIS) mirror the source
-observation. Every entry cites its evidence (an emulator run or a public
-datasheet), never stock firmware source.
+**Conventions.** Confidence tags (VERIFIED/HIGH/HYPOTHESIS) mirror the source.
+Every section states its evidence: an emulator observation (`re/emu`), a public
+datasheet, or, where that is all there is, that the fact rests on disassembly
+(`re/analysis`, g7250-base). Never stock firmware code or behaviour.
 
-**Process.** Candidate facts are proposed from `g7250-emu` observations, pass a
-clean-room review (behaviour, not implementation), then land here. The firmware
-repo consumes this spec only.
-
-*(Sections 10–80 are to be populated under that process.)*
+**Process.** Candidate facts come from the RE side (`re/analysis`, `re/emu`),
+pass the gate review (`GATE-REVIEW.md`: hardware fact, not stock behaviour),
+then land here. `product/firmware` reads this spec for hardware facts.

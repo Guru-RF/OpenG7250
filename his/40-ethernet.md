@@ -1,13 +1,10 @@
-# HIS 40 — Ethernet / LAN interface
+# HIS 40 — Ethernet / LAN
 
-**Evidence:** g7250-emu Main boot console (LAN init) + CH394 model + g7250-base.
+**Evidence:** g7250-base docs (**rests on disassembly**). Emulator observation
+(re/emu B2): the stock Main programs the chip's source-IP register through a
+W5500-register-compatible model on SPI6 with its chip select on PG15.
 
-- The Main's LAN controller is a **CH394** (W5500-register-compatible) on SPI6.
-- **Forced default addressing (emulator-confirmed, A1.12):** IP 192.168.3.199,
-  gateway 192.168.3.1, mask 255.255.255.0, base port 50001. The firmware
-  programs these into the chip at boot without waiting for any host packet.
-- Network mode 0 = HDSDR (UDP 50002 fixed), mode 1 = wfview (ports 50001/2/3 =
-  control / CI-V / audio). The LAN link comes up a few seconds after power.
-- **Interface fact:** a clean-room firmware owns the socket/IP configuration; the
-  default IP being programmed unconditionally is what makes headless operation
-  reachable over LAN.
+- The Main's LAN controller is a **CH394** (W5500-register-compatible) on
+  **SPI6**, chip select PG15.
+- Network behaviour (addressing, ports, protocols) is defined by the product
+  spec, not here.

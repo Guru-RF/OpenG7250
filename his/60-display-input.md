@@ -1,12 +1,13 @@
-# HIS 60 — Display and input interface
+# HIS 60 — Display and input
 
-**Evidence:** g7250-emu Control boot (GUI service loop) + g7250-base docs.
+**Evidence:** g7250-base control_unit docs (**rests on disassembly**). Emulator
+observations (re/emu M2): GT911 detected at 0x14 with INT on PE2; the stock
+Control reaches its GUI loop with LTDC and SDRAM mapped. Panel size and the
+input wiring are not yet measured on hardware.
 
-- **LTDC** drives a 1024×600 RGB565 parallel TFT; framebuffers in external
-  **SDRAM** (FMC bank 1, 0xC0000000, 32 MiB). **DMA2D** (Chrom-ART) does fills,
-  copies and the waterfall scroll. The GUI swaps double buffers on **VSYNC**
-  (LTDC CDSR) — a clean-room firmware must honour the VSYNC handshake.
-- **GT911** capacitive touch (I²C1, INT PE2/EXTI2, RST PG14).
-- **Inputs:** 5×5 key matrix + direct key (TIM14 1 kHz scan), 8 GPIO quadrature
-  encoders + the TIM2 main dial, and the **H-22 mic keypad** (ratio-coded serial
-  decoded by TIM8 on PI5).
+- **LTDC** drives a 1024×600 parallel RGB TFT.
+- External **SDRAM** on FMC bank 1 at 0xC0000000, 32 MiB.
+- **GT911** capacitive touch on I²C1: INT PE2, RST PG14.
+- **Inputs:** a 5×5 key matrix plus a direct key; 8 GPIO quadrature encoders
+  plus the main dial on TIM2's encoder inputs; the **H-22 mic keypad** on PI5,
+  a ratio-coded serial signal *(Decide, see GATE-REVIEW)*.
