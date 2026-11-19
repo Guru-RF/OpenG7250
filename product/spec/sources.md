@@ -53,17 +53,34 @@ the source has been found but not checked.
 
 ### [TCI] Transceiver Control Interface, protocol 2.1
 
-- What: the TCI protocol of Expert Electronics. A WebSocket protocol over TCP with ASCII
-  commands; the transceiver is the server. Base of the TCI profile in spec part C (0011,
-  0014).
+- What: the TCI protocol of Expert Electronics ("Expert Group" LLC, Taganrog). WebSocket over
+  TCP; ASCII commands of the form `NAME:arg1,arg2;`; binary stream blocks with a 64-byte
+  header for IQ, RX audio, TX audio, TX_CHRONO and line-out. The transceiver is the server and
+  synchronises all clients. Base of the TCI profile in spec part C (0011, 0014).
 - Where: github.com/ExpertSDR3/TCI, `TCI Protocol 2.1.pdf` (Russian version
   `TCI Protocol_RU 2.1.pdf`). Repository last changed 2026-10-22.
-- Version: 2.1.
-- Read: README only, 2026-11-19. The PDF itself has not been read yet.
-- Terms: the repository is under the MIT licence ("Copyright (c) 2021 EE"). Whether that
-  licence also covers implementing the protocol, and whether there are other terms of use,
-  is still to be checked before part C is written (0011).
-- Note: AetherSDR's TCI server announces protocol 2.1 [AETHER], the same version.
+- Version: 2.1, document dated September 2026, 50 pages. TCI 1.8 clients stay compatible with
+  2.1 (section 3.4).
+- Read: 2026-11-19 (licence, version history, sections 3.3–3.5, initialization commands; the
+  command reference only in part).
+- Terms: the document says "All information contained in this document is for open public
+  use. It is provided for the purpose of technical information for 3rd party vendors or
+  individuals, who wish to integrate their software/hardware with Expert Electronics'
+  products." It then carries an MIT-style permission notice (Copyright (c) 2023 "Expert
+  Group" LLC). The repository README adds that TCI lets "manufacturers of transceivers and
+  receivers ... switch to the TCI interface while maintaining the device model designation"
+  and that "Modern transceivers and software must communicate using one protocol - the TCI
+  protocol". Assessment, not legal advice: no clause forbids a third-party transceiver from
+  implementing TCI, and the README invites it; the MIT notice must be kept with any copied
+  portions of the document. To be confirmed before part C is published.
+- Relevant for G7250: identification by `DEVICE:` and `PROTOCOL:<program>,<version>;`
+  (example `PROTOCOL:ExpertSDR3,2.1;`); `TRX_COUNT` (renamed from `CHANNEL_COUNT` in 2.1),
+  `VFO_LIMITS`, `MODULATIONS_LIST`, `READY` after initialization; `TRX`, `TUNE`, `DRIVE`,
+  `TUNE_DRIVE`, `TX_ENABLE`; `IQ_START`, `IQ_SAMPLERATE`, `AUDIO_SAMPLERATE`; `HW_SENSORS`,
+  `RX_SENSORS`. The document does not state a default TCP port.
+- Note: AetherSDR's TCI server announces protocol 2.1 [AETHER], the same version. The server
+  "will synchronize the parameters of all connected clients" (section 3.3): each client is a
+  separate TCP connection, which matters for the CH394Q socket budget.
 
 ## Datasheets
 
