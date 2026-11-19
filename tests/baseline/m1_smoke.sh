@@ -40,6 +40,9 @@ python3 models/devices/bias_trim_plant.py >/dev/null 2>&1 && ok bias_trim_plant 
 echo "[2e] spi_sink.py self-test"
 python3 models/devices/spi_sink.py >/dev/null 2>&1 && ok spi_sink || bad spi_sink
 
+echo "[2f] control_i2c.py self-test (AIC3204 Control-peer + PCA9557)"
+python3 models/devices/control_i2c.py >/dev/null 2>&1 && ok control_i2c || bad control_i2c
+
 if [ ! -x "$RN" ] && [ ! -f "$RN" ]; then
   echo "[3-4] SKIP (pinned Renode not found at tools/renode-1.17.0)"
 else
@@ -118,8 +121,8 @@ EOF
   fi
 fi
 
-echo "[5] m1_run.py refuses with no image-map (exit 2)"
-( unset G7250_IMAGE_MAP; python3 harness/g7250emu/m1_run.py >/dev/null 2>&1 )
+echo "[5] m1_run.py refuses an absent image-map (exit 2)"
+( G7250_IMAGE_MAP="$OUT/no_such_image_map_dir" python3 harness/g7250emu/m1_run.py >/dev/null 2>&1 )
 [ $? -eq 2 ] && ok "clean refusal" || bad "expected exit 2"
 
 echo
