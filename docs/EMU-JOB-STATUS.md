@@ -27,18 +27,20 @@ swapped in for the headless-silent C# LTDC — PAST the display wait into its
 **GUI service loop** (DMA2D rendering + panel GPIO + SDMMC + input). Next minor
 register: sdmmc IntStatus (no SD card modelled). (docs/M2-control-status.md.)
 
-## D. Two machines — D1 ✅ · D2 ⏳ (M3)
+## D. Two machines — ✅ DONE (D1 + D2)
 - D1 ✅ harness: harness/g7250emu/slip_run.py boots both MCUs in one emulation,
   wires USART2↔USART2 through a UART hub, and SLIP bytes (0xC0-delimited) are
   transmitted over the link. (RX is circular-DMA, not register-visible; full
   bidirectional confirmation would watch DMA1 S3.)
-- D2 ⏳ FPGA fused model (48 kHz I/Q over the GPIOE bit-bang) — explicitly M3.
-  The interface is now fully specified in g7250-his HIS 80 (D0–7/CMD/STB/DRDY on
-  PE0–10, command set, NCO/rate). Modelling it needs a C# peripheral wired to the
-  GPIOE pins in BOTH directions (MCU-output→FPGA and FPGA→MCU-input) plus the
-  exact STB/CMD read/write handshake (which the RE marks partly unmeasured). The
-  Main's FPGA bus errors are logged and tolerated, so the service-loop boot is
-  unaffected; live I/Q is the M3 deliverable.
+- D2 ✅ FPGA fused model: models/csharp/G7250Gpioe.cs (`G7250GpioeFpga`) is a
+  from-scratch GPIOE port that also answers the bit-banged FPGA bus internally
+  (D0-7/CMD/STB on PE0-9, DRDY on PE10 via a managed thread). Handles the loopback
+  bus-test (cmd 0x00), the version read (0x08 -> 1.0.0) and DRDY-paced 24-bit RX
+  I/Q. The stock Main now logs "Check FPGA BUS... Check complete!" with ZERO FPGA
+  bus errors and reaches RX mode. Wired as `m1_run.py --fpga`; regression
+  tests/baseline/fpga_boot.sh. Root-cause of the long struggle: a BSRR set/reset
+  ordering bug (SET must win) + classify_tail mis-reading the DRDY EXTI servicing
+  as a poll-hang; both fixed.
 
 ## E. Finishing / hardening
 - E1 ✅ dual-signal hang verdict (MMIO poll-hang + executed-frozen WFI idle).
