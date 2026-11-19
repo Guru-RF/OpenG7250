@@ -1,0 +1,3 @@
+[submodule "product/spec"]
+	path = product/spec
+	url = https://github.com/on8st/g7250-spec.git
