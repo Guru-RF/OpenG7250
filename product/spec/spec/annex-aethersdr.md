@@ -1,6 +1,6 @@
 # Annex — Changes needed in AetherSDR
 
-- Version: draft 1, 2026-11-19
+- Version: draft 2, 2026-11-19
 - Status: draft for review by ON8ST. Informative annex to `spec/network-interface.md`
   (0001, spec section 13; 0013, 0014, 0016).
 - © 2026 ON8ST, CC BY 4.0 (see `LICENSE.md`, decision 0018).
@@ -12,7 +12,7 @@ github.com/aethersdr/AetherSDR, at commit `9f7cbebcc976b7b798a33dd5a9fc491548d1b
 AetherSDR is GPL-3.0 [AETHER]; this annex quotes no AetherSDR code, only describes it.
 Line numbers are those of that commit and will drift.
 
-Spec sections cited as "B3.4" and similar refer to `spec/network-interface.md` draft 1 of
+Spec sections cited as "B3.4" and similar refer to `spec/network-interface.md` draft 4 of
 2026-11-19.
 
 ---
@@ -229,7 +229,7 @@ These parts of the ANAN P2 code already match the G7250 and need no change, only
   for the G2: DSP clock (`P2Protocol.h:73`), rate list (`:70`), two ADCs and dither for both
   (`P2Protocol.cpp:100–106`), phase-word mode (`:85`), fixed `RadioCapabilities`
   (`AnanBackend.cpp:535–716`).
-- **Change.** A record decoder (185 registers in version 1.0, 0003 §3) and a mapping into
+- **Change.** A record decoder (207 registers in record version 1.1, 0020 §26; B4) and a mapping into
   `RadioCapabilities`: `ddc_rates` → rate list and pan limits; `dsp_clock_hz` and discovery
   byte 21 → frequency encoding (G-11); `rx_range` → tuning limits; `tx_band` →
   `txPowerBands` (`RadioCapabilities.h:550–553`); `antennas`, `atu` → `hasTuner` (757) and
@@ -428,7 +428,7 @@ These parts of the ANAN P2 code already match the G7250 and need no change, only
 - **Required.** Standard P2 fields only where the meaning is identical; Alex and Apollo fields
   are not used for G7250 functions (0005 option D rejected). The G7250 has no Alex (0006).
   Antenna, filters and ATU are registers (0005); ATU tuning is a TX request under the arm
-  (`ATU_TUNE`, 0007 sub-decision 1 rule 4). The P2 field table is pending (B7).
+  (`ATU_TUNE`, 0007 sub-decision 1 rule 4). The P2 field tables are in B7 (General, High Priority) and B10 (DUC-specific).
 - **Today.** Alex0 is always written with ANT1 bit 24 and a receive filter or HF bypass,
   Alex1 too (`P2Protocol.cpp:209–225`); step attenuators in bytes 1442–1443 (`:231–235`).
   `hasTuner = false` (`AnanBackend.cpp:692`).
@@ -604,7 +604,11 @@ piHPSDR was read only for this one field; no code was copied.
   leave it to the host? **Answered by 0021 §5 (proposed):** level 2 MUST send `G7250`; level 1
   SHOULD send `G7250` and MAY keep `AetherSDR`.
 
-### For the spec (part B), raised by this survey
+### For the spec (part B), raised by this survey — answered
+
+All four were decided in 0020 (§13, §14) and are in part B: Q-S1 in B3.2/B5.7, Q-S2 in
+B2.4a, Q-S3 in B4.5, Q-S4 in B2.4a. Kept here for the record.
+
 
 - **Q-S1 Discovery from a second socket of the owner's host.** AetherSDR sends discovery from
   a picker socket on another port of the same IP, every 5 s, during a session
@@ -651,4 +655,4 @@ None new. G-07, G-08 and G-11 depend on HIS-01, -04, -11, -12 and -18, already o
 - [TCI] Transceiver Control Interface 2.1 (version, `TRX_COUNT`, `PROTOCOL`).
 - [G7250-MAN] Xiegu G7250 Operation Manual rev 0.1 (modes, AM power).
 - Decisions 0002, 0003, 0004, 0005, 0006, 0007, 0008, 0012, 0013, 0014, 0015, 0016, 0017,
-  0018; `spec/network-interface.md` draft 1 (B2–B8); `design-note.md`.
+  0018; `spec/network-interface.md` draft 4 (A, B); `design-note.md`.
