@@ -463,7 +463,7 @@ These parts of the ANAN P2 code already match the G7250 and need no change, only
 #### G-13 TCI profile alignment (0014) — M, after part C
 
 - **Required.** AetherSDR's TCI on level 1 follows the single G7250 TCI profile of part C,
-  based on [TCI] 2.1 (0014). Part C is not written yet.
+  based on [TCI] 2.1 (0014). Part C is now written (`part-c-tci-profile.md`, choices in 0021).
 - **Today.** AetherSDR announces `protocol:ExpertSDR3,2.1` (`TciProtocol.cpp:380`), the same
   version as [TCI] (`sources.md`). Several init values are fixed, not taken from the radio:
   `vfo_limits` (`:351`, and a different GET answer at `:612`), `receive_only:false`
@@ -478,6 +478,11 @@ These parts of the ANAN P2 code already match the G7250 and need no change, only
   G7250-specific functions as the profile defines them (standard commands or an extension,
   marked optional where level 2 may not carry them, 0014). Most of this is per-radio data
   through `RadioCapabilities`, so it is a change to shared TCI code, not only to the backend.
+- **Fixed by part C (0021).** Keep port 50001 (0021 §2) and `protocol:ExpertSDR3,2.1`
+  (0021 §4). `device:` SHOULD become `G7250` for a G7250 radio, MAY stay `AetherSDR` (0021 §5).
+  Add the `G7250_` extension commands of part C C5, including `G7250_TX_POLICY` (0021 §1).
+  Require TX_CHRONO answers while keyed with TCI audio (0021 §7). Accept TCI connections only
+  from the local subnet, with the optional allow-list (0021 §10).
 
 ### 3.3 Summary
 
@@ -597,7 +602,8 @@ piHPSDR was read only for this one field; no code was copied.
   with a go)? This annex assumes a separate tool.
 - **Q-O5 TCI identity on level 1.** AetherSDR sends `device:AetherSDR` for WSJT-X reasons
   (`TciProtocol.cpp:370–377`). Should the G7250 profile (part C) fix the device name, or
-  leave it to the host?
+  leave it to the host? **Answered by 0021 §5 (proposed):** level 2 MUST send `G7250`; level 1
+  SHOULD send `G7250` and MAY keep `AetherSDR`.
 
 ### For the spec (part B), raised by this survey
 
