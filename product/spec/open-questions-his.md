@@ -70,6 +70,8 @@ Priority: **M1** = needed for milestone M1 (discovery, capability block, RX-IQ);
   they switched, and what does the main unit do automatically per frequency?
 - Why: G7250 register map (0005); which standard P2 fields (step attenuator, Alex words)
   might fit with identical meaning (0005); safe RX default (0015).
+- Added by 0022 §1: the filter plan: which TX frequencies share one low-pass filter and relay
+  state (decides which retunes while keyed are allowed without unkeying).
 
 ### HIS-08 — Internal ATU (M2)
 
@@ -112,6 +114,8 @@ Priority: **M1** = needed for milestone M1 (discovery, capability block, RX-IQ);
   exciter detector; does per-unit calibration data exist in the radio, and where; what is the
   fastest rate at which each sensor can be read?
 - Added by 0007: what plausibility check is possible per sensor (to detect a failed sensor)?
+- Added by 0022 §7, §17: is there a PEP detector, or only an average detector? What filter
+  time constant does the PA temperature sensor need?
 
 ### HIS-12 — Power control and limits (M4)
 
@@ -119,6 +123,8 @@ Priority: **M1** = needed for milestone M1 (discovery, capability block, RX-IQ);
   per mode, and is there a hardware power or SWR fold-back?
 - Why: P2 drive level 0–255 [P2]; limits in the safety core (0011, 0007).
 - Known: SSB/CW/NFM 100 W, AM 25 W [G7250-MAN]; 50 MHz power not stated in the manual.
+- Added by 0022 §7: the fold-back power caps `P_swr` (high SWR) and `P_temp` (high
+  temperature), the minimum forward power `P_min` for SWR evaluation, and the hystereses.
 
 ### HIS-13 — Fault and reset behaviour (M3)
 

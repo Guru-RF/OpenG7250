@@ -55,6 +55,10 @@ def main():
     regnames = None
     if REGMAP.exists():
         regnames = set(re.findall(r"^\s*-?\s*name:\s*([A-Z][A-Z0-9_]+)", REGMAP.read_text(), re.M))
+        # TCI names defined in part C are valid references too (e.g. in the AetherSDR annex)
+        partc = ROOT / "spec" / "part-c-tci-profile.md"
+        if partc.exists():
+            regnames |= set(RE_REG.findall(partc.read_text()))
     for path in SPEC:
         text = path.read_text()
         rel = path.relative_to(ROOT)
