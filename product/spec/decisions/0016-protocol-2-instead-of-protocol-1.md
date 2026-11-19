@@ -95,8 +95,8 @@ board type. Protocol 1 is out of scope. If AetherSDR does not have the needed P2
 
 ## Consequences
 
-- **Name of level 1.** "G7250-P1" no longer fits. A new name is to be chosen (proposal:
-  "G7250-P2"). Open question for ON8ST.
+- **Name of level 1.** "G7250-P1" no longer fits. Level 1 is called "G7250-P2" (ON8ST,
+  2026-11-19).
 - **0009** now reads: stay as close to standard Protocol 2 as possible. G7250 extensions only
   on bytes that P2 leaves free or reserved, each marked as an extension.
 - **0001**: item 1 of the design note and the out-of-scope list change ("Protocol 2" leaves

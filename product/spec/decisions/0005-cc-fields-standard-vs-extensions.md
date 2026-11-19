@@ -1,113 +1,150 @@
-# 0005 — C&C fields: standard P1, HL2 addresses only with identical meaning
+# 0005 — Control fields on P2: standard fields where identical, G7250 functions in memory-mapped registers
 
-- Status: accepted (ON8ST, 2026-11-19)
+- Status: proposed (rewritten for Protocol 2 after 0016, 2026-11-19). The P1 version was
+  accepted by ON8ST on 2026-11-19; this rewrite still needs acceptance.
 - Date: 2026-11-19
-- Revised by 0016 (Protocol 2 instead of Protocol 1), 2026-11-19: to be rewritten for the P2 packet structure; the HL2 rule applies to P1 addresses and lapses.
+- Supersedes: the P1 version of this decision ("standard P1, HL2 addresses only with
+  identical meaning"), which lapsed with 0016.
 
 ## Context
 
-Protocol 1 carries command and control (C&C) in the frame headers. The address C0 selects
-which register the bytes C1–C4 set. Standard P1 leaves some addresses and bits free, and
-the Hermes Lite 2 (HL2) project has published extensions that use some of them. Both are to
-be listed in `sources.md` as [P1] and [HL2]. Neither has been checked against those sources
-yet.
+Level 1 is G7250-P2: openHPSDR Protocol 2 with a G7250 board type (0016; name confirmed by
+ON8ST, 2026-11-19). 0009, as revised by 0016, says: stay as close to standard P2 as possible,
+with extensions only where P2 leaves room, each marked as an extension.
 
-Decisions already made:
+How P2 carries control [P2]:
 
-- 0009: standard fields keep their standard P1 meaning exactly. Extensions go only on
-  addresses or bits that standard P1 leaves free, and each one is marked as an extension.
-- 0010: no HL2 compatibility mode. The HL2 has no 100 W amplifier and no ATU (ON8ST,
-  2026-11-19).
-- 0012: every integration supports full functionality including TX.
+- Separate packets from the host: General (rarely changing settings), DDC-specific,
+  DUC-specific, and High Priority (run, PTT, frequencies, drive level, open-collector
+  outputs, Alex filter and antenna words, step attenuators). Each is sent when a value
+  changes.
+- In the High Priority packet, byte 4 bit [0] is run and bit [1] enables transmit. Byte 345
+  is the DUC0 drive level, 0–255. Bytes 1396–1397 are a "client control word" for accessory
+  hardware, bit [0] = TUNE (added in V4.4). Bytes 1428–1435 carry the Alex TX relay word and
+  the Alex filter, preamplifier and antenna word.
+- The General packet has an Apollo ATU enable bit (byte 58 bit [1]) and a PA enable bit
+  (byte 58 bit [0]).
+- P2 defines **memory-mapped registers**: a packet from the host and one from the hardware,
+  each carrying up to 240 pairs of a 16-bit address and a 32-bit data word. The ports are set
+  in the General packet (bytes 29–32); the document gives the default port as "xxxx", so it
+  is not defined. The full-description discovery reply has a flag "Memory mapped registers
+  supported" (Appendix C, byte 23). P2 defines no address map.
+- Many bytes in the standard packets are marked "Reserved for future use". Several of them
+  have been given a meaning in later revisions: the client control word and the CAT-over-TCP
+  port (V4.3–V4.4), and the upper 16 bits of Alex 1 reused for Alex 0 TX relay data (V4.3).
 
-The G7250 needs control that standard P1 does not have, at least for the 100 W PA, the
-internal ATU and two antenna connectors (public product specifications, Radioddity; 0001,
-design note item 3). Which controls are needed exactly depends on the HIS.
+The G7250 needs control that P2 does not describe for its hardware, at least for the
+internal ATU, the two antenna connectors and the 100 W PA [G7250]. The exact list depends on
+the HIS.
 
 ## Options considered
 
-### A. Standard P1, plus HL2 addresses only where the meaning is identical (chosen)
+### A. Standard P2 fields where the meaning is identical; G7250 functions in memory-mapped registers (chosen)
 
-Standard P1 is the base. For a function that is not in standard P1:
+1. A G7250 function that a standard P2 field describes exactly (same bits, scale, unit and
+   side effects) uses that field. Examples to check: run, PTT, frequencies, drive level,
+   step attenuator, the TUNE bit in the client control word.
+2. Every other G7250 function goes into a **G7250 register map** carried by the P2
+   memory-mapped register packets. The spec defines the addresses, the data layout and the
+   ports, because P2 leaves all three open.
+3. Reserved bytes in the standard packets are never used for G7250 functions.
+4. Everything to do with TX safety (arming, limits, fault state) is in the G7250 register
+   map, even if a standard field looks similar (see 0015, 0007).
 
-1. If a published HL2 extension does exactly the same thing (same bits, same scale, same
-   unit, same side effects), the G7250 uses that HL2 address and bit layout.
-2. Otherwise, including when the HL2 field is only similar, the function gets a G7250
-   address.
-3. Everything to do with TX safety (arming, limits, fault state) always gets a G7250
-   address, even if HL2 has something comparable (see 0015).
+- For: uses an extension mechanism that P2 itself defines, including a discovery flag that
+  tells the host it is there. That is the closest to "stay close to standard P2" (0009).
+- For: no collision with future openHPSDR revisions, because P2 assigns no addresses in the
+  memory-mapped space.
+- For: one place for all G7250 specifics, with room for 65,536 addresses. The map can be
+  versioned and announced in the capability block (0003).
+- Against: the registers travel in their own packets, not in the High Priority packet. A
+  G7250 setting that must change at the same moment as PTT needs care in the spec (ordering,
+  confirmation by the radio).
+- Against: P2 leaves the default port undefined, so we have to choose one. A host that does
+  not know the G7250 does not use the registers at all, which is intended (see 0015).
 
-- For: follows 0009. A function that already has a public, documented place does not get a
-  second one.
-- For: a P1 host that already implements the HL2 extensions can reuse that code for those
-  functions.
-- For: does not conflict with 0010. The board id stays G7250-P1, so an HL2 application does
-  not see the radio as an HL2. Only addresses are shared, not the identity.
-- For: the "identical meaning" rule removes the main risk of reusing HL2 addresses, which is
-  a field that almost matches and makes a host silently set the wrong thing.
-- Against: the C&C map has three kinds of rows (standard, HL2-compatible, G7250). Each HL2
-  row must be checked against the HL2 documentation and cited.
-- Against: we depend on the HL2 documentation staying stable. If HL2 changes the meaning of
-  an address we use, the G7250 meaning does not follow automatically.
+### B. Use reserved bytes in the standard P2 packets
 
-### B. Standard P1 plus G7250 addresses only
+Put G7250 fields in bytes marked "Reserved for future use", for example High Priority byte 4
+bits [2]–[7] or the unused DUC1–DUC3 and Alex 2–7 slots.
 
-No HL2 addresses. Everything outside standard P1 gets a G7250 address.
+- For: G7250 settings travel in the same packet as PTT and frequency, so they change at the
+  same moment.
+- For: no extra port or packet type.
+- Against: reserved bytes get a meaning in later P2 revisions, as happened in V4.3 and V4.4.
+  A later revision could give one of our bytes a different meaning, and a host following
+  that revision would then set the wrong thing on a 100 W radio.
+- Against: it reads as standard P2 but is not. A generic host has no way to see that the
+  bytes mean something else on the G7250.
 
-- For: no dependency on HL2 meaning or on its documentation. The map has only two kinds of
-  rows.
-- For: no risk at all that an HL2-aware host misreads a G7250 field.
-- Against: functions that HL2 already places publicly get a second place. A host that
-  supports both HL2 and G7250 needs two code paths for the same function.
-- Against: the free address space of standard P1 is limited, and we would fill more of it.
+### C. A G7250-specific packet on its own port
 
-### C. Adopt the full HL2 extension map
+Define a new packet type and port for G7250 control.
 
-Use the whole HL2 extension map, including fields that only roughly match the G7250, and add
-G7250 addresses only for what HL2 has no field for at all.
+- For: complete freedom of layout, including fields that are set atomically with PTT if the
+  packet also carries PTT.
+- Against: it duplicates what the memory-mapped registers already offer in P2.
+- Against: a new port and packet that no P2 document mentions, so further from the
+  standard than option A.
 
-- For: the most reuse for hosts that know HL2.
-- Against: in practice this is close to the HL2 compatibility mode that 0010 rejected.
-  Fields that are meaningful on an HL2 but not on the G7250, or the other way round, would
-  have to be redefined or ignored.
+### D. Reuse Alex, Apollo or other accessory fields with approximately the same meaning
+
+Map the G7250 ATU onto the Apollo bits and its antenna switching onto the Alex word, even
+where the meaning differs.
+
+- For: some P2 hosts would partly control the G7250 without any change.
 - Against: a near match is exactly the case where a host sets the wrong thing without
-  noticing. For PA and antenna control on a 100 W radio, that is a safety risk.
+  noticing. For PA, ATU and antenna control on a 100 W radio that is a safety risk.
+- Against: the Alex and Apollo fields describe specific external TAPR/Apache accessories
+  [P2], not the G7250 hardware.
+- Rule 1 of option A still allows a single field of this kind if it is checked to be
+  identical.
 
-### D. Standard P1 only; everything else over the management channel
+### E. Everything G7250-specific over the management channel
 
-C&C stays strictly standard P1. Everything specific to the G7250 (ATU, PA, antenna,
-telemetry) goes over the separate management channel (0001, spec section 10).
+Keep P2 strictly standard and put G7250 control on the separate management channel (0001,
+spec section 10).
 
-- For: the P1 stream is fully standard, and no C&C extensions are needed at all.
+- For: P2 stays completely untouched.
 - Against: the management channel is meant for update, configuration, logs and
-  identification, not for real-time radio control (0001, spec section 10). Antenna, filter
-  and PA control would then sit on a different channel from the frequency and MOX
-  commands they belong with, and the two channels would have to stay in step.
-- Against: every host needs a second connection for normal operation, even for receiving.
+  identification (0001, spec section 10), not for real-time radio control. Antenna and ATU
+  control would be on a different connection from PTT and frequency.
+- Against: every host needs a second connection for normal operation.
 
 ## Decision
 
-Option A. Standard P1 is the base. An HL2 extension is reused only if its meaning is
-identical to what the G7250 needs. Everything else, and everything to do with TX safety,
-gets a G7250 address.
+Option A. G7250-P2 uses a standard P2 field when its meaning is identical to what the G7250
+needs. All other G7250 functions, and everything to do with TX safety, are in a G7250
+register map carried by the P2 memory-mapped register packets. Reserved bytes in the
+standard packets are not used.
 
 ## Consequences
 
-- The C&C map in spec part B marks each row as standard P1, HL2-compatible extension, G7250
-  extension or reserved, with a source (0001, spec section 7). An HL2-compatible row cites
-  the HL2 documentation for the field it reuses.
-- "Identical meaning" is checked per field against [HL2] in `sources.md`, before the row is
-  written. If in doubt, the field gets a G7250 address.
-- The annex "Differences from standard P1 and from the HL2 extensions" lists every
-  HL2-compatible row and every G7250 extension.
-- The list of G7250 functions that need C&C depends on the HIS (antenna and filter
-  switching, ATU control, sensors). Until the HIS answers, part B can only reserve them.
-- TX arming and safety state are specified in 0007 and 0015, not here.
+- Spec part B gets two tables:
+  - a P2 field table: per standard P2 field, whether the G7250 uses it, ignores it or
+    rejects it, with a source;
+  - a G7250 register map: address, name, data layout, direction, access, and source (HIS or
+    decision).
+- The spec defines the memory-mapped ports, because P2 gives the default as "xxxx". The
+  G7250 sets the "Memory mapped registers supported" flag in its full description
+  (Appendix C, byte 23), if the capability block uses that reply (0003).
+- "Identical meaning" for a standard field is checked against [P2] per field. If in doubt,
+  the function goes into the register map.
+- The spec says how a register write is confirmed (for example, the radio echoes the value
+  in a memory-mapped packet to the host) and in which order register writes and High
+  Priority packets take effect. This matters for antenna and ATU changes around PTT.
+- The annex "Differences from standard P2" lists every standard field the G7250 ignores or
+  rejects and the whole register map.
+- The list of G7250 registers depends on the HIS (antenna and filter switching, ATU control,
+  sensors). Until the HIS answers, part B can only reserve them.
+- TX arming and safety state are specified in 0015 and 0007, as registers in this map.
 
 ## Sources
 
 - Discussion with ON8ST, 2026-11-19.
-- Decisions 0001, 0009, 0010, 0012.
-- Protocol 1 documentation and HL2 documentation — to be listed in `sources.md` as [P1] and
-  [HL2]; not yet checked.
-- Public G7250 product specifications (Radioddity) — to be listed in `sources.md`.
+- Decisions 0001, 0007 (reserved), 0009, 0015, 0016.
+- [P2] openHPSDR Ethernet Protocol V4.4, github.com/TAPR/OpenHPSDR-Firmware, `Protocol 2/Documentation/`:
+  General packet (bytes 29–32, 58), High Priority packet (bytes 4, 345, 1396–1397,
+  1428–1435), memory-mapped register packets, Appendix C (byte 23), revision history (V4.3,
+  V4.4).
+- [G7250] Public G7250 product specifications (Radioddity) — to be listed in `sources.md`.
