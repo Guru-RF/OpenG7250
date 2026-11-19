@@ -120,7 +120,7 @@ the source has been found but not checked.
   49 pages. Read 2026-11-19 (link from ON8ST). The manual states that specifications may
   change with software upgrades.
 - **[G7250-RDY] Radioddity product page.** radioddity.com/products/xiegu-g7250. Not read:
-  HTTP 429 on 2026-11-19.
+  HTTP 429 on 2026-11-19 (three attempts).
 - **[G7250-RIGPIX] RigPix database entry.** rigpix.com/xiegu/g7250.htm, last modified
   2026-08-31. Read 2026-11-19. Secondary; many fields still "?".
 - **[G7250-PUDX] PileupDX announcement.** pileupdx.com, SM0MDG, 22 Jul 2026, updated 29 Jul
@@ -128,7 +128,8 @@ the source has been found but not checked.
 - **[G7250-TOFF] YouTube channel "Temporarily Offline".** A video in which the Ethernet
   interface is tested and documented (ON8ST, 2026-11-19). Not yet identified.
 - **"G7250 HDSDR Network Reception Tutorial".** Referred to by [G7250-MAN] (NETWORK
-  Settings). Not found or read.
+  Settings). Not found by web search on 2026-11-19. Not needed for the spec: the stock
+  network protocol is out of scope (design note §7).
 
 Facts. [G7250-MAN] wins where sources differ; differences are noted.
 
@@ -155,6 +156,20 @@ Facts. [G7250-MAN] wins where sources differ; differences are noted.
 
 Not stated in [G7250-MAN]: the number of receivers, ADC type, sample rates, Ethernet speed.
 "One receiver" (0001) comes from the start brief and is still to be confirmed (HIS).
+
+## Standards
+
+General standards cited in the decisions and the spec. Public; cited by number, not quoted.
+
+| Key | Standard | Used for |
+|-----|----------|----------|
+| [RFC768] | RFC 768, User Datagram Protocol | UDP header overhead (0004), transport (spec B2) |
+| [RFC791] | RFC 791, Internet Protocol | IPv4 header overhead (0004), transport (spec B2) |
+| [IEEE802.3] | IEEE 802.3, Ethernet | frame overhead and 10/100 Mbit/s links (0004); CRC-32 (0008) |
+| [RFC6455] | RFC 6455, The WebSocket Protocol | TCI transport [TCI] (spec part C) |
+| [RFC2119] [RFC8174] | Key words for requirement levels | conformance language (spec B1) |
+| [FIPS180-4] | FIPS 180-4, Secure Hash Standard | SHA-256 image integrity (0008) |
+| [RFC2104] | RFC 2104, HMAC | challenge-response on the management channel (0008) |
 
 ## Discussion with ON8ST
 

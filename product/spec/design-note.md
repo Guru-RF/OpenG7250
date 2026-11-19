@@ -1,8 +1,8 @@
 # G7250 network firmware — design note
 
-- Version: draft 1, 2026-11-19
+- Version: draft 2, 2026-11-19
 - Status: draft for review by ON8ST
-- Structure: as agreed in 0001, amended by decisions 0002–0017.
+- Structure: as agreed in 0001, amended by decisions 0002–0018.
 - © 2026 ON8ST. Licensed under CC BY 4.0 (see `LICENSE.md`, decision 0018).
 - The normative interface is in `spec/network-interface.md` (not yet written). This note
   describes the product; it does not define the protocol.
@@ -98,6 +98,38 @@ PTT paths, what the CTRL cable carries.
   (0017). One socket is left, for the management channel (0008). SPI at most 62 MHz limits
   receive IQ to about 384 ksps in practice (`analysis/ch394-network-budget.md`; 0004).
 
+### 4.1 Capabilities, telemetry, management
+
+- **Capabilities.** Discovery stays plain P2 with board type 200 (never 254/255). Right after
+  it, the host reads a read-only capability record in the G7250 register map: name, versions,
+  sample rates, antennas, ATU, TX power per band and mode, wideband parameters, link speed,
+  and this unit's own conversion constants. Reading it is not a takeover. (0003)
+- **Streams.** One DDC at 48/96/192/384 ksps (384 only if the SPI clock is about 50 MHz or
+  more), TX IQ 24-bit at 192 ksps, microphone only if the CTRL link carries it (HIS-17),
+  wideband from M2 at 4096 samples × 20 frames/s. Unsupported requests are refused, not
+  rounded. A 10 Mbit/s link refuses the session. Design target: at most 60 % SPI load. (0004)
+- **Telemetry.** Standard P2 status fields carry raw ADC words as in P2; the host converts
+  them with the unit's constants from the capability record. G7250-only values (temperature,
+  currents, SWR, arm, fault, limits, ATU state) are registers in engineering units. (0006)
+- **Management channel.** Its own UDP port on the eighth socket at both levels;
+  identification is read-only and open, writes need the radio's secret (challenge-response,
+  first secret claimed over the network in a short window after first start). Firmware
+  updates with integrity checks (no signatures yet), staging and rollback; downgrade needs a
+  flag. P2 Set IP is accepted as in P2; P2 Erase/Program are ignored. It never keys the radio.
+  (0008)
+
+### 4.2 Transmit safety
+
+TX needs an arm: the host declares the mode class (AM limited to 25 W), reads a per-session
+token and writes back a derived value. While keyed, the host refreshes control every 100 ms;
+after 500 ms of silence the radio unkeys (arm kept). Maximum continuous TX 5 minutes (unkey,
+arm kept). The P2 watchdog (1 s) cannot be disabled while armed. Takeover by another host is
+always allowed and always unkeys and disarms; the owner is identified by IP address and UDP
+port. Controller inputs (PTT, key), SEND and ATU tuning never key the radio on their own on
+level 1. Limits (SWR, temperature, power, supply, TX time) act with warn / reduce / unkey /
+disarm / fault; values wait for the HIS. Two fault classes: host-clearable and reset-only.
+(0007, 0015)
+
 ## 5. Principles
 
 1. **Stay close to the standard.** P2 fields keep their P2 meaning. G7250 functions go into
@@ -155,5 +187,5 @@ AetherSDR work runs alongside: the G7250 backend receives from M1 and transmits 
 - **Sources still to read.** The TCI 2.1 PDF and its terms of use (before part C), the
   Radioddity product page, the HDSDR network tutorial and the Temporarily Offline video
   (`sources.md`).
-- **Decisions still to write.** 0003 capability block, 0004 streams and sample rates, 0006
-  telemetry, 0007 watchdog and safety, 0008 management channel.
+- **Decisions.** 0001–0018 are recorded and accepted. What remains are hardware values from
+  the HIS (limits, clocks, register addresses).
