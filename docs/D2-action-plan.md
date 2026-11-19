@@ -53,3 +53,14 @@ A multi-iteration M3 task: step 1–3 (exact GPIO port) is the hard, fiddly part
 and needs iterating the diff against the stock port; steps 4–7 build on the
 already-written bit-bang logic. The RF sample timing is "unmeasured" in the RE,
 so the I/Q rate is modelled, not asserted. Best done as its own focused session.
+
+## Decisive finding (performance, not correctness)
+The stock boot does NOT read GPIOE around the clock-init, so the earlier
+"wrong clock strap" theory is out. With the fused `G7250GpioeFpga` the Renode CPU
+thread nearly stops (executed +1M over 55 s ≈ 18k instr/s, vs. millions normally)
+once GPIOE is driven hard — a **runtime-compiled (`i @...cs`) peripheral in the
+hot GPIOE path throttles the emulation**. Implication for step 1: the fused GPIO
+port must be built as a **compiled Renode plugin assembly** (a .dll added to the
+build / `--plugin`), not loaded with `i @file.cs`, so the per-access path is
+native. That is an infrastructure step (set up a Renode plugin project) and is
+the real precondition before the 7 steps above are worth iterating.
