@@ -203,7 +203,7 @@ code_sets:
         text: "none"
       - value: 1
         name: NOT_OWNER
-        text: "(reserved, not set since 0022 §13"
+        text: "(reserved, not set since 0022 §13; a non-owner gets `WRITE_STATUS`)"
       - value: 2
         name: NOT_RUNNING
       - value: 3
@@ -259,10 +259,8 @@ code_sets:
         text: "(TCI only: arm holder's connection closed, part C C5.5.5 row 3)"
       - value: 7
         text: "unused"
-      - value: 0x40
-        text: "+ limit id `LIMIT_<name>` (event 7: action `DISARM` only"
-      - value: 0022
-        text: "§41) (0022 §30)"
+      - value: 64
+        text: "+ limit id `LIMIT_<name>` (event 7: action `DISARM` only; a trip with action `FAULT` gives 6 `FAULT`, the cause in `FAULT_CODE`; 0022 §41) (0022 §30)"
   - set: "Limit id (`TX_STATE` [31:24]; `LIMIT_STATUS` bit *n*; drop reason 0x40 + id)"
     values:
       - value: 1
@@ -270,13 +268,13 @@ code_sets:
         text: "(TX frequency)"
       - value: 2
         name: LIMIT_SWR
-        text: "(SWR"
+        text: "(SWR; host-tunable)"
       - value: 3
         name: LIMIT_PA_TEMP
-        text: "(PA temperature"
+        text: "(PA temperature; host-tunable)"
       - value: 4
         name: LIMIT_FWD_POWER
-        text: "(forward power"
+        text: "(forward power; host-tunable)"
       - value: 5
         name: LIMIT_SUPPLY_VOLTAGE
         text: "(supply voltage)"
@@ -285,7 +283,7 @@ code_sets:
         text: "(supply or PA current)"
       - value: 7
         name: LIMIT_TX_TIME
-        text: "(maximum continuous TX time"
+        text: "(maximum continuous TX time; host-tunable)"
       - value: 8
         name: LIMIT_ATU_TIME
         text: "(ATU tune time)"
@@ -382,9 +380,7 @@ code_sets:
         name: NOT_ARMED
       - value: 10
         name: NOT_KEYABLE
-        text: "(ATU tune while another key condition of A3.1a fails, A3.9b) (B8.4"
-      - value: 0022
-        text: "§22, §51)"
+        text: "(ATU tune while another key condition of A3.1a fails, A3.9b) (B8.4; 0022 §22, §51)"
 management_commands:
   - name: IDENTIFY
     code: "0x0001"
@@ -406,10 +402,10 @@ management_commands:
     auth: "yes"
   - name: GET_CONFIG
     code: "0x0020"
-    auth: "no, yes"
+    auth: "no"
   - name: SET_CONFIG
     code: "0x0021"
-    auth: "no, yes"
+    auth: "yes"
   - name: FACTORY_RESET
     code: "0x0022"
     auth: "yes"
@@ -421,10 +417,10 @@ management_commands:
     auth: "yes"
   - name: READ_LOG
     code: "0x0030"
-    auth: "no, yes"
+    auth: "no"
   - name: CLEAR_LOG
     code: "0x0031"
-    auth: "no, yes"
+    auth: "yes"
   - name: UPDATE_BEGIN
     code: "0x0040"
     auth: "yes (`UPDATE_STATUS` no)"
@@ -448,98 +444,191 @@ management_commands:
     auth: "yes (`UPDATE_STATUS` no)"
 tci_commands:
   - name: AGC_GAIN
+    status: "MAY"
   - name: AGC_MODE
+    status: "SHOULD"
   - name: APP_FOCUS
+    status: "MAY on L1; NOT SUPPORTED on L2"
   - name: AUDIO_SAMPLERATE
+    status: "MUST"
   - name: AUDIO_START
+    status: "MUST"
   - name: AUDIO_STOP
+    status: "MUST"
   - name: AUDIO_STREAM_CHANNELS
+    status: "MUST"
   - name: AUDIO_STREAM_SAMPLES
+    status: "MUST"
   - name: AUDIO_STREAM_SAMPLE_TYPE
+    status: "MUST"
   - name: CALLSIGN_SEND
+    status: "SHOULD"
   - name: CLICKED_ON_SPOT
+    status: "MAY on L1; NOT SUPPORTED on L2"
   - name: CW_KEYER_SPEED
+    status: "SHOULD"
   - name: CW_MACROS
+    status: "SHOULD"
   - name: CW_MACROS_DELAY
+    status: "SHOULD"
   - name: CW_MACROS_EMPTY
+    status: "SHOULD"
   - name: CW_MACROS_SPEED
+    status: "SHOULD"
   - name: CW_MACROS_SPEED_DOWN
+    status: "SHOULD"
   - name: CW_MACROS_SPEED_UP
+    status: "SHOULD"
   - name: CW_MACROS_STOP
+    status: "MUST"
   - name: CW_MON
+    status: "SHOULD"
   - name: CW_MSG
+    status: "SHOULD"
   - name: CW_TERMINAL
+    status: "SHOULD"
   - name: DDS
+    status: "MUST"
   - name: DIGL_OFFSET
+    status: "SHOULD"
   - name: DIGU_OFFSET
+    status: "SHOULD"
   - name: DRIVE
+    status: "MUST"
   - name: ECODER_SWITCH_CHANNEL
+    status: "NOT SUPPORTED"
   - name: ECODER_SWITCH_RX
+    status: "NOT SUPPORTED"
   - name: HW_SENSORS
+    status: "SHOULD"
   - name: HW_SENSORS_ENABLE
+    status: "SHOULD"
   - name: IF
+    status: "MUST"
   - name: IQ_SAMPLERATE
+    status: "MUST"
   - name: IQ_START
+    status: "MUST"
   - name: IQ_STOP
+    status: "MUST"
   - name: KEYER
+    status: "MAY"
   - name: LINE_OUT_RECORDER_START
+    status: "NOT SUPPORTED on L2; MAY on L1"
   - name: LINE_OUT_START
+    status: "MAY"
   - name: LINE_OUT_STOP
+    status: "MAY"
   - name: LOCK
+    status: "MAY"
   - name: MODULATION
+    status: "MUST"
   - name: MON_ENABLE
+    status: "MAY"
   - name: MON_VOLUME
+    status: "MAY"
   - name: MUTE
+    status: "MAY"
   - name: PREAMP
+    status: "MUST NOT be sent or accepted"
   - name: PREAMP_PARAM
+    status: "MUST NOT be sent or accepted"
   - name: RIT_ENABLE
+    status: "SHOULD"
   - name: RIT_OFFSET
+    status: "SHOULD"
   - name: RX_ANC_ENABLE
+    status: "MAY"
   - name: RX_ANF_ENABLE
+    status: "MAY"
   - name: RX_APF_ENABLE
+    status: "MAY"
   - name: RX_BALANCE
+    status: "MAY"
   - name: RX_BIN_ENABLE
+    status: "MAY"
   - name: RX_CHANNEL_ENABLE
+    status: "MUST for ch 0; MAY for ch 1"
   - name: RX_CHANNEL_SENSORS
+    status: "MUST, MAY for ch 1"
   - name: RX_CLICKED_ON_SPOT
+    status: "MAY on L1; NOT SUPPORTED on L2"
   - name: RX_DSE_ENABLE
+    status: "MAY"
   - name: RX_ENABLE
+    status: "MUST"
   - name: RX_FILTER_BAND
+    status: "MUST"
   - name: RX_MUTE
+    status: "MAY"
   - name: RX_NB_ENABLE
+    status: "MAY"
   - name: RX_NB_PARAM
+    status: "MAY"
   - name: RX_NF_ENABLE
+    status: "MAY"
   - name: RX_NF_PARAM
+    status: "MUST NOT be sent or accepted"
   - name: RX_NR_ENABLE
+    status: "MAY"
   - name: RX_SENSORS
+    status: "MUST, MAY for ch 1"
   - name: RX_SENSORS_ENABLE
+    status: "MUST"
   - name: RX_SMETER
+    status: "MUST NOT be sent or accepted"
   - name: RX_VOLUME
+    status: "MAY"
   - name: SET_IN_FOCUS
+    status: "MAY on L1; NOT SUPPORTED on L2"
   - name: SPLIT_ENABLE
+    status: "SHOULD"
   - name: SPOT
+    status: "MAY on L2, SHOULD on L1"
   - name: SPOT_CLEAR
+    status: "MAY on L2, SHOULD on L1"
   - name: SPOT_DELETE
+    status: "MAY on L2, SHOULD on L1"
   - name: SQL_ENABLE
+    status: "SHOULD"
   - name: SQL_LEVEL
+    status: "SHOULD"
   - name: START
+    status: "MUST"
   - name: STOP
+    status: "MUST"
   - name: TRX
+    status: "MUST (M7 on L2)"
   - name: TUNE
+    status: "MUST (M7 on L2)"
   - name: TUNE_DRIVE
+    status: "MUST"
   - name: TX_ENABLE
+    status: "MUST"
   - name: TX_FOOTSWITCH
+    status: "SHOULD"
   - name: TX_FREQUENCY
+    status: "MUST"
   - name: TX_POWER
+    status: "MUST NOT be sent or accepted"
   - name: TX_SENSORS
+    status: "MUST (M7 on L2)"
   - name: TX_SENSORS_ENABLE
+    status: "MUST (M7 on L2)"
   - name: TX_STREAM_AUDIO_BUFFERING
+    status: "MUST (M7 on L2)"
   - name: TX_SWR
+    status: "MUST NOT be sent or accepted"
   - name: VFO
+    status: "MUST"
   - name: VFO_LOCK
+    status: "MAY"
   - name: VOLUME
+    status: "MAY"
   - name: XIT_ENABLE
+    status: "SHOULD"
   - name: XIT_OFFSET
+    status: "SHOULD"
 tci_extensions:
   - name: G7250_ANT
   - name: G7250_ATT

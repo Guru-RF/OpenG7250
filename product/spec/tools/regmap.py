@@ -39,10 +39,23 @@ def q(s):
     return '"' + s.replace("\\", "\\\\").replace('"', '\\"') + '"'
 
 
+def split_top(cell, sep=";"):
+    """Split on sep only outside parentheses."""
+    parts, depth, cur = [], 0, ""
+    for ch in cell:
+        depth += (ch == "(") - (ch == ")")
+        if ch == sep and depth == 0:
+            parts.append(cur); cur = ""
+        else:
+            cur += ch
+    parts.append(cur)
+    return [p.strip() for p in parts if p.strip()]
+
+
 def parse_codes(cell):
     """'0 none; 2 `SWR_REPEATED` (text), class 1; ...' -> [(value, symbol|None, text, class|None)]"""
     out = []
-    for part in re.split(r";\s*", cell):
+    for part in split_top(cell):
         m = re.match(r"(0x[0-9A-Fa-f]+|\d+)\s*(?:`(%s)`)?\s*(.*)" % SYM, part.strip())
         if not m:
             continue
@@ -100,7 +113,7 @@ def main():
             if not sym and (val in seen or re.match(r"(and|or|are|is|to|of)\b", rest)):
                 continue  # prose fragment such as "13 and 14 are never set over P2"
             seen.add(val)
-            out.append(f"      - value: {val}")
+            out.append(f"      - value: {int(val, 16) if val.startswith('0x') else int(val)}")
             if sym:
                 out.append(f"        name: {sym}")
             if rest:
@@ -115,11 +128,14 @@ def main():
         if len(r) < 3:
             continue
         names = re.findall(r"`(%s)`" % SYM, r[1])
-        for nm, code in expand_codes(r[0], names):
-            out += [f"  - name: {nm}", f"    code: {q(code)}", f"    auth: {q(r[2])}"]
+        auths = [a.strip() for a in r[2].split(",")]
+        if len(auths) != len(names):
+            auths = [r[2]] * len(names)
+        for (nm, code), au in zip(expand_codes(r[0], names), auths):
+            out += [f"  - name: {nm}", f"    code: {q(code)}", f"    auth: {q(au)}"]
             ncmd += 1
 
-    tci, header = [], ""
+    tci, header, status = [], "", {}
     ptext = PARTC.read_text()
     for l in ptext.splitlines():
         if l.startswith("|") and not re.match(r"\|\s*`", l) and not set(l) <= set("|-: "):
@@ -127,11 +143,20 @@ def main():
         elif not l.startswith("|"):
             header = ""
         if re.match(r"\|\s*`(%s)`" % SYM, l) and "modulation" not in header and "mode " not in header:
-            tci += re.findall(r"`(%s)`" % SYM, l.split("|")[1])
+            cells = [c.strip() for c in l.strip().strip("|").split("|")]
+            names = re.findall(r"`(%s)`" % SYM, cells[0])
+            st = re.match(r"(MUST|SHOULD|MAY|NOT SUPPORTED|[Rr]eserved)", cells[1]) if len(cells) > 1 else None
+            for nm in names:
+                tci.append(nm)
+                if st and nm not in status:
+                    status[nm] = cells[1]
     ext = sorted(set(re.findall(r"`(G7250_[A-Z0-9_]+)", ptext)) - {"G7250_"})
     tci = sorted(set(tci) - set(ext) - {"G7250_"})
     out.append("tci_commands:")
-    out += [f"  - name: {t}" for t in tci]
+    for t in tci:
+        out.append(f"  - name: {t}")
+        if t in status:
+            out.append(f"    status: {q(status[t])}")
     out.append("tci_extensions:")
     out += [f"  - name: {t}" for t in ext]
 
@@ -142,8 +167,20 @@ def main():
         out += [f"  - name: {name}", f"    value: {val}"]
 
     new_text = "\n".join(out) + "\n"
+    problems = []
+    for m in re.finditer(r"- set: (.*)\n    values:\n((?:      .*\n)*)", new_text):
+        vals = re.findall(r"value: (\S+)", m.group(2))
+        if len(vals) != len(set(vals)):
+            problems.append(f"duplicate value in set {m.group(1)}")
+        if any(not v.isdigit() for v in vals):
+            problems.append(f"non-integer value in set {m.group(1)}")
+    for t in re.findall(r'text: "(.*)"', new_text):
+        if t.count("(") != t.count(")"):
+            problems.append(f"unbalanced parentheses in code text: {t[:60]}")
+    for pr in problems:
+        print("regmap:", pr, file=sys.stderr)
     if "--check" in sys.argv:
-        return 0 if OUT.exists() and OUT.read_text() == new_text else 1
+        return 0 if (OUT.exists() and OUT.read_text() == new_text and not problems) else 1
     OUT.write_text(new_text)
     print(f"{OUT.relative_to(ROOT)}: {nreg} registers, {ncode} codes, {ncmd} management commands, "
           f"{len(tci)} TCI commands, {len(ext)} G7250 extensions, {len(consts)} constants")
