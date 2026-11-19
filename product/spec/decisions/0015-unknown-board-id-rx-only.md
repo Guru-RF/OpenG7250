@@ -2,6 +2,7 @@
 
 - Status: accepted (ON8ST, 2026-11-19)
 - Date: 2026-11-19
+- Revised by 0016 (Protocol 2 instead of Protocol 1), 2026-11-19: intent stays; the arm moves from a P1 C&C address to a P2 field, to be rewritten.
 
 ## Context
 

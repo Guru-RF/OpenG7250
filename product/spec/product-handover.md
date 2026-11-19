@@ -18,14 +18,15 @@ on 2026-11-19, as recorded in `decisions/`.
 | #    | Title | Status |
 |------|-------|--------|
 | 0001 | Structure of the design note and the network-interface spec | accepted |
-| 0005 | C&C fields: standard P1, HL2 addresses only with identical meaning; TX safety on G7250 addresses | accepted |
+| 0005 | C&C fields: standard P1, HL2 addresses only with identical meaning; TX safety on G7250 addresses | accepted; to be rewritten for P2 (0016) |
 | 0009 | Stay as close to standard Protocol 1 as possible | accepted |
 | 0010 | No compatibility modes for now (HL2 rejected, ANAN out of scope for now) | accepted |
 | 0011 | Two-level product interface: L1 G7250-P1 / L2 TCI with on-board DSP. Single owner, shared safety core, L2 only after gate G6 | accepted |
 | 0012 | Every integration supports full functionality including TX; no SoapySDR module | accepted |
 | 0013 | AetherSDR is the initial integration route for level 1; no separate bridge | accepted |
 | 0014 | One TCI profile (spec part C) for AetherSDR on level 1 and the firmware on level 2 | accepted |
-| 0015 | Host that does not know the board id: RX only; TX needs an explicit G7250 arm | accepted |
+| 0015 | Host that does not know the board id: RX only; TX needs an explicit G7250 arm | accepted; to be rewritten for P2 (0016) |
+| 0016 | Level 1 uses openHPSDR Protocol 2 instead of Protocol 1; AetherSDR P2 support built by us if needed | accepted. Revises 0001, 0009, 0011; 0005 and 0015 to be rewritten |
 
 Numbers 0002–0004 and 0006–0008 are reserved for: board-id value, capability block,
 streams and sample rates, telemetry, watchdog and safety (including the TX arm from 0015),
@@ -33,8 +34,14 @@ management channel.
 
 ## Open questions for ON8ST
 
-None at the moment. The earlier questions were settled in 0005, 0014 and 0015, and 0001
-is accepted.
+1. Name of level 1 now that it is P2 (proposal: "G7250-P2") (0016).
+2. Rewrite 0005 and 0015 for P2: where G7250 fields go (reserved bytes in the P2 packets,
+   or a G7250-specific packet).
+3. Board type value: may we coordinate it with the openHPSDR maintainers? Outward action,
+   needs a go (0016).
+
+Analysis: `analysis/p1-vs-p2.md`. AetherSDR facts (P1 TX via HL2, P2 receive-only via
+ANAN-G2, TCI server announcing protocol 2.1) come from its README, read 2026-11-19.
 
 ## Open questions for the HIS (to put into `open-questions-his.md`)
 
@@ -50,10 +57,10 @@ is accepted.
 ## Next step
 
 1. (Done: 0013.)
-2. Create `sources.md`, collecting and checking the public sources: P1 documentation, HL2
-   documentation, the TCI spec (version and terms of use), and the G7250 product
+2. Create `sources.md`, collecting and checking the public sources: P2 documentation (already
+   read, see `analysis/p1-vs-p2.md`), P1 and HL2 documentation for reference, the TCI spec (version and terms of use), and the G7250 product
    specifications and manual.
 3. Write `design-note.md` (both levels, milestones M1–M7 and G6, out-of-scope list as
    amended by 0010–0012).
-4. Write spec part B (level 1, starting with M1: discovery, capability block, RX-IQ), with
+4. Write spec part B (level 1 on P2, starting with M1: discovery, capability block, RX-IQ), with
    sources cited.

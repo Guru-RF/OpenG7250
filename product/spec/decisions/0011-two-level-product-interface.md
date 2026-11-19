@@ -2,6 +2,7 @@
 
 - Status: accepted (ON8ST, 2026-11-19)
 - Date: 2026-11-19
+- Revised by 0016 (Protocol 2 instead of Protocol 1), 2026-11-19: level 1 uses P2; point 5 ("Protocol 2 stays out of scope") no longer applies.
 
 ## Context
 

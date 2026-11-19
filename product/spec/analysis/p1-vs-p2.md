@@ -16,13 +16,15 @@ All protocol statements below come from these public documents. They were read o
 | [P1-METIS] | Metis – How it works, V1.33 (28 Feb 2015, VK6PH) | github.com/TAPR/OpenHPSDR-Firmware, `Protocol 1/Documentation/Metis- How it works_V1.33.pdf` |
 | [P2] | openHPSDR Ethernet Protocol, V4.4 (latest revision 7 Mar 2026, G8NJJ; document © March 2019, VK6PH) | github.com/TAPR/OpenHPSDR-Firmware, `Protocol 2/Documentation/openHPSDR Ethernet Protocol v4.4.pdf` |
 | [HL2] | Hermes-Lite 2 wiki, "Protocol" page | github.com/softerhardware/Hermes-Lite2/wiki/Protocol |
+| [AETHER] | AetherSDR README (latest release v26.11.3, 2026-11-16) | github.com/aethersdr/AetherSDR, read 2026-11-19 |
 | [G7250] | Public G7250 product specifications (Radioddity) and user manual | not yet collected; the radio facts used here are those already quoted in 0001 (one receiver, 100 W HF, 90 W on 6 m, internal ATU, two antenna connectors) |
 
 Protocol 1 on Ethernet is the USB frame protocol [P1-USB] carried in UDP packets
 [P1-METIS]. Both documents are needed to describe it.
 
-Not checked, and marked "unverified" below: which host applications support which
-protocol, and in particular what AetherSDR supports.
+Not checked, and marked "unverified" below: which host applications other than AetherSDR
+support which protocol. AetherSDR was checked after the first version of this analysis
+[AETHER].
 
 ## What the G7250 needs from the protocol
 
@@ -57,7 +59,7 @@ From [G7250] as quoted in 0001, plus the open HIS questions:
 | Several hosts | Status 0x03 in the discovery reply when already sending [P1-METIS]. | Same status, and a second host that sends C&C takes over the radio [P2]. | P2's takeover is a risk for TX ownership (0011, single owner) and would need restricting. |
 | Firmware update | Erase and program commands over port 1024, 256-byte blocks [P1-METIS]. | Program packets, with a 16-bit checksum since V3.8 [P2]. | Both have something. 0001 puts update on a separate management channel anyway. |
 | Implementation cost in the firmware | Low: one socket, fixed 1032-byte packets, fixed frame layout [P1-METIS], [P1-USB]. | Higher: several sockets and packet types, variable configuration, 24-bit TX path [P2]. | Matters if the HIS shows a small MCU and a limited network stack. |
-| Host support | Unverified. The HL2 uses P1 [HL2]; which applications support P1 has not been checked. | Unverified. [P2] describes ANAN and SATURN hardware; which applications support P2 has not been checked. | The deciding question is what AetherSDR supports. Unverified. |
+| Host support | AetherSDR supports the HL2 over P1 (board id 6), including TX [AETHER]. Other applications unverified. | AetherSDR supports the ANAN-G2 over P2, experimental and receive-only; "Transmit is a future phase" [AETHER]. Other applications unverified. | In AetherSDR, P1 TX exists today; P2 TX has to be built. |
 
 ## Summary
 
@@ -87,10 +89,15 @@ For the G7250 specifically:
   With P2 they partly exist already.
 
 **What would decide it**
-1. What AetherSDR supports, P1, P2 or both (unverified).
+1. What AetherSDR supports: P1 including TX (HL2), and P2 receive-only (ANAN-G2) [AETHER].
 2. The compute and network budget of the G7250 (HIS, gate G6).
 3. Whether the G7250 has a second ADC or a TX feedback path (HIS). Only then do P2
    multi-DDC and PureSignal features matter.
+
+## Outcome
+
+ON8ST chose Protocol 2 (2026-11-19), and if needed we build the P2 support in AetherSDR
+ourselves. Recorded in 0016.
 
 ## Relation to earlier decisions
 

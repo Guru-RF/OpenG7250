@@ -2,6 +2,7 @@
 
 - Status: accepted (ON8ST, 2026-11-19)
 - Date: 2026-11-19
+- Revised by 0016 (Protocol 2 instead of Protocol 1), 2026-11-19: read "Protocol 2" for "Protocol 1"; extensions only on bytes P2 leaves free or reserved.
 
 ## Context
 

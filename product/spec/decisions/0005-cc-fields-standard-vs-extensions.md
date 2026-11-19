@@ -2,6 +2,7 @@
 
 - Status: accepted (ON8ST, 2026-11-19)
 - Date: 2026-11-19
+- Revised by 0016 (Protocol 2 instead of Protocol 1), 2026-11-19: to be rewritten for the P2 packet structure; the HL2 rule applies to P1 addresses and lapses.
 
 ## Context
 

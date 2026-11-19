@@ -2,6 +2,7 @@
 
 - Status: accepted (ON8ST, 2026-11-19; earlier "a strong starting point"; all open points settled, see Open points)
 - Date: 2026-11-19
+- Revised by 0016 (Protocol 2 instead of Protocol 1), 2026-11-19: design note item 1, the out-of-scope list and spec sections 2–4 and 7 follow P2.
 
 ## Context
 
