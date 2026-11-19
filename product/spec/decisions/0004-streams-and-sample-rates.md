@@ -528,8 +528,9 @@ These were not answered on 2026-11-19 and remain open:
   management channel (0008), or does the firmware move to MACRAW mode (HIS-14)?
 - Sources: RFC 768, RFC 791 and IEEE 802.3 (per-packet overhead of 66 bytes) are still to be
   added to `sources.md`.
-- DDC rate units: the DDC Specific bytes 18–19 rate field and Appendix C bytes 52–55
-  (ksps) [P2] are still to be checked against a public P2 host implementation.
+- DDC rate units: **closed 2026-11-19.** DDC Specific bytes 18–19 carry the rate in ksps,
+  as two public P2 hosts write it: AetherSDR `P2Protocol.cpp:123–125` [AETHER-SRC] and
+  piHPSDR `new_protocol.c:1403–1404` [PIHPSDR]. Appendix C bytes 52–55 are not used (0003).
 
 ## Sources
 
