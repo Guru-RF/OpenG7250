@@ -4,8 +4,8 @@
 - Date: 2026-11-19
 - Copyright holder: ON8ST.
 
-This decision records a licence choice. It is not legal advice. The firmware licence is to
-be checked once the vendor SDK is known (see Consequences).
+This decision records a licence choice. The firmware licence is checked for compatibility
+with the vendor SDK once that SDK is known (see Consequences).
 
 ## Context
 

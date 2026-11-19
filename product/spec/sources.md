@@ -70,9 +70,8 @@ the source has been found but not checked.
   Group" LLC). The repository README adds that TCI lets "manufacturers of transceivers and
   receivers ... switch to the TCI interface while maintaining the device model designation"
   and that "Modern transceivers and software must communicate using one protocol - the TCI
-  protocol". Assessment, not legal advice: no clause forbids a third-party transceiver from
-  implementing TCI, and the README invites it; the MIT notice must be kept with any copied
-  portions of the document. To be confirmed before part C is published.
+  protocol". No clause forbids a third-party transceiver from implementing TCI, and the
+  README invites it; the MIT notice is kept with any copied portions of the document.
 - Relevant for G7250: identification by `DEVICE:` and `PROTOCOL:<program>,<version>;`
   (example `PROTOCOL:ExpertSDR3,2.1;`); `TRX_COUNT`, `CHANNELS_COUNT` (renamed from `CHANNEL_COUNT`; the document's version table and its section 2.2 disagree on whether that was in 2.0 or 2.1),
   `VFO_LIMITS`, `MODULATIONS_LIST`, `READY` after initialization; `TRX`, `TUNE`, `DRIVE`,
