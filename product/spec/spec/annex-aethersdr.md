@@ -13,7 +13,7 @@ AetherSDR is GPL-3.0 [AETHER]; this annex quotes no AetherSDR code, only describ
 Line numbers are those of that commit and will drift.
 
 Spec sections cited as "B3.4" and similar refer to `spec/network-interface.md` rc2 of
-2026-11-19.
+2026-11-19, and to its rc3 draft for the sections added by 0022 §62–§73 (A3.6a, A3.9a item 1a).
 
 ---
 
@@ -337,7 +337,9 @@ These parts of the ANAN P2 code already match the G7250 and need no change, only
   packets; a DUC-specific packet with rate 192 and 24 bits, else DUC I&Q is not accepted and
   TX is refused (0004 points 2 and 7; [P2] DUC I&Q packet, NOTE2). Drive level in High
   Priority byte 345 (0005). General byte 58 bit [0] (PA enable) set: while it is 0 no TX
-  request keys, and clearing it while keyed unkeys (B10.10; Table B7-1; 0022 §14). A DUC FIFO
+  request keys, and clearing it while keyed unkeys (B10.10; Table B7-1; 0022 §14); the radio
+  clears it at every session end and takeover, with every DUC-specific TX setting (A3.6a,
+  Table A3-4; 0022 §64). A DUC FIFO
   underflow longer than a hardware-dependent time (TBD, HIS-18) unkeys, arm kept (0007 §2;
   B10.5). The underflow is timed from the key if no DUC I&Q has arrived by then, and the
   radio sends zeros while its FIFO is empty; the underrun time is at least the key latency
@@ -378,12 +380,16 @@ These parts of the ANAN P2 code already match the G7250 and need no change, only
   the run bit, and its keepalive is the High Priority packet (§2.2; `P2Client.cpp:156–170`,
   `:547–556`). The radio keeps that General packet (byte 38 bit [0], byte 58 bit [0], byte 39)
   and the DDC-specific and DUC-specific packets for the session the run bit starts, so
-  AetherSDR need not resend them; it must resend the General packet after every session end
-  before it arms again (for example after a restart with the run bit only). The capability
+  AetherSDR need not resend them; it must resend the General packet and the DUC-specific
+  packet after every session end, a takeover included, before it arms again (for example
+  after a restart with the run bit only), because the radio returns PA enable and every
+  DUC-specific TX setting (CW select, break-in, hang delay, RF delay, keyer, DUC rate) to
+  their session-start values (A3.6a, Table A3-4; part C C8.5a item 3; 0022 §64). The capability
   record arrives once, unasked, at the session start (B4.4 item 2).
 - **High Priority sequence numbers** (B11.6a; 0022 §35, §55, §56). Number the High Priority
   packets from 1 upwards and restart at 1 only with a new session, so that the radio
-  discards a reordered or duplicated packet. The radio engages numbered mode after three
+  discards a reordered or duplicated packet; at the wrap skip 0 (0xFFFFFFFF → 1), because 0
+  is never newer (B11.6a; 0022 §72). The radio engages numbered mode after three
   increasing non-zero numbers and resynchronises, with a log entry, after five packets in a
   row that are not newer or a jump back by more than 2¹⁶; a PTT edge in the packet that
   resynchronises does not key. In unnumbered mode (all numbers 0, and before numbered mode
@@ -459,7 +465,9 @@ These parts of the ANAN P2 code already match the G7250 and need no change, only
 - **Change.** A G7250 High Priority builder that leaves the Alex words at zero (until B7 says
   otherwise) and fills only fields the G7250 uses; antenna selection, ATU in-line/bypass and
   tune through registers, with the ATU state register (0006) shown; `hasTuner` and antenna
-  lists from the record (G-02).
+  lists from the record (G-02). With split, set DDC0 and DUC0 before `ATU_TUNE`: the radio
+  switches the RF path to the TX state for DUC0 before the tune carrier and back to the state
+  for DDC0 after the cycle (A3.9b items 2, 7; 0022 §66).
 
 #### G-11 Frequency encoding and DSP clock (B3.8) — S
 
@@ -468,7 +476,9 @@ These parts of the ANAN P2 code already match the G7250 and need no change, only
   Value TBD (HIS-04).
 - **Today.** Byte 37 bit [3] is always set and the clock is fixed at 122.88 MHz
   (`P2Protocol.cpp:85`; `P2Protocol.h:72–94`).
-- **Change.** Follow byte 21; compute phase words with `dsp_clock_hz`; send Hz otherwise.
+- **Change.** Follow byte 21; compute phase words with `dsp_clock_hz`; send Hz otherwise. A
+  mismatch stops DDC0 and blocks every TX request, `STREAM_STATUS` reason 13; show that reason
+  (B3.8; 0022 §73 item 12).
 
 #### G-12 Management channel client (0008) — L as a tool, S in AetherSDR
 
@@ -580,6 +590,23 @@ These parts of the ANAN P2 code already match the G7250 and need no change, only
   P2 `LIMIT_<name>` registers and `KEYED_TIMEOUT` back to the user interface's values
   (C5.10.1 item 8). Refuse `TRX:0,true,tci;` when the client's TX audio block period exceeds
   half the keyed timeout (C6.3.3).
+- **Added by the review of rc2 (0022 §62–§73).** Without a PEP detector the radio bounds
+  power on a PEP estimate from the crest factor of AetherSDR's DUC I&Q, for every mode class:
+  a high-crest-factor voice signal or a signal sent under a wrong class gets less power than
+  the class bound alone would give, and `TX_SENSORS` arg4 carries the estimate (A3.4c, Table
+  A3-3; part C C4, C8.1; 0022 §62). Resend the General packet with PA enable and the
+  DUC-specific packet in every new session, also after a takeover (A3.6a; part C C7.2.1,
+  C8.5a; 0022 §64). The KEY input keys only while the DUC-specific packet of this session
+  selects hardware CW (A3.1a, B10.9; 0022 §65). An ATU tune cycle runs in the TX state of the
+  DUC0 frequency and returns to the DDC0 state (G-10; part C C5.7; 0022 §66). The SWR cap and,
+  with break-in, SEND, the T/R relay and the RX attenuator during TX are held across element
+  gaps shorter than the hang delay; choose the hang delay knowing that an external amplifier
+  stays keyed for it (A3.4a, A3.9a item 4; part C C7.6.7; 0022 §67; §73 item 9). Every wait for
+  RF gone is bounded by `t_reset_wait` (2 s), after which the radio is in fault
+  `RF_NOT_KEYED` (A3.9a item 1a; part C C7.6.6; 0022 §68). While unkeyed the radio keeps only
+  the last 25 ms of DUC I&Q (B10.7; 0022 §63). A PTT 0 in a discarded High Priority packet
+  unkeys (B11.6a; 0022 §72). A DDC0 change alone during the settle wait of a key does not
+  refuse it (A3.9a item 3; 0022 §73 item 10).
 - **Other keying interfaces** (0021 §37). AetherSDR also has remote keying paths besides TCI
   (CAT, rigctl and its own TCI extensions `aethersdr_ext`, as the rc3 review reports; not
   surveyed in §2). Each of them SHOULD be bound by a keyed-liveness rule equivalent to part C

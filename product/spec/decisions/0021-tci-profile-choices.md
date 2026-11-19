@@ -1,6 +1,6 @@
 # 0021 — Choices in the G7250 TCI profile (spec part C)
 
-- Status: proposed (for ON8ST review at rc1; §27–§41 proposed for the rc3 draft), 2026-11-19
+- Status: proposed (for ON8ST review at rc1; §27–§42 proposed for the rc3 draft), 2026-11-19
 - Date: 2026-11-19
 - Builds on: 0003 (discovery reply byte 4), 0004 (rates, SPI target), 0007 (watchdog and
   safety), 0008 (management channel, socket budget, LAN security), 0011 (two levels), 0012
@@ -1029,6 +1029,40 @@ Each item: chosen rule; alternative; reason.
     §52; §25 cites the A2.5a steps as part C C2.7 does; the annex G-13 blocks are in the order
     of the reviews and the C9 test ids are in numeric order. No rule changes.
 
+## 42. Part C after the rc2 review of part B (0022 §62–§73)
+
+**Problem.** Part B changed the power bound without a PEP detector (0022 §62), the TX settings
+at a session end and takeover (§64), the ATU tune cycle (§66), the SWR cap (§67), the wait for
+RF gone (§68) and several details (§73 items 2, 9, 10, 18). Most of this part C follows by
+reference; three points need a TCI choice: what `TX_SENSORS` arg4 reports without a PEP
+detector, which TX settings end with a TCI session, and the stale text of §21 and §35.
+
+**Chosen rule.**
+
+1. **`TX_SENSORS` arg4 without a PEP detector.** arg4 carries the PEP estimate of A3.4c
+   (measured mean × digital crest factor), the value the safety core enforces, not the mean
+   (part C C4, C-C12). Amends §21 ("arg4 carries the mean"). Alternative: keep the mean.
+   Against: the client would see a peak power below the value the radio limits, and for SSB
+   voice the reported peak would be about 12 dB low.
+2. **TX settings on level 2.** The settings of Table A3-4 have no TCI command; on level 2 the
+   firmware sets them, and at every level switch they return to the Table A3-4 values, so
+   neither level inherits the other's (part C C8.5a item 1; A2.5a step 4, A3.6a). The standard
+   TCI TX parameters (`DRIVE`, `TUNE_DRIVE`, split, XIT, monitor, CW speed and delay) are kept
+   across a TCI session end, as RX settings are (C8.5a item 2); the TX-side session state of
+   part C (limits, keyed timeout, policy, queued CW text) already ends with it. Alternative:
+   reset `DRIVE` and `TUNE_DRIVE` to 0 at every TCI session end. For: a new client starts at
+   no power. Against: [TCI] has no session and no defaults; every client receives the current
+   values at connection ([TCI] §3.1, part C C3.1), so nothing is hidden, which was the problem
+   0022 §64 solves on P2; power stays bounded by the limit in force and the arm.
+3. **Stale text.** §21's "capped at `P_swr` until the unkey" is superseded by 0022 §67 (the cap
+   holds to the end of the continuous transmission, part C C8.1), and its AM point by 0022
+   §62 as well (the class-based mean bounds are not conservative; part C C5.6). §35's drop
+   reason `RESET` for `RESTART` is superseded by 0022 §73 item 2 (`MAINTENANCE`; part C C2.10
+   item 1). No other change.
+
+**Reason.** Follow part B by reference wherever the behaviour is level-independent; decide on
+TCI only what TCI shows to clients.
+
 ## Consequences
 
 - Part C draft 2 applies these choices and cites them as "0021 §n".
@@ -1049,6 +1083,10 @@ Each item: chosen rule; alternative; reason.
   G-13 and Q-O3 get the level-1 consequences of §27–§41; the glossary gets the TCI terms. Part
   B is not changed: where part C needs a part B rule (A1.6, A1.6a, A1.9, A2.5a, A3.9b, A3.9c,
   B10.5, B10.5a, Table B8-2) it cites it.
+- Part C rc3 draft applies §42 and follows 0022 §62, §64, §66–§68 and §73 items 2, 9, 10, 18 by
+  reference (C2.10, C4, C5.5.5, C5.6, C5.7, C5.10, C5.10.1, C7.2.1, C7.6.5–C7.6.7, C8.1,
+  C8.5a, C9); `spec/annex-aethersdr.md` G-08a, G-08b, G-10, G-11 and G-13 get the level-1
+  consequences.
 
 ## Sources
 
