@@ -1,8 +1,9 @@
 # G7250 network firmware — design note
 
-- Version: draft 2, 2026-11-19
+- Version: draft 3 (rc1), 2026-11-19
 - Status: draft for review by ON8ST
-- Structure: as agreed in 0001, amended by decisions 0002–0018.
+- Structure: as agreed in 0001, amended by decisions 0002–0022 (0020–0022 proposed, for
+  review at rc1).
 - © 2026 ON8ST. Licensed under CC BY 4.0 (see `LICENSE.md`, decision 0018).
 - The normative interface is in `spec/network-interface.md` (not yet written). This note
   describes the product; it does not define the protocol.
@@ -130,6 +131,23 @@ level 1. Limits (SWR, temperature, power, supply, TX time) act with warn / reduc
 disarm / fault; values wait for the HIS. Two fault classes: host-clearable and reset-only.
 (0007, 0015)
 
+Added by the rc1 review (0022, proposed): while keyed, antenna, ATU, filter, preamp and
+attenuator relays never switch, from any source; a TX-frequency change that leaves the range
+or needs another RF-path state unkeys first. A takeover is an ordered procedure: the old
+session ends (unkey, disarm, mode class and keyed timeout reset, limits back to the
+persistent tier), the new host is owner at once. TX IQ from anyone but the owner is
+discarded. Limits have three tiers (built-in, persistent via management, session); a host can
+only tighten the limit in force. Above S1 the SWR fold-back caps power at a fixed value until
+unkey. Every fault code has a class; a class 2 fault can only be cleared by a reset.
+
+### 4.3 Ports and the TCI side
+
+G7250-P2 uses the standard P2 ports plus UDP 7250 for the register map and UDP 7251 for the
+management channel (0020 §1, §2). The TCI server listens on TCP 50001 on both levels, the
+port AetherSDR already uses (0021 §2). On TCI, only application frames from the keying client
+keep a transmission alive; WebSocket Pong does not. A generic client's TUNE or CW key-down gets
+a 1 s window unless refreshed (0021 §18).
+
 ## 5. Principles
 
 1. **Stay close to the standard.** P2 fields keep their P2 meaning. G7250 functions go into
@@ -187,5 +205,6 @@ AetherSDR work runs alongside: the G7250 backend receives from M1 and transmits 
 - **Sources still to read.** The TCI 2.1 PDF and its terms of use (before part C), the
   Radioddity product page, the HDSDR network tutorial and the Temporarily Offline video
   (`sources.md`).
-- **Decisions.** 0001–0018 are recorded and accepted. What remains are hardware values from
-  the HIS (limits, clocks, register addresses).
+- **Decisions.** 0001–0019 are accepted; 0020–0022 (rc1 details, TCI profile choices, review
+  fixes) are proposed for review at rc1. What remains are hardware values from the HIS
+  (limits, clocks, filter plan, sensor details).
