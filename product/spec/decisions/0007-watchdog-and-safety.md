@@ -199,7 +199,7 @@ Rules:
 | 4 | Takeover: C&C from another host, including the owner's IP address on a different UDP port (sub-decision 3) | `TAKEOVER` |
 | 5 | Any reset: power-on, brown-out, processor watchdog, software reset (HIS-13) | (state after reset: disarmed; logged, 0008) |
 | 6 | Entry into the fault state (sub-decision 5) | `FAULT` |
-| 7 | A limit trip whose action is DISARM or FAULT (sub-decision 4), including maximum TX time | `LIMIT_<name>` |
+| 7 | A limit trip whose action is DISARM or FAULT (sub-decision 4). Maximum continuous TX time is not one of them: its action is UNKEY, arm kept (Resolved 3, ON8ST 2026-11-19) | `LIMIT_<name>` |
 | 8 | Ethernet link down, if the CH394Q reports PHY link status (to be checked in [CH394]; HIS-14) | `LINK_DOWN` |
 | 9 | Loss of the socket or port set-up that the session uses (for example the General packet moves the High Priority or DUC ports) | `SESSION_CHANGED` |
 | 10 | Change of active level (0011) | `LEVEL_CHANGE` |
