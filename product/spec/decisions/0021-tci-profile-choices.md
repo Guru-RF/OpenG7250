@@ -1,6 +1,6 @@
 # 0021 — Choices in the G7250 TCI profile (spec part C)
 
-- Status: proposed (for ON8ST review at rc1; §27–§42 proposed for the rc3 draft; §43 proposed for rc3), 2026-11-19
+- Status: proposed (for ON8ST review at rc1; §27–§42 proposed for the rc3 draft; §43 proposed for rc3; §44 proposed for the rc4 draft), 2026-11-19
 - Date: 2026-11-19
 - Builds on: 0003 (discovery reply byte 4), 0004 (rates, SPI target), 0007 (watchdog and
   safety), 0008 (management channel, socket budget, LAN security), 0011 (two levels), 0012
@@ -1192,6 +1192,129 @@ state on level 2, and a set of smaller gaps.
 §74), and choose the safe side (unkey, refuse) where a transmission's basis would change under
 it (0011 point 3).
 
+## 44. Part C rc4 draft: review fixes of rc3 (rc3 review M1–M8, L1–L12)
+
+Status: proposed.
+
+**Problem.** The review of part C rc3 found `TX_ENABLE` tied to the key state, no rule for a
+TX audio block of another length than TX_CHRONO asked, the level-1 DUC0 frequency not tied to
+the effective TX frequency, a reject reason (`LEVEL_NOT_ACTIVE`) that the reject order made
+unreachable, no rule for `G7250_TX_POLICY:holder` set under a non-holder's transmission, an
+incomplete feature token list, a "row fixed at the key" rule that contradicts terminal mode,
+a TX audio underrun test that the keyed timeout would pre-empt, and twelve smaller gaps. In
+parallel part B changes the restart (0022 §78) and the frequency encoding (0022 §81).
+
+**Chosen rule.**
+
+1. **`TX_ENABLE` is a permission (M1).** `TX_ENABLE` is `true` exactly when C5.5.6 items 1, 2
+   and 4–9 hold; item 3 (not keyed) applies only to the arm request, so `TX_ENABLE` stays
+   `true` while keyed (part C C4, C5.5.4, C5.5.6, C-C31; T-C5-07). C2.8 item 2 rests on item
+   8 (unarmed), not item 3. Alternative: keep item 3, so `TX_ENABLE` goes `false` while keyed.
+   Against: [TCI] §4.3 defines it as "transmission allowed / transmission denied", a
+   permission; a generic client would grey out its PTT button during its own transmission and
+   see a toggle on every CW element.
+2. **TX audio block of another length (M2).** A TX_AUDIO_STREAM block whose `length` differs
+   from TX_CHRONO's is accepted when `length` is a multiple of `channels` and the data part is
+   at most 16384 bytes; it is played in full and feeds both the TX audio underrun and the
+   keyed timeout; a block that fails either condition is discarded and feeds neither (part C
+   C6.3.5, C-C30, D11; T-C6-10). Alternative: discard every block of another length, feeding
+   neither timer. For: the server sees exactly the period it planned. Against: [TCI] §3.4 does
+   not forbid it, a client that rounds its block size would be unkeyed by the underrun after
+   `TX_STREAM_AUDIO_BUFFERING` + 500 ms with no error visible to a generic client, and the
+   bounds kept (whole frames, [TCI]'s 16384-byte data limit) are what the server needs to
+   play the block safely.
+3. **DUC0 = effective TX frequency on level 1 (M3).** AetherSDR's P2 DUC0 frequency MUST always
+   be the effective TX frequency (channel A, or channel B with split, plus XIT); no TX offset
+   in the baseband DUC I&Q (part C C7.6.1 item 5; annex G-08a, G-13; T-C7-24). Alternative:
+   allow small offsets in the baseband. Against: the radio checks `LIMIT_TX_FREQ` and chooses
+   the RF-path state on DUC0 (A3.1b, Table A3-2), so a baseband XIT near a band edge would
+   transmit outside the range the radio checked.
+4. **`LEVEL_NOT_ACTIVE` reachable (M4).** (L1) When AetherSDR knows from management
+   identification I-4 that level 2 is active, item 4 is checked before item 1 (part C C5.5.3,
+   C5.5.6); on level 2 item 4 always holds, so the reason is level-1 only (T-C5-04). The
+   update case of `MAINTENANCE` in T-C5-44 is marked (L2): on level 1 the P2 session ends at
+   `UPDATE_BEGIN` (A1.8) and P2 shows no update state; AetherSDR MAY report `NOT_RUNNING`; a
+   trial boot reaches TCI as the P2 reject reason. Alternative: drop `LEVEL_NOT_ACTIVE` from
+   T-C5-04. Against: C2.7 already requires AetherSDR to read I-4, and the reason tells the
+   user why TX is unavailable.
+5. **`holder` set while a non-holder keys (M5).** The server unkeys that transmission (`unkey`
+   1, arm kept, unkey broadcast; an ATU tune cycle ends `failed`) (part C C5.5.8, C-B8;
+   T-C5-56). Alternative: let the transmission run to its end. Against: the point of the
+   tightening is to stop other clients keying; an untimed `TUNE` or terminal-mode CW of a
+   non-holder could run on for up to the maximum TX time.
+6. **Feature tokens complete (M6).** Table C5-1 lists one token, with one line of meaning, for
+   every MAY or SHOULD command or group of C4, every MAY part of a MUST command and every
+   optional extension; `cw_keyer` is the radio's keyer for the controller's KEY input with
+   `CW_KEYER_SPEED`, `keyer` the client-timed `KEYER` command; new tokens `recorder`, `volume`,
+   `lock`, `agc_fast`, `agc_gain`, `mon`, `footswitch`, `cw_terminal`, `spot_click`, `focus`
+   (part C C4.1, C5.4; T-C5-61). Alternative: narrow C4.1 to commands with tokens and let a
+   client discover the rest by "no reply". Against: a notification (`VFO_LOCK`,
+   `CW_MACROS_EMPTY`, `TX_FOOTSWITCH`) and a value such as `AGC_MODE` `fast` cannot be
+   discovered by the absence of a reply.
+7. **Row fixed except terminal mode (M7).** The opt-in state (the column of Table C8-1) is
+   fixed at the key; the row is fixed too, except the moves between rows 6 and 7 of CW text in
+   terminal mode (C8.2.3), which are one TX source (part C C5.2, C7.5 item 7; T-C8-26). No
+   alternative weighed: C8.2.3 already defines the moves.
+8. **T-C8-03 (M8).** The client keeps sending other application frames (`G7250_KEEPALIVE`
+   every 100 ms), so only the underrun acts; the expected unkey is 3. Test fix only.
+9. **One listening socket (L1).** C2.10 item 4 speaks of the one listening socket, which is the
+   spare listener once all client sockets are in use (C2.5). Wording only.
+10. **`active` false on level 1 (L2).** `G7250_PROFILE` `active` becomes `false` at every end of
+    AetherSDR's P2 session: also a TCI or user-interface `STOP`, a P2 watchdog expiry, a
+    firmware update and a link below 100 Mbit/s (part C C5.3; T-C5-62). Alternative: only level
+    change and takeover. Against: `active` means "owns the RF chain now" (0011 point 2).
+11. **Restart on level 1 (L3; 0022 §78, §81).** After a stop, a watchdog standby or a link
+    loss the radio keeps the RX-side settings for the same IP address and port; the TX
+    settings are reset at every session end; a run = 1 from that host restarts the session.
+    AetherSDR resends the General packet (for the arm and PA enable) and the DUC-specific
+    packet after every session end; the DDC-specific packet also after a takeover, reset,
+    update, level or address change (part C C7.2.1, C8.5a item 3; annex G-08b; T-C8-28).
+    Frequency encoding: discovery byte 21 = 1 always, scale 122 880 000 Hz (0022 §81), so
+    annex G-11 is compatible. No part C alternative: part C follows part B here.
+12. **Write reject names (L4).** C5.12 states that part B owns Table B8-3 and that the TCI use of
+    `KEYED`, `NOT_ARMED` and `NOT_KEYABLE` is defined in C5.12. Wording only; Table B8-3 is
+    not edited here.
+13. **Discarded binary message (L5).** A binary message discarded for its form (C2.2, C6.3.5)
+    is not an application frame; a well-formed block whose audio is not used (C6.3.4, C7.5 item
+    4) still is (part C C2.2, C8.2). Alternative: every binary message counts. Against: a
+    client sending garbage would hold the keyed timeout with no usable audio.
+14. **`TRX:0,true;` restates `TRX:0,true,tci;` without `AUDIO_START` (L6).** Both are
+    microphone requests (C-C21), so they are one source and restate each other for the
+    generic keyed window (part C C8.2.3, C-C33; T-C8-27). Alternative: distinct sources.
+    Against: C4 `TRX` already gives them the same meaning, and refusing one as a source change
+    would unkey a client that only drops the `tci` argument.
+15. **CW text outside `CW` (L7).** Refused as `KEYER` is: ignored without a reply, not queued,
+    not latched (part C C4, C5.12, C-C32; T-C4-16). Alternative: switch the mode to `CW` or
+    send the text in the current mode. Against: [TCI] §3.2 places CW text under "Working in CW
+    mode"; a mode change by a side effect would change the mode class under the arm.
+16. **`G7250_KEYED_TIMEOUT` raised by a non-holder (L8).** Rejected with `LOOSER_LIMIT`, the
+    value in force replied (part C C5.10, C5.12; T-C5-59). No alternative weighed: the same
+    rule as `G7250_LIMIT` (C5.10.1 item 3).
+17. **`holder` while disarmed (L9).** Refused: `any` replied, `NOT_ARMED` to an opted-in
+    requester (part C C5.5.8; T-C5-58, T-C5-17, T-C5-48 amended). Alternative: accept.
+    Against: the policy returns to `any` whenever no holder remains and every arm starts with
+    `any`, so the accepted value could never act.
+18. **User-interface holder on level 1 (L10).** AetherSDR's user interface counts as an arm
+    holder for C5.10.1 item 3: while it alone holds the arm, a TCI client's write of 0 or of a
+    looser value is rejected (part C C5.10.1 item 3; T-C5-60). Follows from C5.5.5.1 item 2.
+19. **Level-1 keyed timeout (L11).** AetherSDR SHOULD NOT write a P2 `KEYED_TIMEOUT` below
+    twice its High Priority keep-alive period (200 ms) (part C C5.10). Alternative: no advice.
+    Against: at 100 ms one late keep-alive unkeys a healthy transmission.
+20. **Arm from a client that has not opted in (L12).** A `G7250_TX_ARM` with an arm value from
+    such a client is ignored without a reply and not latched; the disarm value is accepted
+    from every client (part C C5.2, C5.5.3, C5.12; T-C5-57). Alternative: accept. For: a
+    client that knows the derivation could arm without the extension traffic. Against: it
+    would hold an arm whose `G7250_TX_ARM_STATE` and token changes it cannot see; the safe
+    side is to require the opt-in (0015).
+21. **Glossary and labels.** "Session" lists an address change (Set IP, C-1, DHCP) as an end
+    cause and the run = 1 restart (0022 §44, §78); "Effective TX frequency" names the level-1 DUC0
+    rule. Part C, the annex and the glossary carry "rc4 draft, 2026-11-19".
+
+**Reason.** Follow [TCI] where it speaks (`TX_ENABLE`, CW mode), accept what the server can
+play safely (block length), and choose the side that stops a transmission or refuses an arm
+where a rule would otherwise let a client key without the state it needs to see (0011 point
+3; 0015).
+
 ## Consequences
 
 - Part C draft 2 applies these choices and cites them as "0021 §n".
@@ -1220,6 +1343,11 @@ it (0011 point 3).
   reference (C2.2, C2.7, C4, C5.1.1, C5.2, C5.5.3–C5.5.6, C5.7, C5.10.1, C5.12, C6.3, C7.4.1,
   C7.5, C7.6, C7.7, C8.2.3a, C9, Annexes C-B, C-C, C-D); `spec/annex-aethersdr.md` §3.1, G-09
   and G-13 and the glossary get the consequences. §41 item 5 is amended by §43 item 1.
+- Part C rc4 draft applies §44 and follows 0022 §78 (restart with RX-side settings kept) and
+  §81 (discovery byte 21 = 1) by reference (C2.2, C2.8, C2.10, C4, C5.2–C5.5.8, C5.10, C5.10.1,
+  C5.12, C6.3.5, C7.2.1, C7.5, C7.6.1, C8.2, C8.2.3, C8.5a, C9, Annexes C-B, C-C, C-D);
+  `spec/annex-aethersdr.md` (§3.1, G-02, G-08a, G-08b, G-11, G-13, §3.3, §6) and the glossary
+  get the consequences. Part B and Table B8-3 are not changed by §44.
 
 ## Sources
 
@@ -1239,4 +1367,7 @@ it (0011 point 3).
 - [TCI] also §3.2.1, §3.4 (`Stream.length`), §4.2 START, §4.3 AUDIO_STREAM_SAMPLES, §4.4 KEYER,
   §4.5 CW_TERMINAL (§43). `spec/network-interface.md` rc3: A1.8, A3.1a, A3.4d, A3.9, A3.9a item
   4, A3.9b item 1, Table A3-3 (§43).
+- [TCI] also §3.2 ("Working in CW mode"), §3.4 (TX_CHRONO and the TX audio answer), §4.3
+  TX_ENABLE (§44). `spec/network-interface.md` rc4 draft: A1.5 (I-3, I-4), A1.8, A3.1b, Table
+  A3-2, B5.4, B3.8, B10.2 item 3, B10.5 (§44).
 - Decisions 0003, 0004, 0007, 0008, 0011, 0012, 0013, 0014, 0015, 0017, 0019, 0022.

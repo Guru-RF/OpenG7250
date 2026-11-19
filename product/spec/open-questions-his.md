@@ -45,6 +45,8 @@ Priority: **M1** = needed for milestone M1 (discovery, capability block, RX-IQ);
   and can the hardware take a frequency in Hz or does it need a phase word?
 - Why: P2 lets the radio declare "frequency or phase word" and its DSP clock in the
   discovery reply [P2].
+- Updated by 0022 §81: the wire format is fixed (phase word on a virtual 122.88 MHz clock);
+  this question now covers only the internal DSP clock the firmware converts from.
 
 ### HIS-05 — Frequency reference (M2)
 
@@ -76,6 +78,8 @@ Priority: **M1** = needed for milestone M1 (discovery, capability block, RX-IQ);
   (or forward-power threshold `P_rf_off`) before any relay moves after unkey.
 - Added by 0022 §57: `t_rf_off` + `t_settle` must not exceed 98.75 ms, so that the DUC
   underrun time fits between the key latency + 1.25 ms and the 100 ms minimum keyed timeout.
+- Added by 0022 §83 item 2: may a relay be commanded again before it has settled (needed
+  to go straight from one TX state to another without the return to RX)?
 
 ### HIS-08 — Internal ATU (M2)
 
@@ -128,6 +132,8 @@ Priority: **M1** = needed for milestone M1 (discovery, capability block, RX-IQ);
 - Added by 0022 §62, §68: the margin needed on the digital crest-factor PEP estimate
   (analog PA compression and detector errors), and that the "RF while not keyed" threshold
   can be set at or below `P_rf_off` with `t_blank` < `t_reset_wait`.
+- Added by 0022 §80: detector and sensor response times, which add to the reaction times
+  in Table A3-2.
 
 ### HIS-12 — Power control and limits (M4)
 
@@ -139,6 +145,8 @@ Priority: **M1** = needed for milestone M1 (discovery, capability block, RX-IQ);
   temperature), the minimum forward power `P_min` for SWR evaluation, and the hystereses.
 - Added by 0022 §23: the forward-power threshold `P_rf_off` below which RF counts as gone.
 - Added by 0022 §59: `t_reset_wait` (2 s) must exceed `t_rf_off`.
+- Added by 0022 §80: whether the PA tolerates the Table A3-2 reaction times (≤ 10 ms for
+  SWR, voltage and current).
 
 ### HIS-13 — Fault and reset behaviour (M3)
 

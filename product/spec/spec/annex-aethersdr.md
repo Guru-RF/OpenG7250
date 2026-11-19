@@ -1,7 +1,7 @@
 # Annex — Changes needed in AetherSDR
 
-- Version: rc3, 2026-11-19
-- Status: rc3, for review by ON8ST. Informative annex to `spec/network-interface.md`
+- Version: rc4 draft, 2026-11-19
+- Status: rc4 draft, for review by ON8ST. Informative annex to `spec/network-interface.md`
   (0001, spec section 13; 0013, 0014, 0016).
 - © 2026 ON8ST, CC BY 4.0 (see `LICENSE.md`, decision 0018).
 
@@ -13,7 +13,8 @@ AetherSDR is GPL-3.0 [AETHER]; this annex quotes no AetherSDR code, only describ
 Line numbers are those of that commit and will drift.
 
 Spec sections cited as "B3.4" and similar refer to `spec/network-interface.md` rc2 of
-2026-11-19, and to its rc3 for the sections added by 0022 §62–§74 (A3.4d, A3.6a, A3.9a item 1a).
+2026-11-19, and to its rc3 and rc4 draft for the sections added or changed by 0022 §62–§78 and §81
+(A3.4d, A3.6a, A3.9a item 1a; B5.4 by 0022 §78, B3.8 by 0022 §81).
 
 ---
 
@@ -197,6 +198,7 @@ These parts of the ANAN P2 code already match the G7250 and need no change, only
 | High Priority status exactly 60 bytes | `P2Protocol.cpp:278` | bytes 0–59 (0006) |
 | Keepalive every 100 ms on the I/O thread | `P2Client.h:238–241` | 100 ms recommended [P2]; HP refresh duty while keyed (0007 §2) |
 | One socket per session for all P2 traffic | `P2Client.cpp:137–170` | owner = IP address and UDP port (0007 point 4) |
+| Phase word with a fixed DSP clock of 122.88 MHz, General byte 37 bit [3] = 1 | `P2Protocol.cpp:85`; `P2Protocol.h:72–94` | discovery byte 21 = 1 always, phase-word scale 122 880 000 Hz (B3.8; 0022 §81); see G-11 |
 
 ### 3.2 Gaps
 
@@ -230,8 +232,8 @@ These parts of the ANAN P2 code already match the G7250 and need no change, only
   (`P2Protocol.cpp:100–106`), phase-word mode (`:85`), fixed `RadioCapabilities`
   (`AnanBackend.cpp:535–716`).
 - **Change.** A record decoder (207 registers in record version 1.1, 0020 §26; B4) and a mapping into
-  `RadioCapabilities`: `ddc_rates` → rate list and pan limits; `dsp_clock_hz` and discovery
-  byte 21 → frequency encoding (G-11); `rx_range` → tuning limits; `tx_band` →
+  `RadioCapabilities`: `ddc_rates` → rate list and pan limits; discovery byte 21 and the
+  phase-word scale are fixed and already match (G-11); `rx_range` → tuning limits; `tx_band` →
   `txPowerBands` (`RadioCapabilities.h:550–553`); `antennas`, `atu` → `hasTuner` (757) and
   antenna lists; `telemetry`, `cal_*` → G-07; `tx` bits → `canTransmit` (G-08); `link` and
   `mgmt` → status display. `RadioCapabilities` has no per-mode power ceiling, so the AM
@@ -352,7 +354,11 @@ These parts of the ANAN P2 code already match the G7250 and need no change, only
   800 packets/s on the I/O thread, with priming, silence on underflow and drop-oldest on
   overflow as in `MetisClient`; the DUC-specific packet to port 1026; the DUC frequency in
   High Priority bytes 329–332 in the encoding of G-11; drive level; General byte 58 bit [0]
-  = 1 in the set-up General packet (not set today, §3.1). A sideband/handedness
+  = 1 in the set-up General packet (not set today, §3.1). The DUC0 frequency MUST always be
+  the effective TX frequency (channel A, or channel B with split, plus XIT when on): realise
+  split and XIT by the DUC0 frequency, never by a frequency shift in the baseband DUC I&Q,
+  because the radio checks the TX frequency limit and chooses the RF-path state on DUC0 (part C
+  C7.6.1 item 5; A3.1b, Table A3-2 `LIMIT_TX_FREQ`; 0021 §44 item 3). A sideband/handedness
   check against an external receiver, as upstream plans for its own Phase 3
   (`docs/architecture/anan-p2-backend-design.md:402–406`).
 
@@ -380,12 +386,20 @@ These parts of the ANAN P2 code already match the G7250 and need no change, only
   the run bit, and its keepalive is the High Priority packet (§2.2; `P2Client.cpp:156–170`,
   `:547–556`). The radio keeps that General packet (byte 38 bit [0], byte 58 bit [0], byte 39)
   and the DDC-specific and DUC-specific packets for the session the run bit starts, so
-  AetherSDR need not resend them; it must resend the General packet and the DUC-specific
-  packet after every session end, a takeover included, before it arms again (for example
-  after a restart with the run bit only), because the radio returns PA enable and every
-  DUC-specific TX setting (CW select, break-in, hang delay, RF delay, keyer, DUC rate) to
-  their session-start values (A3.6a, Table A3-4; part C C8.5a item 3; 0022 §64). The capability
-  record arrives once, unasked, at the session start (B4.4 item 2).
+  AetherSDR need not resend them. At every session end, a takeover included, the radio
+  returns the TX settings of Table A3-4 to their session-start values (A3.6a; 0022 §64); after
+  a stop, a watchdog standby or a link loss it keeps the RX-side settings (the RX fields of the
+  General packet, the DDC-specific packet and the receive state of High Priority) for the same
+  IP address and port, and a High Priority packet with run = 1 from that host restarts the
+  session with them (B5.4; 0022 §78). After a session end AetherSDR must therefore resend,
+  before it arms again (for example after a restart with the run bit only): the General
+  packet, because an arm needs a General packet of the new session with the watchdog bit
+  (B10.2 item 3), and with PA enable; and the DUC-specific packet, for CW select, break-in,
+  hang delay, RF delay, keyer and DUC rate (part C C8.5a item 3). A resend of the DDC-specific
+  packet is not needed when AetherSDR restarts from the same IP address and port after a stop,
+  a watchdog standby or a link loss; after a takeover, a reset, a firmware update, a level
+  change or an address change it is (part C C7.2.1, C8.5a item 3; 0022 §78 item 4). The capability record arrives once, unasked, at the session start
+  (B4.4 item 2).
 - **High Priority sequence numbers** (B11.6a; 0022 §35, §55, §56). Number the High Priority
   packets from 1 upwards and restart at 1 only with a new session, so that the radio
   discards a reordered or duplicated packet; at the wrap skip 0 (0xFFFFFFFF → 1), because 0
@@ -470,16 +484,15 @@ These parts of the ANAN P2 code already match the G7250 and need no change, only
   switches the RF path to the TX state for DUC0 before the tune carrier and back to the state
   for DDC0 after the cycle (A3.9b items 2, 7; 0022 §66).
 
-#### G-11 Frequency encoding and DSP clock (B3.8) — S
+#### G-11 Frequency encoding and DSP clock (B3.8) — compatible
 
-- **Required.** Discovery byte 21 says Hz (0) or phase word (1); General byte 37 bit [3] must
-  agree; if phase, the DSP clock comes from `dsp_clock_hz` in the record (B3.8; 0003 §3).
-  Value TBD (HIS-04).
+- **Required.** Discovery byte 21 is always 1 (phase word), with the phase-word scale
+  122 880 000 Hz; General byte 37 bit [3] must agree (B3.8; 0022 §81). A mismatch stops DDC0
+  and blocks every TX request, `STREAM_STATUS` reason 13 (B3.8; 0022 §73 item 12).
 - **Today.** Byte 37 bit [3] is always set and the clock is fixed at 122.88 MHz
-  (`P2Protocol.cpp:85`; `P2Protocol.h:72–94`).
-- **Change.** Follow byte 21; compute phase words with `dsp_clock_hz`; send Hz otherwise. A
-  mismatch stops DDC0 and blocks every TX request, `STREAM_STATUS` reason 13; show that reason
-  (B3.8; 0022 §73 item 12).
+  (`P2Protocol.cpp:85`; `P2Protocol.h:72–94`): the same encoding and scale.
+- **Change.** None needed (§3.1). Recommended: check that discovery byte 21 is 1 and show
+  `STREAM_STATUS` reason 13 if it is ever reported.
 
 #### G-12 Management channel client (0008) — L as a tool, S in AetherSDR
 
@@ -625,6 +638,24 @@ These parts of the ANAN P2 code already match the G7250 and need no change, only
   A3.4d; 0022 §74). Size TX_CHRONO with `length` = `AUDIO_STREAM_SAMPLES` over all channels
   and `channels` of the client (C6.3.3, C-C25). Check the active level before reporting a
   loss of ownership (C2.7). `RECEIVE_ONLY` from the backend's transmit capability (above).
+- **Added by the rc4 draft of part C (0021 §44; 0022 §78, §81).** Keep `tx_enable` `true` while
+  keyed: it is the permission of C5.5.6 items 1, 2 and 4–9, not an activity flag (C5.5.6).
+  Accept TX audio blocks of another length than TX_CHRONO asked when the length is a multiple
+  of the channels and at most 16384 data bytes, and discard others without counting them as
+  application frames (C6.3.5, C8.2). Set DUC0 to the effective TX frequency, with split and
+  XIT, never as a baseband offset (C7.6.1 item 5; G-08a). With level 2 active (management
+  identification I-4) reject a TCI arm with `LEVEL_NOT_ACTIVE`, not `NOT_RUNNING` (C5.5.3).
+  When `G7250_TX_POLICY:holder` is set while a non-holder keys, unkey it (`unkey` 1); refuse
+  `holder` while disarmed with `NOT_ARMED` (C5.5.8). Send `G7250_FEATURES` with the tokens of
+  Table C5-1 only (C5.4). Ignore an arm value of `G7250_TX_ARM` and CW text outside `CW`
+  (C5.2, C4). Count AetherSDR's own user interface as an arm holder for `G7250_LIMIT` and
+  `G7250_KEYED_TIMEOUT` (C5.10, C5.10.1 item 3), and write no P2 `KEYED_TIMEOUT` below
+  200 ms, twice its 100 ms keep-alive (C5.10). Report `G7250_PROFILE` `active` false at every
+  end of its P2 session (C5.3). After a session end resend the General packet (for the arm and
+  PA enable) and the DUC-specific packet, and the DDC-specific packet as well after a
+  takeover, reset, update, level or address change (G-08b; C7.2.1, C8.5a item 3; B5.4).
+  Discovery byte 21 is now fixed at 1 with scale 122 880 000 Hz, AetherSDR's encoding (G-11;
+  0022 §81).
 - **Other keying interfaces** (0021 §37). AetherSDR also has remote keying paths besides TCI
   (CAT, rigctl and its own TCI extensions `aethersdr_ext`, as the rc3 review reports; not
   surveyed in §2). Each of them SHOULD be bound by a keyed-liveness rule equivalent to part C
@@ -653,11 +684,11 @@ These parts of the ANAN P2 code already match the G7250 and need no change, only
 | G-08e | Emergency stop | 0007 | S | M4 |
 | G-09 | Owner = IP + port | 0007 | S | M1 |
 | G-10 | Antenna, filters, ATU | 0005, 0007 | M | M2 |
-| G-11 | Frequency encoding, DSP clock | B3.8 | S | M1 |
+| G-11 | Frequency encoding, DSP clock (compatible) | B3.8 | — | — |
 | G-12 | Management channel client | 0008 | L (tool) / S | M5 |
 | G-13 | TCI profile | 0014 | M | after part C |
 
-M1 needs G-01, G-02, G-03 (capability request only), G-04, G-05, G-09, G-11: about one M of
+M1 needs G-01, G-02, G-03 (capability request only), G-04, G-05, G-09: about one M of
 new code on top of the reused P2 codec.
 
 ---
@@ -785,7 +816,8 @@ B2.4a, Q-S3 in B4.5, Q-S4 in B2.4a. Kept here for the record.
 
 ### For the HIS
 
-None new. G-07, G-08 and G-11 depend on HIS-01, -04, -11, -12 and -18, already open.
+None new. G-07 and G-08 depend on HIS-01, -11, -12 and -18, already open; G-11 no longer
+depends on HIS-04, because the encoding is fixed (B3.8; 0022 §81).
 
 ---
 

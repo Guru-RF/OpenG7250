@@ -1,6 +1,6 @@
 # Glossary — G7250-P2 network interface
 
-- Version: rc3, 2026-11-19
+- Version: rc4 draft, 2026-11-19
 - © 2026 ON8ST, CC BY 4.0 (see `LICENSE.md`)
 
 Terms as used in `network-interface.md`, part C and the annexes. Where a term comes from
@@ -14,7 +14,7 @@ named.
 | **G7250-P2** | The level-1 interface: openHPSDR Protocol 2 V4.4 with board type 200 and the deviations in Annex X1. | 0002, 0016 |
 | **Board type** | Byte 11 of the P2 discovery reply; 200 (0xC8) for G7250-P2. | [P2], 0002 |
 | **Host** | Software on the network that talks to the radio (for example AetherSDR). | [P2] |
-| **Session** | Level 1: starts when a host sets RUN (High Priority byte 4 bit [0]) from 0 to 1 while no session runs, or takes over a running session; a discovery is not required. Ends when RUN is cleared, at watchdog expiry, takeover, link loss or a link below 100 Mbit/s, the start of a firmware update, a level change or a reset (A2.3). On TCI, the TCI session ends when the last client disconnects, on a level change or a reset (part C C5.10.1). | [P2] "Detailed operation", 0007, 0022 §3, §32 |
+| **Session** | Level 1: starts when a host sets RUN (High Priority byte 4 bit [0]) from 0 to 1 while no session runs, or takes over a running session; a discovery is not required. Ends when RUN is cleared, at watchdog expiry, takeover, link loss or a link below 100 Mbit/s, the start of a firmware update, a level change, a change of the radio's address or netmask (P2 Set IP, B3.9; management C-1, A1.6; or DHCP, A1.11a), or a reset (A2.3). At every session end the TX settings of Table A3-4 are reset (A3.6a); after a stop, a watchdog standby or a link loss the radio keeps the RX-side settings (RX fields of the General packet, DDC-specific packet, receive state of High Priority) for the same IP address and port, and a High Priority packet with run = 1 from that host restarts the session with them; an arm still needs a General packet of the new session (B5.4, B10.2). On TCI, the TCI session ends when the last client disconnects, on a level change or a reset (part C C5.10.1). | [P2] "Detailed operation", 0007, 0022 §3, §32, §44, §54, §78 |
 | **Set-up phase** | Level 1: while no session runs, the latest General, DDC-specific and DUC-specific packets of each source (up to 4) are kept; they count for the session that source starts with its run bit, and the others are discarded then (B5.1a). | [P2] "Detailed operation", 0022 §34 |
 | **Owner** | The host whose control packets the radio follows, identified by IP address and UDP port. At most one owner at a time. | 0007, 0011 |
 | **Takeover** | A different host (other IP address or other port) sending control packets while another host is owner. Always allowed; always unkeys and disarms. | [P2], 0007 |
@@ -39,7 +39,7 @@ named.
 | **CW text liveness** | On TCI, while the server sends CW text, the keying client must send an application frame at least every 30 s, else the radio unkeys and the queued text is discarded (`unkey` 2; part C Table C8-1 row 6, Table C8-2). | 0022 §25, 0021 §29 |
 | **TX audio underrun** | On TCI, no TX audio block from a client keyed with TCI audio for longer than `TX_STREAM_AUDIO_BUFFERING` + 500 ms: unkey, arm kept (`unkey` 3); a client that keeps answering TX_CHRONO, also with zero samples, is not caught by it (part C C8.2.1, C8.2.3a). | 0021 §7, §43 |
 | **Unkey broadcast** | On TCI, `TRX:0,false;` and/or `TUNE:0,false;` sent at once to all clients when the server unkeys without a client's request, by TX source; queued CW text and buffered TX audio are discarded (part C C7.4.1, C7.7). | 0021 §24, §43 |
-| **Effective TX frequency** | On TCI, the frequency the radio transmits on: channel A, or channel B with split on, plus the XIT offset when XIT is on; reported by `TX_FREQUENCY`; the TX frequency limit and the RF-path state at the key act on it (part C C4, C7.6.1). On P2, the DUC0 frequency. | 0021 §19, §34 |
+| **Effective TX frequency** | On TCI, the frequency the radio transmits on: channel A, or channel B with split on, plus the XIT offset when XIT is on; reported by `TX_FREQUENCY`; the TX frequency limit and the RF-path state at the key act on it (part C C4, C7.6.1). On P2, the DUC0 frequency; on level 1 AetherSDR sets DUC0 to the TCI effective TX frequency and puts no TX offset in the baseband (part C C7.6.1 item 5). | 0021 §19, §34, §44 |
 | **Keying client** | On TCI, the client whose TX request keyed the radio (`G7250_TX_STATE` `mine` true) (part C C7.4). | 0021 §1 |
 | **Opt-in** | On TCI, `G7250_EXT:true;` from a client: from then on it receives the G7250 extension messages; before it, it sees only standard TCI 2.1 (part C C5.2). | 0014, 0021 §29 |
 | **TX policy** | On TCI, `G7250_TX_POLICY`: `any` (every client may key while armed) or `holder` (only the arm holder may) (part C C5.5.8). | 0021 §1 |

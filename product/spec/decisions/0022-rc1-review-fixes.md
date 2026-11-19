@@ -1793,7 +1793,7 @@ same proof should extend it.
 
 ## 76. Restart with the run bit only (rc3-draft review M3)
 
-Status: proposed.
+Status: proposed; partly reversed by §78 (the carry-over of RX-side settings).
 
 **Problem.** B5.4 allowed a restart "by a new High Priority packet with run set". B5.1a
 empties the set-up at every session end and B5.2 treats DDC0 as not enabled without a
@@ -1806,8 +1806,14 @@ packets, in its set-up phase (B5.1a, which counts only packets received since th
 end) or in the session. A run bit alone gives the [P2] defaults: DDC0 not enabled
 (`STREAM_STATUS` reason 1), Table A3-4, and `WATCHDOG_DISABLED` for an arm until a General
 packet arrives. The takeover remains the one carry-over of RX-side settings (A2.4 step 4).
-This matches [P2] "Detailed operation", which describes the restart as a re-initiation of
-all C&C settings. B5.4, B5.1a item 3, Annex X2 C21; T-B5-16.
+B5.4, B5.1a item 3, Annex X2 C21; T-B5-16.
+
+Correction (§78). The rule above cited [P2] "Detailed operation" as describing the restart
+as a re-initiation of all C&C settings. That misquotes it: [P2] gives two restart paths, a
+High Priority packet with the RUN bit set "if the same network session is still active", or
+a Discovery exchange followed by re-initiation of all C&C settings. §78 replaces the part of
+this rule that drops the RX-side settings; the reset of the TX settings (Table A3-4) and the
+need for a new General packet before an arm stand.
 
 **Alternatives.**
 
@@ -1819,7 +1825,8 @@ all C&C settings. B5.4, B5.1a item 3, Annex X2 C21; T-B5-16.
 - Keep every setting, TX included. Against: undoes §64.
 
 **Reason.** One rule for every session start: what counts is what the host sent since the
-last session end. The status reason 1 already tells a host what is missing.
+last session end. The status reason 1 already tells a host what is missing. (Superseded for
+the RX side by §78: the reason rested on the misquotation corrected there.)
 
 ## 77. rc3-draft review small fixes (review LOW)
 
@@ -1850,6 +1857,233 @@ Status: proposed.
    above 1000 bytes with a smaller *N* gets 17 from the length check. A1.4 and the precedence
    order of Table A1-3; T-A1-47. Alternative: status 17 for every oversize datagram. Against:
    the host cannot tell "too large" from "corrupted", and status 19 exists for this case.
+
+## 78. Restart by the run bit keeps the RX side (rc3 review H1)
+
+Status: proposed. Reverses part of §76.
+
+**Problem.** §76 made every session end drop all settings and justified this with [P2]
+"Detailed operation", read as describing the restart as a re-initiation of all C&C settings.
+[P2] says instead: "The session can be re-started either by sending a High Priority Packet
+with the RUN bit set, if the same network session is still active, or a Discovery exchange
+followed by re-initiation of all C&C settings and thence a High Priority Packet with the RUN
+bit set" ([P2] "Detailed operation"). The first path presumes that the settings of the
+session survive. A host that recovers from a network outage by its unchanged run = 1
+keepalive, as [P2] intends ("In order to recover from a network interruption …"), got a
+session without DDC0 under §76. A2.3 also spoke of RUN "from 0 to 1" without saying whose
+edge counts, so a host that never cleared its run bit could read itself as unable to restart.
+
+**Rule.**
+
+1. A2.3: a session starts at a High Priority packet with run = 1 while no session runs; "0
+   to 1" is the radio's RUN state; no 0→1 edge in the host's own run bit is needed.
+2. B5.4: after a stop, a watchdog standby or a link loss (also a slow link), the RX-side
+   settings stay in force for the same source IP address and UDP port: every General field
+   of Table B7-1 other than byte 38 bit [0] and byte 58 bit [0], the DDC-specific packet,
+   and the receive state of the High Priority packet (DDC0 frequency, front end), as at a
+   takeover. The next High Priority packet with run = 1 from that host restarts the session
+   with them; set-up packets kept since the end apply on top.
+3. Not carried over: the TX settings of Table A3-4 (§64), `TX_MODE_CLASS`, `KEYED_TIMEOUT`,
+   the session limits, and General byte 38: an arm needs a General packet of the new
+   session or its set-up phase with byte 38 bit [0] set (B10.2 item 3; §13, §34).
+4. "The same network session" ends at a reset, a firmware update, a level change and a
+   change of the radio's address or netmask; after these, and for any other host, a run bit
+   alone gives the [P2] defaults of B5.2 (DDC0 not enabled, `STREAM_STATUS` reason 1) and the
+   host takes the second path of [P2].
+5. A3.6 applies only its TX-side part at the session ends of item 2; its RX-side part
+   applies when another host starts the next session.
+
+Applied in A2.3, A3.6, A3.6a, B5.1a item 3, B5.2, B5.4, B5.6, B5.8, Annex X1 D32 (the reset
+of the TX side and the arm condition at a restart are the deviation), Annex X2 C21 (what
+"the same network session" means); T-B5-13, T-B5-16, T-B5-17, T-B5-18.
+
+**Alternatives.**
+
+- Keep §76 (nothing survives). For: one rule, no per-host state. Against: contradicts the
+  first restart path of [P2]; a standard host recovering from an outage gets no RX data
+  without knowing why.
+- Keep the TX settings too. For: the closest reading of [P2]. Against: undoes §64; a host
+  that lost the link for over 1 s should not find PA enable, break-in and CW select still
+  set; the arm, which is reset anyway, protects TX, but the TX settings are the ones a host
+  most needs to re-check after an outage.
+- Carry the RX side over to any host, as at a takeover. For: simplest state. Against: a
+  session start after an end is not a takeover; another host would get DDC0 data on settings
+  it never sent, against B5.2 (§73 item 13); the register destination of General bytes 31–32
+  belongs to the old host.
+- Require a 0→1 edge of the host's run bit. Against: the host that recovers by its
+  keepalive never sends one; [P2] asks only for "a High Priority Packet with the RUN bit set".
+
+**Reason.** [P2] gives the run-bit restart for the case where the network session is still
+active; that is exactly the outage the watchdog guards against. Receive is not a safety
+function, so keeping its settings costs nothing; transmit is, so its settings and the arm
+start afresh, as they do at a takeover.
+
+## 79. Takeover of an unarmed owner; token at session end (rc3 review M1)
+
+Status: proposed.
+
+**Problem.** A3.2 said a drop event while not armed changes no field of `TX_ARM_STATE`,
+issues no token and pushes nothing. A takeover of an unarmed owner therefore sent no notice,
+so the host guidance of A2.4 (stop on a `TAKEOVER` notice) failed for exactly the host that
+most often loses the radio: one that only receives. A3.6 at the same time gave every session
+end a new token, while T-A3-47 required "no new token" for the watchdog stop.
+
+**Rule.**
+
+1. A takeover always runs A2.4 step 1 in full: `TX_ARM_STATE` reads disarmed with drop
+   reason 4 `TAKEOVER`, a new token, three copies and the repeated notice, armed or not. An
+   explicit exception in A3.2.
+2. Token: a new token at every session end, armed or not (A3.6), pushed at the next session
+   start (B10.2 item 1). A drop event while not armed that does not end the session (`TX_ARM`
+   = 0, a C-3 change, a fault entry) issues none.
+
+Applied in A2.4 step 1, A3.2 (drop events while not armed, exceptions 1–3), Annex X1 D5;
+T-A2-16, T-A3-47.
+
+**Alternatives.**
+
+- Notice only while armed (as before). Against: a receive-only host does not learn that it
+  lost the radio until its stream stops; the ping-pong of A2.4 lasts longer.
+- A new token only at drop events while armed. For: fewer token changes. Against: two rules
+  for one state; A3.6 and B10.2 item 1 already give every session its own token, which keeps
+  a stale arm write of the previous session from arming (B10.2 item 5).
+
+**Reason.** The notice tells a host that it is no longer the owner, which is independent of
+the arm. One token rule tied to the session end is simpler to implement and test.
+
+## 80. Limit reaction times (rc3 review M2)
+
+Status: proposed. Values are design values; the end-to-end check is HIS-11 and HIS-12.
+
+**Problem.** Table A3-2 gave thresholds and actions but no time within which an action must
+take effect, so T-A3-02 could not fail on a slow reaction.
+
+**Rule.** Table A3-2 gets a column "Maximum time from threshold to action", measured from the
+first measurement beyond the threshold that the safety core has to the action taking effect
+(drive lowered, or RF stopped):
+
+- TX frequency: checked at every key, so 0; keyed, the unkey precedes the new frequency;
+- SWR: `REDUCE` and `UNKEY` ≤ 10 ms;
+- PA temperature: ≤ 100 ms after the filtered value crosses (the value is filtered over
+  seconds, A3.4a);
+- forward power: `REDUCE` ≤ 10 ms after the window value exceeds its bound; `UNKEY` 200–210 ms
+  after `REDUCE` started (0020 §29 with the tolerance of 0020 §16);
+- supply voltage, current, RF while not keyed: ≤ 10 ms;
+- maximum continuous TX time, ATU tune time: not before the limit, by the limit + 10 ms
+  (0020 §16);
+- sensor plausibility: ≤ 10 ms after detection; the detection time is HIS-11.
+
+Detector and sensor response before the first sample are hardware (HIS-11); whether the sum
+protects the PA is HIS-12. Applied in Table A3-2 and the note below it; T-A3-02.
+
+**Alternatives.**
+
+- All values TBD until the HIS. For: nothing fixed without hardware data. Against: the
+  firmware part of the reaction is a design choice the testbench can check now against the
+  reference model; the HIS only adds the sensor side.
+- 1 ms for SWR. For: faster PA protection. Against: needs a dedicated fast path whose
+  feasibility depends on the detector (HIS-11); 10 ms equals the tolerance used for every
+  other safety timer (0020 §16); a PA that needs faster protection needs it in hardware
+  (HIS-12).
+
+**Reason.** A limit without a reaction time is not testable; 10 ms matches the existing
+tolerance of the safety timers and is reachable in firmware under the load rule of A3.10.
+
+## 81. Frequency encoding as a firmware convention (rc3 review M3)
+
+Status: proposed.
+
+**Problem.** Discovery byte 21 and the phase-word scale were TBD (HIS-04), so the wire format
+depended on a hardware clock not yet known, and a host that does not read the record could
+not know the scale.
+
+**Rule.** Discovery byte 21 = 1 (phase word), always. The phase word uses a fixed virtual DSP
+clock of 122 880 000 Hz, `phase_word = 2^32 × f / 122 880 000`, whatever the hardware clock;
+the firmware converts to its own tuning word. Record field `dsp_clock_hz` reports
+122 880 000. General byte 37 bit [3] must be 1; 0 is the mismatch of §73 item 12. HIS-04
+stays open for the internal clock only. Applied in B3.8, Table B3-1 byte 21, Table B4-1
+`dsp_clock_hz`, B4.11, B6.8, Table B7-1 byte 37 [3], Annex X2 C4; T-B3-15, T-B6-17.
+
+Sources: [P2] General packet byte 37 NOTE, "Currently ALL openHPSDR FGPA code requires
+transmit and receive phase words"; [P2] Appendix A, Boards 1–4: DSP clock 122.88 MHz
+(122,880,000 Hz) and "DDC Frequency or Phase Word … Phase"; [P2] Discovery reply byte 21 and
+General packet byte 37 for the formula.
+
+**Alternatives.**
+
+- Frequency in Hz (byte 21 = 0). For: no conversion; independent of any clock. Against:
+  [P2] says all openHPSDR FPGA code uses phase words, so hosts are most tested with them; a
+  host that ignores byte 21 sends phase words.
+- Phase word on the real clock (HIS-04). For: no conversion in the firmware. Against: the
+  wire format waits for the HIS and differs from the 122.88 MHz that hosts assume for an
+  unknown board.
+
+**Reason.** A fixed convention makes the wire format independent of the hardware and equal to
+what the [P2] boards use. The conversion costs one multiplication per frequency change.
+
+## 82. CWX keyer mode (rc3 review M4)
+
+Status: proposed.
+
+**Problem.** B10.5a made CWX bits the paddles of the radio's keyer, but did not say which
+DUC-specific keyer bits ([P2] DUC specific packet byte 5: reverse, iambic, mode B, strict
+spacing) apply to CWX, nor what iambic = 0 means for CWX.
+
+**Rule.** For CWX, iambic (bit [3]), mode B (bit [5]) and strict character spacing (bit [6])
+apply; reverse CW keys (bit [2]) does not, because the CWX bits are named dot and dash in
+[P2] High Priority packet byte 5 and reversing concerns a physical paddle. With iambic clear
+the keyer works as a straight key: key-down for as long as a dot or dash bit is held, under
+the 1 s cap (§25, §36); keyer speed 0 keeps CWX from keying in both modes (§64). [P2]
+describes the radio's keyer as "Straight, simulated Bug and Iambic A or B" ([P2]
+DUC description before "Detailed operation", p. 6). Applied in B10.5a, Table B10-1 byte 5 [2]–[6], Annex X2 C19;
+T-B10-33.
+
+**Alternatives.**
+
+- Apply all keyer bits, reverse included. For: one rule for KEY and CWX. Against: a host
+  sending "dot" would get dashes; [P2] notes that reverse "does not alter the actual key
+  closures reported", which places it at the paddle input.
+- With iambic clear, form one element per bit edge. For: closer to "a set bit will send a
+  dot or dash" ([P2] p. 34). Against: no way to send a straight-key character from CWX;
+  the iambic bit would then mean nothing for CWX.
+
+**Reason.** Iambic and its modes shape elements, which is what CWX feeds; reverse is about
+wiring. A straight-key reading for iambic = 0 matches "Straight" in [P2]'s description of
+the keyer.
+
+## 83. rc3 review small fixes (review LOW)
+
+Status: proposed.
+
+1. **Hang delay bound (L1).** The hang delay in force is at most 2000 ms; a larger value in
+   DUC-specific bytes 11–12 is clamped, logged and counted. The keyed timeout runs during the
+   hang delay and ends it (unkey reason 2). A3.4d, B10.5, Table B10-1, Annex X1 D31; T-A3-51.
+   Alternative: refuse a larger value. Against: there is no answer to a DUC-specific packet;
+   a refusal would have to block CW altogether. Alternative: no bound. Against: SEND and the
+   T/R relay would stay in TX for up to 65 s after the last element.
+2. **Bounded wait in split (L2).** A key edge that waits while the return to the receive
+   state is pending, moving or settling skips the return and goes straight to the TX state,
+   one `t_settle` from the last relay command; receive-only deferred changes stay deferred.
+   A3.1b, A3.9a item 3a; T-A3-52. Alternative: extend the bound to `t_rf_off` + 2 ×
+   `t_settle`. Against: longer key latency in every split over, and the underrun bound of
+   §57 would need to grow with it.
+3. **Duplicate-request cache key (L3).** A request is a repeat only with the same request
+   id, command and SHA-256 hash of the payload [FIPS180-4]; otherwise it is new, executed,
+   and replaces the stored reply. A1.4; T-A1-14. Alternative: id only. Against: a host that
+   restarts its id counter gets a stale reply for another command.
+4. **Sequence counters across session ends (L4).** Reset at power-on and every reset, at a
+   stop, at a takeover and at a session start by another host; continued across a watchdog
+   standby, a link loss, an address or level change, so that a restart by the same host does
+   not look like a takeover (A2.4 host guidance). B2.7, B5.4, Annex X2 C2; T-B5-17, T-B5-18.
+5. **`RESTART` and the write session (L6).** An authenticated, verified `RESTART` is
+   accepted from any host while another holds the write session; it neither needs, opens nor
+   refreshes one. A1.10; T-A1-48. Alternative: keep the lock. Against: a radio whose writer
+   tool hangs while refreshing its session cannot be restarted from another tool;
+   `RESTART` changes no setting and every authenticated host already shares the secret.
+6. **`CAP_REQUEST` retry (L7).** A host without a record 1 s after its request SHOULD repeat
+   it, at most once per second, and tell the user after 5 tries. B4.4 item 4; T-B4-17.
+
+(L5, the glossary, is handled with part C.)
 
 ---
 
@@ -1909,6 +2143,15 @@ Status: proposed.
   C21, Annex X3 T-A1-15, T-A1-46, T-A1-47, T-A2-15, T-A3-48 to T-A3-50, T-B5-16). Table B8-2
   is unchanged, so `spec/register-map.yaml` needs no regeneration for them. Part C applies
   §74 in its keyer, CW text and break-in rules.
+- §78–§83 (review of rc3) are applied in `spec/network-interface.md` rc4 draft (A1.4, A1.10,
+  A2.3, A2.4, A3.1b, A3.2, Table A3-2, A3.4d, A3.6, A3.6a, A3.9a item 3a, B2.7, B3.8, Tables
+  B3-1, B4-1, B7-1, B10-1, B4.4, B4.11, B5.1a, B5.2, B5.4, B5.6, B5.8, B6.8, B10.5, B10.5a,
+  Annex X1 D5, D31, D32, Annex X2 C2, C4, C19, C21, Annex X3 T-A1-14, T-A1-48, T-A2-16,
+  T-A3-02, T-A3-47, T-A3-51, T-A3-52, T-B3-15, T-B4-17, T-B5-13, T-B5-16 to T-B5-18,
+  T-B6-17, T-B10-33). `spec/register-map.yaml` needs regenerating by the coordinator for the
+  changed `dsp_clock_hz` text. HIS-04 keeps only the internal DSP clock; HIS-07 gets whether a
+  relay may be commanded again before it has settled (§83 item 2); HIS-11 and HIS-12 get the
+  detector and sensor response times that add to the reaction times of §80.
 - `open-questions-his.md`: HIS-07 (filter plan, which frequencies share an RF-path state),
   HIS-11 (PEP detector, temperature filter), HIS-12 (`P_swr`, `P_temp`, hysteresis) are
   extended by the coordinator; this file does not edit it.
