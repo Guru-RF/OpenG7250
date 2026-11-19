@@ -1,19 +1,23 @@
 # Part C — Level 2 and the G7250 TCI profile
 
-- Version: draft 1, 2026-11-19
-- Status: draft for review by ON8ST. Not yet merged into `spec/network-interface.md`.
+- Version: draft 2 (rc1 candidate), 2026-11-19
+- Status: draft 2 for review by ON8ST at rc1; the choices it applies are proposed in 0021. Not
+  yet merged into `spec/network-interface.md`.
 - © 2026 ON8ST, CC BY 4.0 (see `LICENSE.md`); quoted TCI material © Expert Group LLC under its
   MIT notice.
 - Builds on: 0011 (two levels, single owner, shared safety core, level 2 only after G6), 0012
   (full functionality), 0013 (AetherSDR), 0014 (one G7250 TCI profile), 0004 (rates), 0006
   (telemetry), 0007 (watchdog and safety), 0008 (management channel, socket budget), 0015 (TX
-  arm), 0017 (no audio on the main unit).
+  arm), 0017 (no audio on the main unit), 0019 (reference model), 0021 (profile choices,
+  proposed).
 
 Sources are cited by key (see `sources.md`) or by decision number (see `decisions/`).
 Citations of [TCI] give the section of TCI Protocol 2.1 and the command name, for example
-"[TCI] §4.2 DDS". Values that depend on an open question are written "TBD (HIS-xx)" or
-"TBD (G6)". Statements marked **[unverified]** rest on an assumption that has not been checked
-against a public source; they are listed again in Annex C-A.
+"[TCI] §4.2 DDS". Values that depend on an open question for the HIS or on gate G6 are
+written with the HIS id or "G6" and are listed in Annex C-A. Design choices are recorded in
+0021 and cited as "0021 §n". Statements marked **[unverified]** rest on an assumption that has
+not been checked against a public source; the profile rule stands meanwhile, and they are
+listed in Annex C-D.
 
 **Notice for quoted material.** Short quotations from [TCI] in this part are taken from "TCI
 Protocol, Ver. 2.1", September 2026, which carries this notice: "Copyright (c) 2023 "Expert
@@ -84,8 +88,7 @@ C1.8 **Profile version.** This draft defines profile version `1`. The version is
 ## C2 Transport
 
 C2.1 The server MUST offer TCI as "a full duplex web socket protocol that runs on top of a TCP
-connection", with the transceiver as the server ([TCI] §1.4). WebSocket is RFC 6455
-**[RFC 6455 not yet in `sources.md`]**.
+connection", with the transceiver as the server ([TCI] §1.4). WebSocket is [RFC6455].
 
 C2.2 Commands are ASCII strings ([TCI] §3.1) and MUST be sent in WebSocket text frames; stream
 blocks ([TCI] §3.4) MUST be sent in WebSocket binary frames ([TCI] §3.4: "commands are
@@ -94,16 +97,25 @@ transmitted as strings and audio streams are transmitted as byte streams"). Clar
 accept several complete commands in one frame from a client; a command MUST NOT be split over
 frames.
 
-C2.3 No TLS and no WebSocket subprotocol are used. [TCI] defines neither. **[unverified]**
-which request path existing clients use in the HTTP upgrade; the server MUST accept the upgrade
-on path `/` and SHOULD accept it on any path (Annex C-C, C-C2).
+C2.3 No TLS and no WebSocket subprotocol are used. [TCI] defines neither. The server MUST
+accept the HTTP upgrade on any request path and gives the path no meaning (0021 §17.1; Annex
+C-C, C-C2).
 
 C2.4 **Port.** [TCI] does not state a default TCP port (`sources.md`, [TCI]). The port MUST be
-configurable. **(L2)** On level 2 the port is set through the management channel
-configuration (0008), default **TBD**. Candidate: 40001, which is believed to be the port
-commonly used by TCI clients **[unverified: no public source read; to be checked and listed in
-`sources.md` before it is adopted]**. The port MUST NOT collide with the management port or
-with port 1024 (0008, Transport point 2). **(L1)** AetherSDR's port is its own configuration.
+configurable. The default is **50001** on both levels (0021 §2). This is a profile choice,
+not a TCI standard; it is the default of AetherSDR's TCI server ([AETHER-SRC], per
+`annex-aethersdr.md` §2.4), so an application finds both levels on the same port. **(L2)** On
+level 2 the port is set through the management channel configuration (0008). The port MUST NOT
+collide with the management port or with port 1024 (0008, Transport point 2). **(L1)** On
+level 1 the port is set in AetherSDR.
+
+C2.4.1 **Reach (L2).** The server MUST accept TCI connections only from source addresses
+inside the radio's own subnet (as 0008 S4), and, when the TCI allow-list is not empty, only
+from addresses that match it. The allow-list holds up to 8 IPv4 addresses or prefixes and is
+set through the management channel as an authenticated configuration write (0008 S2; 0021
+§10). A refused connection MUST be closed without the WebSocket handshake and logged with its
+source address (0008 L-2). **(L1)** AetherSDR SHOULD offer an equivalent restriction (0021
+§10).
 
 C2.5 **Number of clients, level 2.** The CH394Q has 8 hardware sockets [CH394], and each TCP
 connection takes one socket (0008, Socket budget, [CH394] §7.2.2; `analysis/ch394-network-budget.md`,
@@ -112,13 +124,13 @@ Addendum, "TCI (level 2)"). While level 2 is active:
 | Socket use | Sockets | Source |
 |------------|---------|--------|
 | Management channel, always reserved | 1 | 0008, Transport point 1 |
-| P2 port 1024, if discovery stays answerable on level 2 | 1 | 0008, Socket budget; part B B3 (open) |
+| P2 port 1024; discovery stays answerable on level 2 | 1 | 0003 (discovery reply byte 4); part B B3.1; 0021 §3 |
 | Spare TCI listener, so that a further client can always be accepted and refused cleanly | 1 | 0008, Socket budget |
 | TCI client connections | 5 | 8 − 3 |
 
-- C2.5.1 **(L2)** The server MUST serve at least **4** simultaneous clients and SHOULD serve
-  **5**. The number in use MUST be reported in `G7250_PROFILE` (C5.3). If port 1024 is not
-  kept on level 2 (decision pending, Annex C-A), the server MAY serve 6.
+- C2.5.1 **(L2)** The server MUST serve **5** simultaneous clients (`clients_max` = 5; 0021
+  §3), on the assumption of C2.5.3; if HIS-14 shows otherwise, the number is recomputed from
+  the same table. The number MUST be reported in `G7250_PROFILE` (C5.3).
 - C2.5.2 **(L2)** When all client sockets are in use, the server MUST accept the next
   connection on the spare listener, complete the WebSocket handshake, send
   `G7250_REFUSED:busy;` in a text frame, close with WebSocket status 1008 (RFC 6455 §7.4.1),
@@ -160,8 +172,8 @@ C3.2 Initialization commands and their G7250 values, in this order:
 
 | # | Command | G7250 value | Status | Source / reason |
 |---|---------|-------------|--------|-----------------|
-| 1 | `PROTOCOL:<program>,2.1;` | (L2) `PROTOCOL:G7250-FW,2.1;` (L1) `PROTOCOL:AetherSDR,2.1;` or the program name AetherSDR already sends | MUST | [TCI] §4.1 PROTOCOL ("arg1 — program name", "arg2 — version of the protocol"); [AETHER] (2.1). Program name for the firmware is a profile choice. |
-| 2 | `DEVICE:G7250;` | `G7250` on both levels | MUST | [TCI] §4.1 DEVICE; [TCI] §1.4 ("maintaining the device model designation"). The same name on both levels lets a client recognise the radio regardless of level (0014). |
+| 1 | `PROTOCOL:ExpertSDR3,2.1;` | the same on both levels; arg1 is a compatibility value, not an identification of the G7250 | MUST | [TCI] §4.1 PROTOCOL ("arg1 — program name", "arg2 — version of the protocol"); [AETHER-SRC] (AetherSDR sends this value, `annex-aethersdr.md` §2.4); 0021 §4 |
+| 2 | `DEVICE:<name>;` | (L2) `G7250` MUST; (L1) `G7250` SHOULD, AetherSDR MAY keep `AetherSDR` where a client needs it | MUST | [TCI] §4.1 DEVICE; [TCI] §1.4 ("maintaining the device model designation"); [AETHER-SRC] (`device:AetherSDR` for WSJT-X behaviour, `annex-aethersdr.md` G-13); 0021 §5. Clients recognise the profile by `G7250_EXT` (C5.1.3), not by `DEVICE`. |
 | 3 | `RECEIVE_ONLY:<bool>;` | `false` when transmit is implemented and enabled; `true` on level 2 before M7, and on level 1 if AetherSDR's G7250 backend cannot transmit yet | MUST | [TCI] §4.1 RECEIVE_ONLY; design note §6 (M6/M7, M4); 0012 (RX-only only as an intermediate milestone) |
 | 4 | `TRX_COUNT:1;` | 1 | MUST | [TCI] §4.1 TRX_COUNT; one transmitter [G7250-MAN] (0007, rule 4); one receiver per the start brief, TBD (HIS-02) |
 | 5 | `CHANNELS_COUNT:2;` | 2 (channel A and B in receiver 0) | MUST | [TCI] §4.1 CHANNELS_COUNT. Channel B is needed as the split TX frequency (C4, SPLIT_ENABLE). Whether channel B can also be demodulated is separate (C4, RX_CHANNEL_ENABLE). The old name `CHANNEL_COUNT` MUST NOT be sent ([TCI] §4.1 note). |
@@ -183,15 +195,15 @@ example "NFM", §4.2 RX_BIN_ENABLE note "AM, LSB, USB, CW and NFM", §4.2 DIGL_O
 
 | TCI name | G7250 mode [G7250-MAN] | RX | TX | TX mode class (C5.6) | Status |
 |----------|-------------------------|----|----|----------------------|--------|
-| `AM` | AM | yes | yes, 25 W max [G7250-MAN] | AM | MUST |
-| `LSB`, `USB` | SSB | yes | yes, 100 W | SSB | MUST |
-| `CW` | CW | yes | yes, 100 W | CW | MUST |
-| `NFM` | FM (narrow) | yes | yes, 100 W ("NFM" in [G7250-MAN] TX power) | FM | MUST |
-| `WFM` | WFM | yes | **no**: no WFM transmit power is given in [G7250-MAN] | none (TX refused) | SHOULD (L2: G6, compute) |
-| `DIGL`, `DIGU` | SSB used for data modes | yes | yes, 100 W | SSB | SHOULD |
+| `AM` | AM | yes | yes, 25 W max [G7250-MAN] | `am` | MUST (0021 §6) |
+| `LSB`, `USB` | SSB | yes | yes, 100 W [G7250-MAN] | `ssb` | MUST (0021 §6) |
+| `CW` | CW | yes | yes, 100 W [G7250-MAN] | `cw` | MUST (0021 §6) |
+| `NFM` | FM (narrow) | yes | yes, 100 W ("NFM" in [G7250-MAN] TX power) | `fm` | MUST (0021 §6, §13) |
+| `WFM` | WFM | yes | **no**: no WFM transmit power is given in [G7250-MAN] | `none` (arm and TX refused) | SHOULD (L2: G6, compute; 0021 §6) |
+| `DIGL`, `DIGU` | SSB used for data modes | yes | yes, 100 W [G7250-MAN] | `ssb` | SHOULD ([TCI] §4.2 DIGL_OFFSET; 0021 §6) |
 
-`FM` from the [TCI] example is not used; the G7250 mode is announced as `NFM`
-**[unverified: which name existing clients expect for narrow FM]**. Mode names are sent in
+The narrow FM mode is announced as `NFM`; a set request with `FM` (the name in the [TCI] §4.1
+example) MUST be accepted as `NFM`, and the reply is `NFM` (0021 §13). Mode names are sent in
 upper case; set requests are case-insensitive ([TCI] §3.1).
 
 C3.5 **G7250 extension state.** Extension commands are not part of initialization. They are
@@ -231,7 +243,7 @@ C4.2 "trx" is the transceiver number, always 0 (`TRX_COUNT:1`); "ch" is the chan
 
 | Command | Status | G7250 note | [TCI] |
 |---------|--------|------------|-------|
-| `MODULATION` | MUST | Names of C3.4. Sets the TX mode class (C5.6). Change while keyed: C7.6. | §4.2 MODULATION |
+| `MODULATION` | MUST | Names of C3.4; one mode per receiver, shared by channels A and B ([TCI] §4.2 MODULATION arg1). Sets the TX mode class (C5.6). Refused while keyed (C7.6). | §4.2 MODULATION |
 | `RX_FILTER_BAND` | MUST | Demodulator passband. | §4.2 RX_FILTER_BAND |
 | `DIGL_OFFSET`, `DIGU_OFFSET` | SHOULD | Required if `DIGL`/`DIGU` are in the modulation list. | §4.2 DIGL_OFFSET, DIGU_OFFSET |
 | `AGC_MODE` | SHOULD | At least `normal` and `off`; `fast` MAY. Unknown modes ignored. | §4.2 AGC_MODE |
@@ -257,7 +269,7 @@ C4.2 "trx" is the transceiver number, always 0 (`TRX_COUNT:1`); "ch" is the chan
 | `TUNE` | MUST (M7 on L2) | Tune carrier at `TUNE_DRIVE`, under the arm. It does **not** start the internal ATU: the meaning is not identical (as P2 TUNE, 0007 Sub-decision 6). ATU tuning is `G7250_ATU_TUNE` (C5.7). | §4.2 TUNE |
 | `DRIVE` | MUST | 0–100. Mapping to power TBD (HIS-12). A `REDUCE` limit action lowers power on the radio side and does not change the `DRIVE` value (0007, Sub-decision 4 rule 4). | §4.2 DRIVE |
 | `TUNE_DRIVE` | MUST | 0–100, as `DRIVE`. | §4.2 TUNE_DRIVE |
-| `TX_FOOTSWITCH` | SHOULD | Reports a PTT input that reaches the main unit (controller microphone PTT, HIS-17). It never keys by itself (0007, Sub-decision 6; revisit for level 2, Annex C-A). | §4.4 TX_FOOTSWITCH |
+| `TX_FOOTSWITCH` | SHOULD | Reports a PTT input that reaches the main unit (controller microphone PTT, HIS-17). It never keys by itself, on either level (0007, Sub-decision 6; 0021 §9; C7.3). | §4.4 TX_FOOTSWITCH |
 | `MON_ENABLE`, `MON_VOLUME` | MAY | TX monitor in the RX audio stream. | §4.2 MON_ENABLE, MON_VOLUME |
 
 ### Streams
@@ -274,7 +286,7 @@ C4.2 "trx" is the transceiver number, always 0 (`TRX_COUNT:1`); "ch" is the chan
 | `TX_STREAM_AUDIO_BUFFERING` | MUST (M7 on L2) | 50…500 ms; default 50 ms. | §4.3 TX_STREAM_AUDIO_BUFFERING |
 | `LINE_OUT_START`, `LINE_OUT_STOP` | MAY | Duplicate of the RX audio stream ([TCI] §3.4). L2: budget C6.4. | §4.3 LINE_OUT_START, LINE_OUT_STOP |
 | `LINE_OUT_RECORDER_START`, `_SAVE`, `_BREAK` | NOT SUPPORTED on L2; MAY on L1 | Needs a file system on the server; the main unit has none that is known (HIS-18). | §4.3 |
-| `VOLUME`, `MUTE`, `RX_MUTE`, `RX_VOLUME`, `RX_BALANCE` | MAY | L2: the main unit cannot play audio (0017); if supported, the values are synchronised and SHOULD NOT change the level of the TCI RX audio stream **[unverified: whether ExpertSDR3 applies VOLUME to the TCI stream; [TCI] does not say]**. | §4.2 |
+| `VOLUME`, `MUTE`, `RX_MUTE`, `RX_VOLUME`, `RX_BALANCE` | MAY | L2: the main unit cannot play audio (0017); if supported, the values are synchronised and MUST NOT change the level of the TCI RX audio stream (0021 §17.2; [TCI] does not say whether ExpertSDR3 applies them to the stream). | §4.2 |
 
 ### Sensors
 
@@ -283,7 +295,7 @@ C4.2 "trx" is the transceiver number, always 0 (`TRX_COUNT:1`); "ch" is the chan
 | `RX_SENSORS_ENABLE` | MUST | Interval 30–1000 ms. | §4.4 RX_SENSORS_ENABLE |
 | `RX_SENSORS`, `RX_CHANNEL_SENSORS` | MUST, MAY for ch 1 | Signal level in dBm in the RX filter. L2: calibration TBD (HIS-11). | §4.4 RX_SENSORS, RX_CHANNEL_SENSORS |
 | `TX_SENSORS_ENABLE` | MUST (M7 on L2) | Interval 30–1000 ms. | §4.4 TX_SENSORS_ENABLE |
-| `TX_SENSORS` | MUST (M7 on L2) | arg2 "microphone signal level, dBm": level of the TX audio input in use, unit TBD (no microphone on the main unit, 0017). arg3, arg4 RMS and peak output power in W, arg5 SWR: the calibrated values the safety core uses (0006, G7250 telemetry registers; 0007). | §4.4 TX_SENSORS |
+| `TX_SENSORS` | MUST (M7 on L2) | arg2 "microphone signal level, dBm": RMS level of the TX audio in use in dB relative to full scale of the TCI TX audio stream, `-140` without TX audio (no microphone on the main unit, 0017; 0021 §15). arg3, arg4 RMS and peak output power in W, arg5 SWR: the calibrated values the safety core uses (0006, G7250 telemetry registers; 0007). | §4.4 TX_SENSORS |
 | `HW_SENSORS_ENABLE`, `HW_SENSORS` | SHOULD | Supply voltage V, current A, temperature °C from the 0006 telemetry (supply voltage, PA or supply current, PA temperature), HIS-11. A sensor that does not exist is reported as `0` and flagged absent in `G7250_FEATURES` (C5.4). | §4.5 HW_SENSORS_ENABLE, HW_SENSORS |
 
 ### CW
@@ -330,7 +342,8 @@ type is given. Bidirectional extension state is synchronised to all opted-in cli
 
 C5.1.3 A client that talks to a server without the profile gets no reply to an extension
 command, because "an unknown command" is "ignored without a reply" ([TCI] §4.7 note 5). A
-client recognises a profile server by `DEVICE:G7250;` and the reply to `G7250_EXT` (C5.2).
+client recognises a profile server by the reply to `G7250_EXT` (C5.2), not by `DEVICE` or
+`PROTOCOL` (0021 §4, §5).
 
 C5.1.4 Every extension MUST be implemented on both levels with the same meaning (0014). Where
 level 1 maps an extension onto G7250-P2, the mapping is given.
@@ -346,7 +359,8 @@ level 1 maps an extension onto G7250-P2, the mapping is given.
   `G7250_EXT:false;`, the server MUST NOT send extension commands to that client, except
   `G7250_REFUSED` (C2.5.2).
 - Reason: [TCI] does not say how a client treats an unknown command from the server
-  **[unverified for existing clients]**; the opt-in keeps generic clients on pure TCI 2.1.
+  **[unverified for existing clients; Annex C-D]**; the opt-in keeps generic clients on pure
+  TCI 2.1.
 - Extension set requests from a client that has not opted in MUST still be accepted.
 
 ### C5.3 Identification and active level: `G7250_PROFILE`
@@ -386,8 +400,9 @@ C5.5.2 **Why an arm on TCI at all.** [TCI] has no arm: `TX_ENABLE` is server-con
 information ([TCI] §4.3 TX_ENABLE). Without an arm, any TCI client on the LAN could key 100 W.
 The profile keeps the rule of 0015: only software that knows the G7250 can enable transmit.
 Once armed, generic TCI clients may key with the standard commands (`TRX`, `TUNE`, CW), which
-is what full functionality for third-party applications needs (0012). This matches level 1,
-where AetherSDR arms over P2 and its TCI clients key through AetherSDR.
+is what full functionality for third-party applications needs (0012), unless the TX policy
+restricts keying to the arm holder (C5.5.8). This matches level 1, where AetherSDR arms over
+P2 and its TCI clients key through AetherSDR (0021 §1).
 
 C5.5.3 **Commands.**
 
@@ -446,20 +461,43 @@ only if items 1–9 hold:
 
 Reject reasons: `NOT_STARTED`, `FAULT`, `INHIBIT`, `TX_ACTIVE`, `NOT_ACTIVE_LEVEL`,
 `MAINTENANCE`, `NO_MODE_CLASS`, `NO_TX`, `BAD_VALUE` (wrong token value), plus, on level 1,
-any P2 reject reason passed on unchanged. Final names are aligned with part B.
+any P2 reject reason passed on unchanged. Reason codes, mode-class names and limit names are
+the part B symbolic names; part B is authoritative, and `STOP`, `HOLDER_LOST` and `BAD_VALUE`
+are the only TCI-specific additions (0021 §14).
 
 C5.5.7 **(L1) Mapping.** AetherSDR generates its own TCI token and keeps its own TCI arm
 state. A valid `G7250_TX_ARM` from a TCI client makes AetherSDR perform the P2 arm handshake
 (0007 Decision 1) and confirm on TCI only after the radio has confirmed on P2. AetherSDR MAY
 also arm from its own user interface; that counts as an arm by a holder that never disconnects
-while AetherSDR runs. Listed for the annex "Changes needed in AetherSDR" (0014, Consequences).
+while AetherSDR runs. Listed for the annex "Changes needed in AetherSDR" (0014, Consequences;
+`annex-aethersdr.md` G-13).
+
+C5.5.8 **TX policy: `G7250_TX_POLICY`** (0021 §1).
+
+- Type: bidirectional, synchronised to opted-in clients. `G7250_TX_POLICY:<any|holder>;` (set,
+  reply), `G7250_TX_POLICY;` (read). Default `any`.
+- `any`: while armed, every client MAY send a TX request (C7.4). `holder`: only the arm holder
+  MAY; a TX request from another client is refused as in C7.5 item 2.
+- Any opted-in client MAY set `holder`. Only the arm holder MAY set `any`; a set to `any` from
+  another client is ignored and the current value is replied (tighten only, as 0007
+  Sub-decision 4 rule 1).
+- The policy returns to `any` when the last client disconnects, on a level change and on reset,
+  as tightened limits do (C5.10.1).
+- Stop requests (C7.4) are accepted from every client under either policy.
+- (L1) AetherSDR implements the policy in its own TCI server. When AetherSDR armed from its own
+  user interface, it is the arm holder, so `holder` means that only AetherSDR's user interface
+  keys.
 
 ### C5.6 TX mode class: `G7250_TX_MODE_CLASS`
 
 - Type: notification. `G7250_TX_MODE_CLASS:0,<class>;`, `class` one of `cw`, `ssb`, `am`, `fm`,
-  `none`; names to be aligned with `TX_MODE_CLASS` in part B (0007, Sub-decision 4 rule 3).
-- On TCI the class is **derived by the server** from `MODULATION` of the TX channel (C3.4),
-  never declared by a client. On level 2 the DSP is on board, so the radio knows the mode
+  `none`: the lower-case form of the `TX_MODE_CLASS` names of part B (0007, Sub-decision 4 rule
+  3; 0021 §14).
+- On TCI the class is **derived by the server** from `MODULATION` of receiver 0 by the table
+  of C3.4, never declared by a client (0021 §6).
+- With class `none` (`WFM`), an arm request is rejected with `NO_MODE_CLASS` (C5.5.6 item 6).
+  If `MODULATION` changes to `WFM` while armed and not keyed, the arm is kept, TX requests are
+  refused (`TRX:0,false;`, `TUNE:0,false;`) and `TX_ENABLE` becomes `false` (0021 §6). On level 2 the DSP is on board, so the radio knows the mode
   (0011 point 1); the reason for a declared class on level 1, that the radio does not know the
   host's mode (0007, Sub-decision 4 rule 3), does not apply.
 - (L1) AetherSDR MUST write the derived class to `TX_MODE_CLASS` over P2 before arming and on
@@ -526,11 +564,12 @@ C6.1 **Block format.** Every stream block MUST use the 64-byte header of [TCI] �
 (`receiver`, `sample_rate`, `format`, `codec` = 0, `crc` = 0, `length`, `type`, `channels`,
 `count`, `reserv[7]` = 0), followed by `length` samples. Clarifications (Annex C-C):
 
-- C-C4 **Byte order.** [TCI] does not state it. The header fields and the samples are
-  little-endian **[unverified: assumed from the C structure on common PC platforms; to be
-  checked against a public client implementation]**.
-- C-C5 **Block size.** The binary frame carries the header and `length` samples only, not the
-  full `data[16384]` **[unverified]**; the data part MUST NOT exceed 16384 bytes ([TCI] §3.4).
+- C-C4 **Byte order.** [TCI] does not state it. The header fields and the samples MUST be
+  little-endian (0021 §12) **[unverified: assumed from the C structure on common PC
+  platforms; Annex C-D]**.
+- C-C5 **Block size.** The binary frame MUST carry the header and `length` samples only, not
+  the full `data[16384]` (0021 §12) **[unverified; Annex C-D]**; the data part MUST NOT exceed
+  16384 bytes ([TCI] §3.4).
 - C-C6 **count.** Incremented per block within a stream; kept separately for RX audio and
   TX_CHRONO and reset on each switch between TX and RX ([TCI] §3.4). The profile also keeps it
   per stream for IQ and line-out.
@@ -542,7 +581,7 @@ C6.2 **IQ stream** (`type` = 0, IQ_STREAM).
 | Receiver | 0 | `TRX_COUNT:1` (C3.2); HIS-02 |
 | Rates | 48, 96, 192, 384 kHz | [TCI] §4.3 IQ_SAMPLERATE; 0004 Decision point 1 (the same four rates on level 1); 384 kHz only where 0004 point 6 allows it |
 | Channels | 2 (I and Q); complex samples = `length` / `channels` | [TCI] §3.4 |
-| Format | `FLOAT32` (3) **proposed**; `format` MUST state the format in use | [TCI] §3.4 SampleType. [TCI] does not fix the IQ format **[unverified which formats clients accept]**. |
+| Format | `FLOAT32` (3) on both levels; no `INT24` IQ in profile 1; `format` MUST state it | [TCI] §3.4 SampleType; 0021 §11. [TCI] has no command to choose the IQ format, and its audio default is float32 ([TCI] §4.3 AUDIO_STREAM_SAMPLE_TYPE). |
 | Samples per block | at most 16384 bytes of data: 2048 complex samples at FLOAT32 | [TCI] §3.4 |
 | Rate per client | [TCI] says "The rate is individual for each client" ([TCI] §4.3 IQ_SAMPLERATE). (L2) With one DDC the server MAY offer only one IQ rate at a time; a different rate requested while another client streams IQ is "ignored, the server replies with the current rate" ([TCI] §4.3), and `G7250_STREAM_STATE` reports `rate`. | 0004 (one DDC); HIS-02 |
 
@@ -554,7 +593,7 @@ C6.3 **Audio streams.**
 | Stream | `type` | Direction | Rates | Format, channels, samples | Notes |
 |--------|--------|-----------|-------|---------------------------|-------|
 | RX audio | 1 | server → client | `AUDIO_SAMPLERATE` (C4) | `AUDIO_STREAM_SAMPLE_TYPE`, `_CHANNELS`, `_SAMPLES` (C4) | (L2) Demodulated **on board** (0011 point 1). The main unit has no speaker or audio output (0017), so TCI is the only audio output on level 2. (L1) Demodulated in AetherSDR. |
-| TX audio | 2 | client → server | as RX audio of this client ([TCI] §4.3 AUDIO_SAMPLERATE note) | as RX audio | Sent by the client in answer to TX_CHRONO, with the number of samples in TX_CHRONO's `length` ([TCI] §3.4). (L2) Modulated on board. |
+| TX audio | 2 | client → server | as RX audio of this client ([TCI] §4.3 AUDIO_SAMPLERATE note) | as RX audio | Sent by the client in answer to TX_CHRONO, with the number of samples in TX_CHRONO's `length` ([TCI] §3.4); an answer is required while keyed (C8.2.1). (L2) Modulated on board. |
 | TX_CHRONO | 3 | server → client | — | header only, `length` = samples requested | Sent "without waiting for a response from the client" ([TCI] §3.4). Sent to the keying client while it keys with source `tci` (C7.5). |
 | Line out | 4 | server → client | as RX audio | fixed ("you cannot change its parameters", [TCI] §3.4) | MAY (C4). |
 
@@ -591,7 +630,9 @@ a third larger than 24-bit IQ.
   stereo float32 RX audio streams (15.4) plus TX audio (1.5) is 41.5 Mbit/s of payload, about
   72 % of the 57.5 Mbit/s effective SPI rate at 62 MHz (`analysis/ch394-network-budget.md`;
   0004, "Assumptions") before register accesses: over the target. So at 384 kHz the server
-  needs either fewer audio clients, mono or int16 audio, or a lower IQ rate. To be settled at G6.
+  needs either fewer audio clients, mono or int16 audio, or a lower IQ rate. The IQ format
+  stays FLOAT32; if the budget is short, the IQ rate offered is reduced (0021 §11). Numbers to
+  be settled at G6.
 - C6.4.3 **(L1)** AetherSDR is not bound by C6.4.1; its own P2 stream to the radio is bound by
   0004.
 
@@ -614,13 +655,22 @@ level. No TCI command changes the active level (C2.7).
 
 C7.3 **Priority.** [TCI] gives "the highest priority" to the server's own operator and, among
 clients, priority to the first one ([TCI] §3.5). In the profile, the safety core has the highest
-priority, above any client and above the server's own user interface (0011 point 3). Whether
-the controller (head) may operate the radio on level 2, and at what priority, is open (0007,
-Resolved item 6: "Revisit for level 2"; HIS-17). Until decided, controller inputs on level 2
-are reported (`TX_FOOTSWITCH`) and never key the radio, as on level 1 (0007 Sub-decision 6).
+priority, above any client and above the server's own user interface (0011 point 3).
+
+C7.3.1 **Controller on level 2** (0021 §9). In profile version 1 the controller (head) has no
+control on level 2, as on level 1: inputs that reach the main unit (HIS-17) are reported
+(`TX_FOOTSWITCH`) and MUST NOT key the radio (0007 Sub-decision 6, Resolved 6). The priority
+[TCI] §3.5 gives to the server's own operator is not given to the controller. Any change needs
+answers to HIS-10 and HIS-17, M7, a new decision and a new profile version.
+
+C7.3.2 **P2 while level 2 is active** (0021 §16). A P2 host cannot take the RF chain from level
+2: the P2 C&C ports have no socket on level 2 (0008, Socket budget), discovery answers byte 4 =
+0x03 (0003; part B B3.1), and the level changes only through the management channel (0008
+C-2; C2.7).
 
 C7.4 **Who may transmit.** While armed, any connected client MAY send a TX request (`TRX`
-true, `TUNE` true, `KEYER` press, `CW_MACROS`, `CW_MSG`, `G7250_ATU_TUNE`). The client whose
+true, `TUNE` true, `KEYER` press, `CW_MACROS`, `CW_MSG`, `G7250_ATU_TUNE`), unless
+`G7250_TX_POLICY` is `holder`, in which case only the arm holder MAY (C5.5.8; 0021 §1). The client whose
 request keys the radio is the **keying client** (`G7250_TX_STATE` `mine` = `true`). Any client
 MAY end a transmission (`TRX` false, `TUNE` false, `CW_MACROS_STOP`, `G7250_TX_ARM:0,00000000;`,
 `STOP`); these are never blocked by the 200 ms monopoly ([TCI] §4.7 note 6) and take effect
@@ -640,14 +690,15 @@ C7.5 **Two clients key.** Only one TX request can be active, because there is on
    only to the keying client.
 5. Because `TRX` is synchronised, every client sees `TRX:0,true;`; a client finds out whether
    the transmission is its own from `G7250_TX_STATE` (C5.5.3). A generic client cannot tell,
-   which is a known limit of [TCI] (Annex C-A).
+   which is a known limit of [TCI]; the profile proposes no fix for generic clients.
 6. When the keying client's connection closes, the server unkeys (C8.3).
 
 C7.6 **Changes while keyed.** While keyed, the server MUST refuse (reply with the current value)
-changes of `MODULATION` of the TX channel, `G7250_ANT` and `G7250_ATU`, from any client
-**(profile choice; 0007 lists such changes as harmless only "while not keyed")**. A change of
-`VFO`, `SPLIT_ENABLE` or `XIT_OFFSET` that moves the effective TX frequency outside a transmit
-range MUST unkey (0007, limit "TX frequency"); inside a range it is followed.
+changes of `MODULATION`, `G7250_ANT` and `G7250_ATU`, from any client (0021 §8; 0007 lists
+such changes as harmless only "while not keyed", Decision 1 rule 5). `DRIVE`, `TUNE_DRIVE`,
+filter, receive-side and front-end changes are followed. A change of `VFO`, `SPLIT_ENABLE` or
+`XIT_OFFSET` that moves the effective TX frequency outside a transmit range MUST unkey (0007,
+limit "TX frequency"); inside a range it is followed.
 
 ---
 
@@ -669,15 +720,16 @@ generic clients keep the connection alive without knowing the profile:
 |-------|------------|-------------|--------------------|------------------|
 | Holder watchdog | the arm holder, while armed | send a WebSocket Ping at least every 250 ms | no frame of any kind (including Pong) from the arm holder for **1 s** → drop the arm, `WATCHDOG` | Decision 2, base watchdog 1 s; drop event 3 |
 | Keyed timeout | the keying client, while keyed | send a WebSocket Ping at least every 100 ms | no frame from the keying client within `KEYED_TIMEOUT` (default **500 ms**, tighten only, floor 100 ms) → UNKEY, arm kept | Decision 2, `KEYED_TIMEOUT`; Resolved item 2 |
-| TX audio underrun | the keying client, while keyed with source `tci` | send TX_CHRONO ([TCI] §3.4) | no TX_AUDIO_STREAM block for longer than `TX_STREAM_AUDIO_BUFFERING` + TBD ms → UNKEY, arm kept | Decision 2, TX IQ underrun (TBD, HIS-18) |
+| TX audio underrun | the keying client, while keyed with source `tci` in a mode other than `CW` | send TX_CHRONO ([TCI] §3.4) | no TX_AUDIO_STREAM block for longer than `TX_STREAM_AUDIO_BUFFERING` + **500 ms** → UNKEY, arm kept (0021 §7) | analogue of Decision 2, TX IQ underrun; fixed in the profile, independent of a hardware FIFO |
 | Connection loss | arm holder / keying client | — | TCP close, reset or WebSocket close: holder → drop the arm (`HOLDER_LOST`); keying client → UNKEY | drop event 3 |
 
-C8.2.1 **Deviation (Annex C-B, C-B1).** [TCI] allows a client that is not ready to "not send a
-response" to TX_CHRONO, and calls a block of zero samples "preferable" ([TCI] §3.4). The profile
-requires the keying client to answer every TX_CHRONO while keyed with source `tci`, with zero
-samples if it has no signal; a missing answer for longer than the underrun time unkeys.
-**[unverified whether existing clients always answer]**; if not, the underrun time is the only
-tolerance.
+C8.2.1 **Deviation (Annex C-B, C-B1; 0021 §7).** [TCI] allows a client that is not ready to
+"not send a response" to TX_CHRONO, and calls a block of zero samples "preferable" ([TCI]
+§3.4). The profile requires the keying client to answer every TX_CHRONO while keyed with
+source `tci`, with zero samples if it has no signal; no TX audio for longer than
+`TX_STREAM_AUDIO_BUFFERING` + 500 ms unkeys and keeps the arm. The 500 ms equals the default
+`KEYED_TIMEOUT` (0007, Resolved 2). **[unverified whether existing clients always answer;
+Annex C-D]**; the 500 ms is the tolerance for late blocks.
 
 C8.2.2 The Ping duty is a minimum; the server MAY treat any frame from the client as a sign of
 life. The 1 s and `KEYED_TIMEOUT` values are the same as level 1 so that both levels behave
@@ -698,17 +750,20 @@ C8.5 **State after reset** is that of 0007 Decision 5: not armed, new token, bui
 (L2) After a reset the TCI server starts with `TRX` and `TUNE` `false`, `RECEIVE_ONLY` and
 `TX_ENABLE` as C3.2 and C5.5.6.
 
-C8.6 **No security.** The arm prevents accidental transmission by software that does not know
-the G7250; it is not security ("this is not security", 0007 Decision 1 rule 3). TCI has no
-authentication [TCI], and any client on the LAN can opt in and read the token. LAN security for
-TCI is an open point (Annex C-A; compare 0008, "Security on a LAN").
+C8.6 **LAN security** (0021 §10). The arm prevents accidental transmission by software that does
+not know the G7250; it is not security ("this is not security", 0007 Decision 1 rule 3). TCI
+has no authentication [TCI], and the profile adds none to the TCI connection, so that generic
+clients keep working (0012). Any accepted client can opt in and read the token. Level 2 is
+meant for a trusted LAN; the mitigations are the reach rule and the optional allow-list of
+C2.4.1, and the optional TX policy of C5.5.8. Traffic is in the clear, as on the management
+channel (0008 S6).
 
 ---
 
 ## C9 Conformance tests
 
-One line per test; tests run against the reference model in g7250-testbench and against both
-implementations (0014, Consequences; 0001 item 5). Ids are stable.
+One line per test; tests run against the reference model on the product side (0019; 0021
+§17.3) and against both implementations (0014, Consequences; 0001 item 5). Ids are stable.
 
 | Id | Test |
 |----|------|
@@ -716,11 +771,18 @@ implementations (0014, Consequences; 0001 item 5). Ids are stable.
 | T-C2-02 | Several complete commands in one text frame are all executed. |
 | T-C2-03 | (L2) `clients_max` clients connect; the next one receives `G7250_REFUSED:busy;` and close 1008; the listener accepts again afterwards. |
 | T-C2-04 | (L2) A level change closes all connections with 1001 after `LEVEL_CHANGE`. |
+| T-C2-05 | Without configuration the server listens on TCP port 50001; after a port change through the management channel (L2) it listens on the new port only. |
+| T-C2-06 | The WebSocket upgrade succeeds on `/` and on an arbitrary other path. |
+| T-C2-07 | (L2) A connection from outside the radio's subnet is closed without handshake and logged. |
+| T-C2-08 | (L2) With a non-empty allow-list, a connection from a non-listed address in the subnet is closed without handshake; a listed address connects. Setting the list without authentication fails. |
+| T-C2-09 | (L2) `clients_max` in `G7250_PROFILE` is 5 while port 1024 still answers discovery with byte 4 = 0x03. |
 | T-C3-01 | Initialization order is PROTOCOL, DEVICE, RECEIVE_ONLY, TRX_COUNT, CHANNELS_COUNT, VFO_LIMITS, IF_LIMITS, MODULATIONS_LIST, READY, then state. |
 | T-C3-02 | Values match C3.2; `CHANNEL_COUNT` is never sent. |
 | T-C3-03 | `IF_LIMITS` is resent after a receiver sample-rate change. |
 | T-C3-04 | A `VFO` or `DDS` set to 40 MHz or outside VFO_LIMITS is not followed; the current value is replied. |
 | T-C3-05 | No `G7250_` command reaches a client that has not opted in. |
+| T-C3-06 | `PROTOCOL:ExpertSDR3,2.1;` is sent on both levels; (L2) `DEVICE:G7250;` is sent. |
+| T-C3-07 | `MODULATION:0,FM;` selects narrow FM and is replied as `MODULATION:0,NFM;`; `MODULATIONS_LIST` contains `NFM` and not `FM`. |
 | T-C4-01 | Each MUST command of C4 is accepted and its state replied and synchronised to a second client. |
 | T-C4-02 | NOT SUPPORTED and reserved commands are ignored without a reply and never sent. |
 | T-C4-03 | Commands with trx 1 or a channel number above 1 are ignored without a reply. |
@@ -736,15 +798,19 @@ implementations (0014, Consequences; 0001 item 5). Ids are stable.
 | T-C5-05 | After arming, a `TRX` state already `true` does not key; a new 0→1 request does. |
 | T-C5-06 | Each drop event of C5.5.5 unkeys, disarms, issues a new token and reports the reason. |
 | T-C5-07 | `TX_ENABLE` is `true` exactly when C5.5.6 items 1–9 hold, and is resent on every change. |
-| T-C5-08 | `G7250_TX_MODE_CLASS` follows `MODULATION`; `WFM` gives `none` and blocks arming. |
+| T-C5-08 | `G7250_TX_MODE_CLASS` follows `MODULATION` by the table of C3.4 (`DIGL`/`DIGU` give `ssb`); `WFM` gives `none` and blocks arming with `NO_MODE_CLASS`. |
+| T-C5-16 | Armed and not keyed, a change to `WFM` keeps the arm, sets `TX_ENABLE` false and refuses `TRX` and `TUNE`; a change back re-enables TX without a new arm. |
+| T-C5-17 | `G7250_TX_POLICY` defaults to `any`; any opted-in client can set `holder`; only the arm holder can set `any`; it returns to `any` after the last client leaves, on a level change and on reset. |
+| T-C5-18 | With policy `holder`, `TRX`, `TUNE`, CW and `G7250_ATU_TUNE` from a non-holder are refused, while its `TRX` false, `CW_MACROS_STOP`, disarm and `STOP` still take effect. |
 | T-C5-09 | In class `am`, output power stays within the AM limit at `DRIVE:0,100`. |
 | T-C5-10 | `G7250_ATU_TUNE` needs the arm, follows the tune time limit and reports `tuned` or `failed`. |
-| T-C5-11 | `G7250_ANT` and `G7250_ATU` are refused while keyed. |
+| T-C5-11 | `G7250_ANT`, `G7250_ATU` and `MODULATION` are refused while keyed, from any client; `DRIVE` while keyed is followed. |
 | T-C5-12 | `G7250_LIMIT` accepts stricter values, rejects looser values, and resets after the last client leaves. |
 | T-C5-13 | `G7250_FAULT_CLEAR` clears a class-1 fault only when the condition is gone and never re-arms. |
 | T-C5-14 | (L1) A TCI arm causes a P2 arm handshake and is confirmed only after the radio confirms. |
 | T-C5-15 | (L1) Every P2 drop event is reported on TCI with the P2 reason. |
-| T-C6-01 | Stream headers are 64 bytes with correct receiver, rate, format, length, type, channels and count. |
+| T-C6-01 | Stream headers are 64 bytes, little-endian, with correct receiver, rate, format, length, type, channels and count; each frame is header plus `length` samples. |
+| T-C6-07 | IQ blocks carry `format` = 3 (FLOAT32) at every offered rate. |
 | T-C6-02 | IQ streams at each offered rate without loss for a set duration; a test tone appears at the right offset and sign. |
 | T-C6-03 | RX audio honours sample type, channels and samples per block. |
 | T-C6-04 | TX_CHRONO goes only to the keying client; its TX audio is transmitted; others' TX audio is discarded. |
@@ -757,76 +823,92 @@ implementations (0014, Consequences; 0001 item 5). Ids are stable.
 | T-C7-05 | A VFO, split or XIT change that moves TX outside a transmit range unkeys. |
 | T-C8-01 | Arm holder silent for 1 s (Pong suppressed) → arm dropped with `WATCHDOG`. |
 | T-C8-02 | Keying client silent for `KEYED_TIMEOUT` → unkey, arm kept. |
-| T-C8-03 | TX audio stops answering TX_CHRONO → unkey after the underrun time, arm kept. |
+| T-C8-03 | TX audio stops answering TX_CHRONO → unkey after `TX_STREAM_AUDIO_BUFFERING` + 500 ms (not before), arm kept; zero-sample answers keep the radio keyed. |
 | T-C8-04 | Arm holder TCP reset → arm dropped with `HOLDER_LOST`; keying client TCP reset → unkey. |
 | T-C8-05 | Maximum TX time (5 min built in, also with `CW_TERMINAL` and `TUNE`) unkeys and keeps the arm. |
 | T-C8-06 | In fault, RX streams continue, `TX_ENABLE` is false and arm requests are rejected. |
 | T-C8-07 | After reset, the server is disarmed with a new token, built-in limits, and `TRX`/`TUNE` false. |
+| T-C8-08 | (L2) A controller PTT input (if HIS-17 gives a path) is reported by `TX_FOOTSWITCH` and never keys, armed or not. |
+| T-C8-09 | `TX_SENSORS` arg2 reports the TX audio level in dB full scale while keyed with source `tci`, and `-140` without TX audio. |
 
 ---
 
-## Annex C-A — Open points and TBDs
+## Annex C-A — Open points (HIS and G6 only)
+
+Every other open point of draft 1 is decided in 0021 (proposed for ON8ST review at rc1).
 
 | # | Point | Depends on |
 |---|-------|------------|
 | A1 | Whether level 2 can be built at all: compute for DSP, WebSocket and TCI; memory; network stack. All (L2) requirements wait for it. | G6, HIS-18, HIS-14 |
 | A2 | Number of receivers; whether `TRX_COUNT` stays 1 and whether channel B can be demodulated. | HIS-02, G6 |
-| A3 | Default TCP port (C2.4); candidate 40001 to be checked against a public source. | ON8ST, `sources.md` |
-| A4 | Whether port 1024 (P2 discovery) stays open on level 2; sets `clients_max` 5 or 6 (C2.5). | part A / B3, 0008 |
-| A5 | CH394Q TCP server behaviour: does the listening socket become the connection (C2.5.3)? Socket buffer split in TCP mode (C6.5). | HIS-14, [CH394] |
-| A6 | IQ sample format (FLOAT32 proposed), byte order (little-endian assumed) and frame size of stream blocks: to be checked against a public TCI client. | public client source |
-| A7 | Whether existing clients tolerate unknown server commands (motivates the opt-in, C5.2), and whether they always answer TX_CHRONO (C8.2.1). | public client sources |
-| A8 | `NFM` vs `FM` as the narrow FM mode name; full list of TCI mode names, which [TCI] does not give. | public client sources |
-| A9 | Stream budget on level 2 (C6.4): number of IQ streams, audio formats, aggregate with TCP and WebSocket overhead. | G6, HIS-14, HIS-18 |
-| A10 | TX audio underrun time (C8.2). | HIS-18, 0007 (TBD) |
-| A11 | Calibration of `RX_SENSORS` dBm on level 2. | HIS-11, G6 |
-| A12 | `DRIVE` 0–100 to power mapping; tune power. | HIS-12, HIS-08 |
-| A13 | Microphone, PTT and KEY from the controller; whether the controller may operate the radio on level 2 (0007 Resolved item 6). | HIS-17, HIS-10, ON8ST |
-| A14 | Preamplifier and attenuator steps (C5.9). | HIS-07 |
-| A15 | Default antenna after reset. | HIS-06 |
-| A16 | Mode-class names, reason codes, limit names and `ARM_MAGIC`: to be aligned with part B. | part B |
-| A17 | LAN security for TCI (no authentication in [TCI]); whether TX on TCI should be restricted to the arm holder (stricter than C7.4) as an option. | ON8ST, 0008 |
-| A18 | A generic client cannot tell whether a synchronised `TRX:0,true;` is its own transmission (C7.5 item 5). Known limit; no fix proposed. | — |
-| A19 | `sources.md` corrections found while reading [TCI]: `CHANNELS_COUNT` (not `TRX_COUNT`) is the renamed `CHANNEL_COUNT` ([TCI] §2.2, §4.1); the document control table puts the rename under 2.0, section 2.2 under 2.1. RFC 6455 to be added as a source. | coordinator |
-| A20 | Annex "Changes needed in AetherSDR", TCI section (0014): DEVICE `G7250`, CHANNELS_COUNT 2, opt-in and all extensions, TCI arm mapped to the P2 arm (C5.5.7), derived mode class written to P2, C8.2 timers, limit tightening passed to P2. | AetherSDR, ON8ST go |
+| A3 | `IF_LIMITS` on level 2 (receiver bandwidth). | G6, HIS-01 |
+| A4 | CH394Q TCP server behaviour: does the listening socket become the connection (C2.5.3), which sets `clients_max`? Socket buffer split in TCP mode (C6.5). | HIS-14 |
+| A5 | Stream budget on level 2 (C6.4): number of IQ streams, maximum IQ rate, audio formats, aggregate with TCP and WebSocket overhead. | G6, HIS-14, HIS-18 |
+| A6 | Calibration of `RX_SENSORS` dBm on level 2. | HIS-11, G6 |
+| A7 | `DRIVE` 0–100 to power mapping; tune power. | HIS-12, HIS-08 |
+| A8 | Microphone, PTT and KEY from the controller (C4, C7.3.1); a microphone path for `TRX` without `tci`. | HIS-17, HIS-10 |
+| A9 | Preamplifier and attenuator steps (C5.9). | HIS-07 |
+| A10 | Default antenna after reset (C5.8). | HIS-06 |
+| A11 | `KEYER` timing jitter over TCP and WebSocket on level 2 (C4). | G6 |
+| A12 | Which optional DSP functions (NB, NR, ANC, ANF, APF, DSE, NF, BIN, second demodulator, `WFM` receive, audio rates below 48 kHz) level 2 can carry. | G6, HIS-18 |
 
 ## Annex C-B — Deviations from [TCI]
 
 | # | Deviation | Section |
 |---|-----------|---------|
-| C-B1 | The keying client must answer every TX_CHRONO while keyed with source `tci`; a missing answer unkeys after the underrun time. [TCI] §3.4 allows no answer. | C8.2.1 |
+| C-B1 | The keying client must answer every TX_CHRONO while keyed with source `tci`; no TX audio for `TX_STREAM_AUDIO_BUFFERING` + 500 ms unkeys (0021 §7). [TCI] §3.4 allows no answer. | C8.2.1 |
 | C-B2 | Transmit needs a G7250 arm; `TRX`, `TUNE`, `KEYER` and CW text do not key without it. [TCI] has no arm. | C5.5 |
 | C-B3 | A TX request from a second client while keyed does not change the TX source; stop requests are never held by the 200 ms monopoly. | C7.4, C7.5 |
 | C-B4 | (L2) Only one IQ rate at a time may be offered, although [TCI] makes the rate individual per client; the refusal uses [TCI]'s own "ignored, current rate replied" rule. | C6.2 |
 | C-B5 | `TRX` without the `tci` source is refused when there is no microphone path, instead of taking a microphone signal. | C4 |
-| C-B6 | Changes of TX modulation, antenna and ATU are refused while keyed. | C7.6 |
+| C-B6 | Changes of modulation, antenna and ATU are refused while keyed (0021 §8). | C7.6 |
+| C-B7 | (L2) TCI connections are accepted only from the radio's subnet and, if set, an allow-list (0021 §10). [TCI] has no such rule. | C2.4.1 |
+| C-B8 | `G7250_TX_POLICY:holder` lets only the arm holder key (0021 §1). | C5.5.8 |
 
 ## Annex C-C — Clarifications of [TCI]
 
 | # | Clarification | Section |
 |---|---------------|---------|
 | C-C1 | Commands are in text frames, several complete commands per frame allowed, never split over frames. | C2.2 |
-| C-C2 | The WebSocket upgrade is accepted on `/` and should be on any path. | C2.3 |
+| C-C2 | The WebSocket upgrade is accepted on any path (0021 §17.1). | C2.3 |
 | C-C3 | A frequency inside `VFO_LIMITS` but outside the receive range is not followed; the current value is replied. | C3.3 |
 | C-C4 | Stream header and samples are little-endian **[unverified]**. | C6.1 |
 | C-C5 | A stream frame carries the header and `length` samples only **[unverified]**. | C6.1 |
 | C-C6 | `count` is kept per stream also for IQ and line-out. | C6.1 |
 | C-C7 | [TCI] lists `TX_ENABLE` under §4.3 "Unidirectional Control Commands" but gives its type as "Bidirectional control"; the profile treats it as server-controlled state, synchronised to all clients, with client sets ignored, as its note says. | C4 |
 | C-C8 | [TCI] lists `KEYER` under §4.4 "Notification Commands" but gives its type as "Unidirectional control", "Sent only by the TCI client"; the profile treats it as a client command. | C4 |
+| C-C9 | `FM` in a `MODULATION` set request is read as `NFM` (0021 §13). | C3.4 |
+| C-C10 | `TX_SENSORS` arg2 ("microphone signal level, dBm") carries the TX audio level in dB full scale, because the main unit has no microphone (0021 §15). | C4 |
+| C-C11 | `PROTOCOL` arg1 is sent as `ExpertSDR3` as a compatibility value on both levels; it does not identify the G7250 (0021 §4). | C3.2 |
+
+## Annex C-D — Assumptions to verify against public sources
+
+The profile rule stands meanwhile; none of these is a HIS question.
+
+| # | Assumption | Rule meanwhile | Check against |
+|---|------------|----------------|---------------|
+| D1 | Stream header and samples are little-endian. | C-C4 (0021 §12) | a public TCI client implementation |
+| D2 | A stream frame carries the header and `length` samples only. | C-C5 (0021 §12) | a public TCI client implementation |
+| D3 | Existing clients tolerate, or at least do not need, the absence of unknown server commands. | opt-in, C5.2 | public client sources |
+| D4 | Existing clients answer every TX_CHRONO while transmitting TCI audio. | C8.2.1 (0021 §7) | public client sources; AetherSDR conformance run |
+| D5 | Clients accept FLOAT32 IQ. | C6.2 (0021 §11) | public client sources |
+| D6 | Some clients expect `PROTOCOL:ExpertSDR3`; `device:AetherSDR` matters to WSJT-X. | C3.2 (0021 §4, §5) | [AETHER-SRC] comments; WSJT-X source |
 
 ## Sources
 
 - [TCI] TCI Protocol, Ver. 2.1, September 2026, "Expert Group" LLC: §1.4, §2, §3.1–3.5, §4.1–4.7
   (`sources.md`). Read in full for this part, 2026-11-19, from the text extraction of the PDF.
 - [AETHER] AetherSDR README (TCI server, protocol 2.1).
+- [AETHER-SRC] AetherSDR source, commit 9f7cbeb (2026-11-18), through `annex-aethersdr.md`
+  §2.4 and G-13 (TCI port, `PROTOCOL`, `DEVICE`).
 - [G7250-MAN] Xiegu G7250 Operation Manual: receive and transmit ranges, modes, TX power, ATU,
   antennas, interfaces.
 - [CH394] WCH CH394 manual 1, V1.2 (8 sockets), through `analysis/ch394-network-budget.md` and
   0008.
 - [P2] openHPSDR Ethernet Protocol V4.4, through 0007 (watchdog).
-- RFC 6455, The WebSocket Protocol (§5.2, §5.3, §5.5.2, §7.4.1) — **not yet listed in
-  `sources.md`**.
+- [RFC6455] The WebSocket Protocol (§4.2.1, §5.2, §5.3, §5.5.2, §7.4.1).
 - RFC 2119, RFC 8174 (BCP 14).
-- Decisions 0001, 0004, 0006, 0007, 0008, 0011, 0012, 0013, 0014, 0015, 0017.
+- Decisions 0001, 0003, 0004, 0006, 0007, 0008, 0011, 0012, 0013, 0014, 0015, 0017, 0019,
+  0021.
 - `analysis/ch394-network-budget.md` (Addendum, "TCI (level 2)"); `open-questions-his.md`
   (HIS-02, -06, -07, -08, -10, -11, -12, -14, -17, -18); design note §6 (milestones, G6).
