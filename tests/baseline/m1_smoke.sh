@@ -25,6 +25,9 @@ python3 harness/g7250emu/observe.py --selftest >/dev/null 2>&1 && ok observe || 
 echo "[2] ch394.py self-test"
 python3 models/devices/ch394.py >/dev/null 2>&1 && ok ch394 || bad ch394
 
+echo "[2b] i2c_devices.py self-test"
+python3 models/devices/i2c_devices.py >/dev/null 2>&1 && ok i2c_devices || bad i2c_devices
+
 if [ ! -x "$RN" ] && [ ! -f "$RN" ]; then
   echo "[3-4] SKIP (pinned Renode not found at tools/renode-1.17.0)"
 else

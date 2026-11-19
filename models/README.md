@@ -27,6 +27,7 @@ version boundary.
 | model | status | topology | verified how |
 | --- | --- | --- | --- |
 | `devices/ch394.py` | register-file logic + A1.12 check | **SPI6** slave, INT on PC13 (VERIFIED). Not yet wired as an SPI slave — needs the image to drive SPI6 frames. The class is transport-agnostic so the wiring lands without a rewrite. | `python3 models/devices/ch394.py` (self-test: forced default IP 192.168.3.199 → `a1_12_ok`) |
+| `devices/i2c_devices.py` | EEPROM24C, AXP223, VC6, AIC3204 register-file stubs | **I²C1** slaves behind the STM32 I²C1 controller, addressed by the firmware's I²C transfers. Shared `I2CRegDevice` base (address-pointer protocol); transport-agnostic, wired as I²C slaves when the image drives I²C1. | `python3 models/devices/i2c_devices.py` (self-test: EEPROM round-trip + page wrap, AXP power-status/rail readback, VC6 locked, AIC3204 page select) |
 
 ## Deliberately *not* modelled as sysbus peripherals yet
 
@@ -40,9 +41,11 @@ drive them from the real access path:
   bit). For M1 "boot to main loop" the stream is not running; the base GPIOE
   model absorbs the init pin-wiggles without faulting, so no FPGA sysbus
   peripheral is added here.
-- **I²C1 devices** (EEPROM 24C, AXP223 PMIC, VC6, AIC3204 codec) — I²C slaves
-  behind the STM32 I²C1 controller, addressed by the firmware's I²C transfers.
-  They attach to the controller, not the sysbus, and are driven by the image.
+- **I²C1 devices** (EEPROM 24C, AXP223 PMIC, VC6, AIC3204 codec) — the
+  register-file *logic* now exists in `devices/i2c_devices.py` (host-tested).
+  They are I²C slaves behind the STM32 I²C1 controller, not sysbus peripherals,
+  so the controller-side wiring is driven by the image and lands then; the logic
+  classes are transport-agnostic and need no rewrite for that step.
 - **CH394** — SPI6 slave (see above).
 
 The boot-time power/clock/flash readiness that the firmware *polls* (RCC/PWR/
