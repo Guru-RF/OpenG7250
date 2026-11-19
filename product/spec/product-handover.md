@@ -7,11 +7,12 @@ on 2026-11-19, as recorded in `decisions/`.
 
 - The g7250-spec branch `docs/initial-structure` has been subtree-merged into
   `product/spec/` in the main repo (merge commit a29155b, local, not pushed).
-- Neither document has been written yet. Only the structure was agreed, plus several
-  decisions. `design-note.md`, `spec/`, `sources.md` and `open-questions-his.md` do not
-  exist yet.
-- No technical P1 or TCI details have been checked against public sources yet. Everything
-  about frames, ports and board ids is still unverified.
+- Neither main document has been written yet: `design-note.md` and `spec/` do not exist.
+  `sources.md` and `open-questions-his.md` exist (2026-11-19).
+- Level 1 is G7250-P2: openHPSDR Protocol 2, board type 200 (0016, 0002). The P2, P1, HL2
+  and AetherSDR sources and the CH394 datasheet have been read; the TCI 2.1 PDF has not.
+- Analyses: `analysis/p1-vs-p2.md`, `analysis/ch394-network-budget.md`.
+- The G7250 operation manual rev 0.1 is the primary product source (`sources.md`).
 
 ## Decisions
 
