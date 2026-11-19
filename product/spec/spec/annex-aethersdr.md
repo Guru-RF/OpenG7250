@@ -13,8 +13,9 @@ AetherSDR is GPL-3.0 [AETHER]; this annex quotes no AetherSDR code, only describ
 Line numbers are those of that commit and will drift.
 
 Spec sections cited as "B3.4" and similar refer to `spec/network-interface.md` rc2 of
-2026-11-19, and to its rc3 and rc4 draft for the sections added or changed by 0022 §62–§78 and §81
-(A3.4d, A3.6a, A3.9a item 1a; B5.4 by 0022 §78, B3.8 by 0022 §81).
+2026-11-19, and to its rc3, rc4 draft and rc4 for the sections added or changed by 0022 §62–§78, §81 and
+§84–§87 (A3.4d, A3.6a, A3.9a items 1a and 6; B5.4 by 0022 §78, B3.8 by 0022 §81, A2.4 and
+B10.5b by 0022 §85, §87).
 
 ---
 
@@ -675,6 +676,23 @@ These parts of the ANAN P2 code already match the G7250 and need no change, only
   Answer several reasons for one TX request in the order `BUSY`, `NOT_ARMED`, `KEYED`,
   `BAD_VALUE`, `NOT_KEYABLE` (C5.12). Send `G7250_TX_STATE` `keyed` per CW element, with
   `source` and `mine` kept in the gaps (C5.5.3).
+- **Added by rc4 of part C (0021 §46; 0022 §84–§87).** Implement break-in and the hang delay
+  of TCI CW by holding the P2 PTT bit with DUC I&Q at zero until the hang delay has run out
+  without a new element; the hang delay is the value written to DUC-specific bytes 11–12,
+  clamped to 2000 ms as part B A3.4d; with hang delay 0, PTT per element (C8.2.5 item 1).
+  Known limit: on level 1 the radio's "RF while not keyed" check does not run inside that PTT
+  transmission, so RF in a gap is seen at most 2000 ms late (C8.2.5 item 2; A3.9a item 6).
+  While the user has hardware CW from KEY selected (DUC-specific byte 5 bit [1]), refuse TCI
+  CW with `NOT_KEYABLE` and leave the bit set (C8.2.5 item 3). Wait for the P2 write echo
+  (B8.4) of `TX_MODE_CLASS` and the `LIMIT_<name>` writes before the PTT edge (C5.10.1 item 6,
+  C8.5a item 3). Send `STOP;` at every end of the P2 session other than a client `STOP`, a
+  watchdog standby, a link loss and an inferred loss included (C2.9a, C7.2.1). Derive
+  `G7250_TX_STATE` `keyed` from the own element timing (C5.5.3). Write `ATU_TUNE` = 0 at the
+  policy unkey of a non-holder's tune cycle (C5.7). With level 2 active, answer `MAINTENANCE`
+  before `LEVEL_NOT_ACTIVE` where I-3 shows an update or trial boot (C5.5.3). Drop the oldest
+  buffered TX audio frames at the buffer bound (C6.3.5). The radio now sends the `TAKEOVER`
+  notice from port 7250 to every old owner (A2.4; 0022 §87 item 2), and with CW selected
+  and break-in clear drops DUC I&Q under PTT (B10.5b; 0022 §85, §87 item 6).
 - **Other keying interfaces** (0021 §37). AetherSDR also has remote keying paths besides TCI
   (CAT, rigctl and its own TCI extensions `aethersdr_ext`, as the rc3 review reports; not
   surveyed in §2). Each of them SHOULD be bound by a keyed-liveness rule equivalent to part C

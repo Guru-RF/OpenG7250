@@ -2218,6 +2218,78 @@ Status: proposed.
 10. **B2.7 (L10).** "A firmware update without a reset" is dropped from the session ends that
     keep the counters: a firmware update ends in a reset (A1.8), which resets them.
 
+## 87. rc4 review fixes (rc4 review M1, L1–L9)
+
+Status: proposed.
+
+**Problem.** The review of rc4 found that "the PTT key" of §85 was not fixed in time, so a
+KEY closure or paddle edge during the T/R settle or the RF delay could form RF before the
+key sequence was complete; that §86 item 1 made the takeover notice the only register push
+that a standard host does not get; and eight smaller gaps.
+
+**Rule.**
+
+1. **The PTT key (M1).** With break-in clear, "the PTT key" is the moment RF is enabled at
+   the end of the key sequence of A3.9a item 4: after any wait of A3.9a item 3, the T/R relay
+   and the RX attenuator during TX settled, SEND, and the RF delay of DUC-specific byte 13.
+   Inside the PTT transmission keyer RF is allowed only from that moment. A KEY closure or
+   paddle edge between the PTT 0→1 edge and that moment counts as held at the PTT key and
+   needs a new closure or edge (not latched). A3.1a "Keyer elements", A3.9a item 4, B10.5b
+   items 2.1, 2.2, Annex X2 C22; T-B10-34. Alternative: the PTT 0→1 edge as the PTT key, with
+   keyer RF delayed until the sequence ends. Against: an element that rose during the RF
+   delay would start cut or late, and the RF delay exists so that an external amplifier has
+   switched before any RF.
+2. **Takeover notice to every old owner (L1; replaces §86 item 1).** The three copies and
+   the repeated notice of A2.4 go to every old owner, armed or not. The other register
+   pushes (the unasked capability record, B4.4; `TX_ARM_TOKEN` at the session start, B10.2
+   item 1; the telemetry snapshot, B9) already reach every owner from port 7250, so the
+   exception gave no protection. Host guidance: a standard host ignores packets from source
+   port 7250 by source-port demultiplexing ([P2] uses one port per packet kind; Table B2-1).
+   A session carried over at a restart by the run bit (B5.4 item 1) counts as the old owner's
+   session for the notice destination. A2.4, A3.2 exception 2, Annex X1 D5, Annex X3 note;
+   T-A2-17. Alternative: keep §86 item 1 and extend it to the other pushes. Against: a host
+   that has not used the register map would then not get its token or record at all, and
+   the rule adds a per-host state for no safety gain.
+3. **Commanded-reset answers (L2).** A repeat of the accepted request is answered with
+   status 1 during steps 1–2 of A1.9 and with the stored reply after step 3, where the reply
+   is stored. A `RESTART` of a second host gets status 1 and that answer is not stored, nor is
+   a status 35 answer. After a refusal with status 59, every request answered with status 1
+   is answered with status 59 on retry: the repeat from the stored reply, the other host's
+   `RESTART` as a new commanded reset under "RF not gone". A1.4, A1.9; T-A1-51.
+   Alternative: store the status 1 answer. Against: the host would keep getting "in
+   progress" after the reset had been refused.
+4. **A waiting request holds the transmission (L3).** A request waiting under A3.9a item 3
+   holds the transmission for its source: an edge of another source during the wait is
+   refused as "keyed by another source", not latched. A3.1a, A3.9a item 3; T-A3-56.
+   Alternative: latch the other edge until the wait ends. Against: A3.1a forbids latching,
+   and two waiting sources would need an order.
+5. **KEY and CWX are one source (L4).** KEY and CWX drive the same keyer and count as one
+   source, "the keyer": with break-in set a KEY element in a CWX transmission's hang delay,
+   or the reverse, is allowed and continues the transmission; while both are active the
+   keyer's dot and dash inputs are the OR of the two. A3.1a, B10.5b item 1; T-B10-37.
+   Alternative: two sources, the second refused. Against: an operator who switches from the
+   paddle at the radio to host CW within the hang delay would get a refusal that ends the
+   keyer for no RF-path reason; both reach the same keyer and the same RF path.
+6. **Silent PTT transmission (L5).** With CW selected and break-in clear, DUC I&Q under PTT
+   is dropped, so a PTT transmission without elements is silent. B10.5b item 2.3 host note,
+   Annex X2 C22.
+7. **Gap check where the radio forms the elements (part C review L1).** A3.9a item 6
+   applies the per-element meaning of "RF commanded" where the radio forms the elements (on
+   level 1 KEY and CWX, on level 2 TCI `KEYER` and CW text). CW that the host forms as DUC
+   I&Q with PTT is RF commanded throughout; part C C8.2.5 bounds that known limit by its hang
+   delay of at most 2000 ms (0021 §46 item 2).
+8. **Refusal arriving while keyed (L7).** EER set or an invalid DUC0 rate or bit width that
+   arrives while keyed is deferred to the unkey, as every DUC-specific state field (A3.9):
+   the transmission continues with the settings in force; the refusal stands from the unkey,
+   so the next key is refused. B10.6; T-B10-38. Alternative: unkey at once (reason 7 or a new
+   reason). Against: the refusal changes no RF-path state and no limit, the settings in force
+   are valid, and one rule for every DUC-specific field while keyed is simpler to test; a new
+   reason number would change Table B8-3.
+9. **Wording (L6, L8, L9).** T-B10-11, T-B10-24 and T-B10-32 state "CW select clear". The
+   glossary "Keyed" and "Continuous TX" name the PTT transmission with break-in clear, and a
+   "Break-in" entry is added. A3.9 "RF-path relays" lists the resent state fields of High
+   Priority, DUC-specific and General packets, as A3.4d.
+
 ---
 
 ## Consequences
@@ -2293,6 +2365,12 @@ Status: proposed.
   regeneration for them. HIS-07 gets whether a relay can be commanded again before it
   settles (§86 item 4, as §83 item 2); HIS-11 the gap length below which `t_blank` hides RF
   between CW elements (§84). Part C follows §84 and §85 where TCI has CW with PTT.
+- §87 (review of rc4) is applied in `spec/network-interface.md` rc4 (A1.4, A1.9, A2.4, A3.1a,
+  A3.2, A3.9, A3.9a items 3, 4, 6, B10.5b, B10.6, Annex X1 D5, Annex X2 C22, Annex X3 note,
+  T-A1-51, T-A2-17, T-A3-56, T-B10-11, T-B10-24, T-B10-32, T-B10-34, T-B10-37, T-B10-38) and
+  `spec/glossary.md`. §87 item 2 replaces §86 item 1. Table B8-2 is unchanged, so
+  `spec/register-map.yaml` needs no regeneration for it. Part C follows §87 item 7 in C8.2.5
+  (0021 §46).
 - `open-questions-his.md`: HIS-07 (filter plan, which frequencies share an RF-path state),
   HIS-11 (PEP detector, temperature filter), HIS-12 (`P_swr`, `P_temp`, hysteresis) are
   extended by the coordinator; this file does not edit it.

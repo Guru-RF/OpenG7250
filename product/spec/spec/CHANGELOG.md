@@ -4,6 +4,25 @@
 
 All dates 2026-11-19. Decision numbers refer to `decisions/`.
 
+## rc4 — release candidate 4
+
+- Fixes from the full reviews of rc3 and the rc4 draft (0022 §74–§87, 0021 §43–§46): keyer
+  elements and the CW hang delay count as keyed for RF-path purposes; CW break-in set/clear and
+  CW with PTT (B10.5b); "RF while not keyed" in element gaps; restart by the run bit keeps the
+  RX-side settings of the same host ([P2] "Detailed operation"); frequency encoding fixed to a
+  phase word on a virtual 122.88 MHz clock; limit reaction times; write-session timer only
+  refreshed by authenticated requests; one commanded reset at a time; TCI: TX source frozen
+  while keyed, TX_ENABLE as permission, AetherSDR rewrites TCI session state after every P2
+  session end, DUC0 is the effective TX frequency on level 1, level-1 CW hang bounded at 2 s.
+
+## rc3 — release candidate 3
+
+- Fixes from the reviews of rc2 (0022 §62–§73, 0021 §27–§42): PEP estimate from the DUC
+  samples when the detector has no PEP; DUC FIFO bounded while unkeyed; TX settings reset at
+  session end; bounded RF-gone waits; factory reset atomic; management reply caps; TCI keyed
+  liveness table covering every source; AetherSDR never arms on a TX request; level-1 mode
+  class follows the transmitted signal.
+
 ## rc2 — release candidate 2
 
 - Fixes from the independent review of rc1 (0022 §33–§51) and of the rc2 draft (0022 §52–§61):

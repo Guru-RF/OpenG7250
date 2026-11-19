@@ -1,6 +1,6 @@
 # 0021 — Choices in the G7250 TCI profile (spec part C)
 
-- Status: proposed (for ON8ST review at rc1; §27–§42 proposed for the rc3 draft; §43 proposed for rc3; §44 proposed for the rc4 draft; §45 proposed for rc4), 2026-11-19
+- Status: proposed (for ON8ST review at rc1; §27–§42 proposed for the rc3 draft; §43 proposed for rc3; §44 proposed for the rc4 draft; §45 and §46 proposed for rc4), 2026-11-19
 - Date: 2026-11-19
 - Builds on: 0003 (discovery reply byte 4), 0004 (rates, SPI target), 0007 (watchdog and
   safety), 0008 (management channel, socket budget, LAN security), 0011 (two levels), 0012
@@ -1411,6 +1411,62 @@ gaps (0022); part C refers to part B for those and does not restate them.
 holds for a client, and choose the side that tells a client the truth (outage, not takeover)
 and never retakes the radio by itself (0022 §3 point 6; 0011 point 3).
 
+## 46. Part C rc4: review fixes of rc4 (rc4 review M1, L1–L9)
+
+Status: proposed.
+
+**Problem.** The review of part C rc4 found that on level 1 AetherSDR sends TCI CW as DUC I&Q
+with PTT, but nothing said how break-in and the hang delay work then, that the radio's gap
+check (0022 §84) cannot run inside such a PTT transmission, and that TCI CW with hardware CW
+selected would be dropped by the radio (0022 §85); and nine smaller gaps.
+
+**Chosen rule.**
+
+1. **Level-1 hang delay of TCI CW (M1).** AetherSDR implements break-in and the hang delay
+   by holding PTT, with DUC I&Q at zero, until its hang delay has run out without a new
+   element; the hang delay is the value it writes to DUC-specific bytes 11–12, clamped to
+   2000 ms as part B A3.4d; with hang delay 0, PTT is per element (part C C8.2.5 item 1; annex
+   G-13; T-C8-30). Alternative: clear PTT in every gap. Against: the T/R relay and an external
+   amplifier would switch at every element, which the hang delay exists to avoid (0022 §73
+   item 9).
+2. **Gap check on level 1 (L1).** Part B A3.9a item 6 applies the per-element check where the
+   radio forms the elements (level 2, and P2 KEY and CWX); on level 1 the check does not run
+   inside AetherSDR's PTT transmission. Known limit, bounded by item 1's 2000 ms (part C
+   C8.2.5 item 2; 0022 §87 item 7). Alternative: P2 CWX for TCI CW. Against: §36 (the paddle
+   bits cannot play a client's straight-key timing, and the 1 s cap cuts strings).
+3. **TCI CW with hardware CW selected (L2).** AetherSDR refuses TCI CW with `NOT_KEYABLE`
+   while the user has hardware CW (byte 5 bit [1]) selected, and does not clear the bit itself
+   (part C C8.2.5 item 3; T-C8-22). Alternative: send a DUC-specific packet with bit [1] clear
+   before the PTT edge. Against: it overrides the user's choice of the radio's keyer silently
+   and adds a change of a state field before every TCI CW key.
+4. **Write echo before PTT (L3).** AetherSDR waits for the P2 write echo (B8.4) of
+   `TX_MODE_CLASS` and the `LIMIT_<name>` writes before its PTT edge (part C C5.10.1 item 6,
+   C8.5a item 3; T-C8-31).
+5. **`STOP;` at every session end without a client `STOP` (L4).** Also after a watchdog
+   standby, a link loss and an inferred loss (part C C2.9a, C7.2.1; T-C8-31).
+6. **C5.12 rationale (L5).** `BAD_VALUE` comes "before the key conditions of A3.1a". Wording.
+7. **`keyed` on level 1 (L6).** AetherSDR derives `G7250_TX_STATE` `keyed` from its own
+   element timing, because P2 `TX_STATE` shows the PTT transmission (part C C5.5.3; T-C5-64).
+8. **Policy unkey of a tune cycle (L8).** It makes AetherSDR write `ATU_TUNE` = 0 (part C
+   C5.7; T-C5-64).
+9. **`MAINTENANCE` before `LEVEL_NOT_ACTIVE` (L8).** With level 2 active, where I-3 shows an
+   update or trial boot, `MAINTENANCE` comes first, because the update dominates (part C
+   C5.5.3; T-C5-64). Alternative: `LEVEL_NOT_ACTIVE` first. Against: the client would retry on
+   level 2, which the update also ends.
+10. **C5.4 (L9).** A command without a token is MUST, except a command marked NOT SUPPORTED on
+    that level, which has no token and is never implemented. Wording.
+11. **Buffer bound (L7).** A block is "played in full within the buffer bound"; at the bound
+    the oldest buffered frames not yet played are dropped (part C C6.3.5; T-C6-10).
+    Alternative: drop the newest frames. Against: the lag would stay at the bound for as long
+    as the client sends fast, while dropping the oldest keeps the newest audio on the air.
+12. **Labels and cross-references (L9).** The part C header cites 0022 §84–§87; the glossary
+    "Keyed" counts CW text as keyed until its queue is empty and the hang delay after its last
+    element has run out (part C C7.4.1); T-C5-61 also checks that `iq_384` and `mic` are
+    present where implemented. Labels stay "rc4, 2026-11-19".
+
+**Reason.** Make level 1 behave as part B does where the radio forms the CW, state the one
+case where it cannot, and keep the user's keyer choice and the safety order of part B.
+
 ## Consequences
 
 - Part C draft 2 applies these choices and cites them as "0021 §n".
@@ -1448,6 +1504,10 @@ and never retakes the radio by itself (0022 §3 point 6; 0011 point 3).
   C6.3.5, C7.2.1, C7.7, C8.2.3, C8.5a, C9, C-C30); `spec/annex-aethersdr.md` (G-08b, G-13) and
   the glossary ("Session", "Application frame") get the consequences. Part B is not changed by
   §45; CW break-in clear and RF in element gaps are part B rules (0022), cited by reference.
+- Part C rc4 applies §46 (C2.9a, C5.4, C5.5.3, C5.7, C5.10.1, C5.12, C6.3.5, C7.2.1, C8.2.5,
+  C8.5a, C9) and follows 0022 §84–§87 by reference; part B A3.9a item 6 is qualified by 0022
+  §87 item 7; `spec/annex-aethersdr.md` (G-13) and the glossary ("Keyed", "Break-in") get the
+  consequences.
 
 ## Sources
 
