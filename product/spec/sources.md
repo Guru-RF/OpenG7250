@@ -96,6 +96,10 @@ checked. Until a manufacturer document is available, the sources below are secon
   Transceiver", SM0MDG, 22 Jul 2026, updated 29 Jul 2026. Read 2026-11-19. States
   "Specifications are subject to change" and does not say where the specifications come from.
 
+- **[G7250-TOFF] YouTube channel "Temporarily Offline".** A video in which the Ethernet
+  interface of the G7250 is tested and documented (ON8ST, 2026-11-19). Not yet identified:
+  a web search on 2026-11-19 did not find it. Link to be added.
+
 Facts from these secondary sources (to be confirmed against [G7250-RDY] or a manual):
 
 | Fact | Value | Source |
@@ -109,11 +113,12 @@ Facts from these secondary sources (to be confirmed against [G7250-RDY] or a man
 | Supply | 9–15 V DC (Anderson Powerpole) | [G7250-PUDX], [G7250-RIGPIX] |
 | Construction | separate RF deck (main unit) and controller with 7" touch screen | [G7250-PUDX], [G7250-RIGPIX] |
 | Network | "remote baseband signal transmission over a network"; the type of connection (Ethernet, Wi-Fi) is not stated | [G7250-PUDX], [G7250-RIGPIX] |
+| Ethernet | present on the main unit; tested and documented in a video by the YouTube channel "Temporarily Offline" | ON8ST, 2026-11-19; video [G7250-TOFF] not yet identified |
 | USB | present | [G7250-RIGPIX] |
 
-Note: neither secondary source says that the main unit has an Ethernet port. The whole
-network interface depends on it. To be confirmed from [G7250-RDY] or a manual, and as a
-question for the HIS.
+Note: neither written secondary source says that the main unit has an Ethernet port. ON8ST
+confirmed it on 2026-11-19, citing the video [G7250-TOFF]. Link speed (100/1000 Mbit/s) and
+the network stack remain questions for the HIS.
 
 ## Discussion with ON8ST
 

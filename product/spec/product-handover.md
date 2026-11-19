@@ -50,8 +50,8 @@ ANAN-G2, TCI server announcing protocol 2.1) come from its README, read 2026-11-
 - Antenna and filter switching, including a safe RX default state for a host that has not
   armed TX (0015).
 - Where PTT and TX interlock sit.
-- Network hardware of the main unit: is there an Ethernet port (and/or Wi-Fi)? Public
-  sources only mention "remote baseband signal transmission over a network" (`sources.md`).
+- Network hardware of the main unit: Ethernet is present (ON8ST, 2026-11-19, see
+  `sources.md` [G7250-TOFF]); link speed, PHY and Wi-Fi still open.
 - Compute resources (DSP/FPGA/MCU), memory, network stack (TCP, WebSocket). These are
   needed for gate G6.
 
