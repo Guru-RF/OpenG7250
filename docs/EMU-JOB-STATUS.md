@@ -23,14 +23,21 @@ Evidence: docs/M1-status.md, tests/baseline/boot_milestone.sh (ALL PASS).
   models/devices/ (i2c_devices.py, ch394.py) ready to back such a slave. The
   boot reaches the service loop without it (every device error path continues),
   so B is a later refinement, pursued when a test depends on real device data.
+  Capability check (2026-11-19): runtime C# peripheral compile (`i @file.cs`
+  then register a custom `II2CPeripheral`) did NOT resolve the type in this
+  portable build ("Error E04: Could not resolve type"), so a functional slave
+  needs either a prebuilt Renode plugin assembly or sorting out the runtime
+  compile path — tracked, not a quick win.
 
 ## C. Control boot — ◐ PARTIAL (M2)
 - C1 ✅ control_run.py (+ shared bootcore.py) and the Control I2C overlay.
 - C2 ◐ boots through all non-display init — SLIP client, AIC3204 codec, FatFS
   SPI-flash mount attempt, H-22/InputDev, **GT911 touch init at 0x14**, all
   service timers — then poll-hangs on `ltdc +0x48` (CDSR) waiting for VSYNC,
-  which Renode's STM32LTDC does not toggle headless. Next = a video sink /
-  CDSR shim. Evidence: docs/M2-control-status.md.
+  which Renode's STM32LTDC does not toggle headless (`FramesPerVirtualSecond`
+  set but the repainter needs a video sink that headless `--disable-xwt` does
+  not start). Next = a video sink that starts the repainter, or a CDSR shim
+  (same C#-peripheral limitation as B). Evidence: docs/M2-control-status.md.
 
 ## D. Two machines together — ◐ SKELETON / ⏳ SCOPED
 - D1 ◐ SLIP link skeleton: platforms/g7250_slip_link.resc boots both MCUs in one
