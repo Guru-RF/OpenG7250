@@ -529,6 +529,286 @@ case where part C uses lower-case enumerations.
 
 ---
 
+**Second review of the transmit side.** A second independent review of the transmit side of
+draft 4 (parts A and B) and part C draft 3 found the points below (review ids N-H*, N-M*,
+L*). §22–§32 record one choice per point; each rule is stated once in part A or B and
+referenced from part C where it applies to TCI. Applied in `spec/network-interface.md`
+draft 5 and `spec/part-c-tci-profile.md` draft 4.
+
+## 22. ATU tune cycle (review N-H1)
+
+**Problem.** `ATU_TUNE` (B10.9) and `G7250_ATU_TUNE` (C5.7) were refused only without the
+arm. A tune started while already keyed (by PTT, CWX, KEY, `TRX`, `TUNE` or CW text, from the
+keying client itself or another) would move ATU relays under normal drive, because the A3.9
+exception for ATU tuning had no boundary.
+
+**Chosen rule.** A **tune cycle** is a TX request of its own, the same on both levels:
+
+1. It starts only from unkeyed. `ATU_TUNE` = 1 or `G7250_ATU_TUNE` while keyed by any other
+   source, including a transmission of the owner or of the requesting client itself, MUST be
+   rejected with `KEYED` (`WRITE_STATUS` on P2, `G7250_WRITE_STATUS` on TCI) and is not
+   latched (§24). A repeated start while the cycle itself runs stays a no-op (B8.4, 0020 §11).
+2. All key conditions of §24 hold at the start; RF-path changes that are pending are applied
+   and settled first (§23).
+3. The radio sets the drive to the tune power of the ATU profile (TBD HIS-08, HIS-12) before
+   RF starts and before the ATU moves any relay.
+4. The cycle owns the key for its whole duration: TX source 4 (ATU), `ATU_STATE` 2. Other TX
+   requests neither key nor end it (0022 §14).
+5. ATU relays (in/out and the L/C network) move under RF only inside the cycle and only at the
+   tune power; this is the only exception to A3.9.
+6. The cycle ends unkeyed in every case (tuned, failed, aborted, `LIMIT_ATU_TIME`, keyed
+   timeout, any limit unkey or drop). The tune carrier is never handed over to another TX
+   source; keying again needs a new 0→1 edge.
+
+- Alternative A: allow a tune start while keyed by the same client and switch to the tune
+  profile on the fly. For: one fewer step for the operator. Against: the drive change and the
+  first relay move race each other; relays could move at full power.
+- Alternative B: let a tune start while keyed unkey first and then tune. For: no rejection.
+  Against: a tune press would end another client's transmission; contradicts C7.5.
+
+**Reason.** Relays move under RF only at a known low power, inside a cycle with a defined
+start and end; nothing hands RF from one source to another.
+
+## 23. Relay switching guard and settle times (review N-H2, L3)
+
+**Problem.** A3.9 says relays do not change "while keyed", but an unkey takes time to take RF
+away, and a relay takes time to settle. Draft 4 allowed a relay to move at the instant of the
+unkey and a key at the instant after a relay change, including the case of a band change and
+a PTT 0→1 edge in the same High Priority packet. The class-2 fault "RF while not keyed"
+(Table A3-2) could trip on the decaying RF of a normal unkey.
+
+**Chosen rule.** A3.9a, level-independent:
+
+1. **RF gone.** After an unkey, no RF-path relay (antenna, ATU, TX and RX filters,
+   preamplifier, attenuator, T/R relay, RX attenuator during TX) moves until RF is gone:
+   forward power below a threshold `P_rf_off`, or a fixed guard time `t_rf_off` after the
+   unkey, whichever the hardware design uses; values TBD (HIS-07, HIS-12).
+2. **Settle.** The radio keys only after the settle time `t_settle` has elapsed since the last
+   relay change; TBD (HIS-07).
+3. **Same packet or frame.** RF-path changes that arrive together with a TX request (a High
+   Priority packet with a new DUC0 frequency or Alex word and PTT 0→1; a TCI frame with `VFO`
+   and `TRX:0,true`) are applied first, then settled, and then the radio keys, provided the
+   request is still asserted and every key condition of §24 holds at that moment. This
+   bounded wait is the only case in which a TX request is deferred rather than refused.
+4. **T/R and RX attenuator during TX.** At a key: T/R relay and the RX attenuator during TX
+   (DUC-specific byte 59 [P2]) to their TX position, settle, SEND, RF delay (DUC-specific
+   byte 13), RF. At an unkey: RF off, RF gone, SEND released, then both back to their RX
+   position and deferred changes applied. With CW break-in they return after the hang delay
+   (DUC-specific bytes 11–12).
+5. **Session end.** The relay set of A3.6 (at session end, takeover, standby, fault) is
+   applied only after the unkey and RF gone.
+6. **Blanking (L3).** The check "RF while not keyed" runs only while not keyed and after a
+   blanking time `t_blank` since the last unkey; `t_blank` is at least the time of item 1;
+   TBD (HIS-11, HIS-12).
+
+- Alternative A: refuse a TX request that arrives during a relay change or settle. For: no
+  deferred state. Against: a host that sends the new band and PTT in one packet (allowed by
+  [P2], which orders nothing inside a packet) would never key on the first try.
+- Alternative B: no guard times; rely on the hardware. For: simplest. Against: hot switching
+  is the failure that A3.9 exists to prevent; the HIS gives the times, the rule does not
+  depend on their values.
+
+**Reason.** "Not under RF" needs the RF to be gone, not only the key released; a short,
+bounded wait keeps the common "band and PTT together" case working.
+
+## 24. One key rule; refused requests are not latched (review N-M1)
+
+**Problem.** Draft 4 stated "keying needs a 0→1 edge" in several places (B10.2 item 4,
+B10.10, A3.3 `UNKEY`), but not as one rule. It was open whether a PTT held at 1 while PA
+enable is 0, while a DUC-specific refusal or EER stands, outside the TX ranges or while
+unarmed keys once the condition clears, and whether CW text sent while unarmed is queued.
+
+**Chosen rule.** A3.1a, both levels: the radio keys only on a 0→1 edge of a TX request at a
+moment when every key condition holds (armed and not inhibited, not in fault, TX frequency in
+range, PA enabled, no DUC-specific refusal or EER for PTT with DUC I&Q, a mode class defined,
+the requester allowed by the TX policy on TCI, not keyed by another source, relays settled).
+A request refused for any reason is not pending or latched: it does not key when the
+condition clears; a new 0→1 edge is needed. The one deferral is §23 item 3. CW text
+(`CW_MACROS`, `CW_MSG`) received while it cannot key is discarded, not queued.
+
+- Alternative: latch a refused request and key when the condition clears. For: fewer edges
+  for the host. Against: the radio would key at a moment the operator did not choose, for
+  example when a fault clears or an arm completes.
+
+**Reason.** The operator's action and the key coincide in time; this is the rule of 0007
+Decision 1 rule 2 applied to every condition.
+
+## 25. Backstops for hung TX logic (review N-M2, L10)
+
+**Problem.** Part C C8.2 said the P2 keyed timeout unkeys "a host whose network thread is
+alive but whose TX logic has hung". That is not so: a host whose I/O thread keeps sending
+High Priority packets with a cached PTT or CWX bit feeds the keyed timeout. On P2 the DUC
+underrun check applied only outside class CW, and its time was open; CWX had no bound.
+Server-generated CW text on TCI had no bound but the 5 min maximum TX time.
+
+**Chosen rule.**
+
+1. The C8.2 rationale is corrected: the keyed timeout catches a host whose High Priority
+   packets stop; it does not catch a cached PTT or CWX bit.
+2. **P2 CWX cap (B10.5a).** High Priority byte 5 bit [0] held at 1 continuously for more than
+   1 s unkeys (`UNKEY`, arm kept, `TX_STATE` unkey reason 9); keying again needs a new 0→1
+   edge. The same 1 s cap applies to a TCI `KEYER` key-down from any client, opted in or not
+   (C8.2). 1 s equals the TCI generic keyed window and the P2 base watchdog; a dash at 5 words
+   per minute (720 ms) fits. The KEY input (hardware CW, HIS-17) is not capped: no network is
+   involved.
+3. **DUC underrun.** The check applies whenever the TX source is PTT (DUC I&Q), whatever the
+   mode class; the underrun time is at most the `KEYED_TIMEOUT` in force (so at most 500 ms);
+   exact value TBD (HIS-18). Hosts that send CW as I&Q keep the I&Q stream running during
+   key-up, as they must for a continuous DUC stream.
+4. **TCI CW text (L10).** While the server sends CW text for a keying client, that client
+   MUST send an application frame at least every 30 s; otherwise the server unkeys, discards
+   the queued text and reports `unkey` 2. Each `CW_MACROS` or `CW_MSG` is an application
+   frame.
+5. Known limit: a host whose I/O thread also keeps sending cached I&Q is caught only by the
+   maximum TX time.
+
+- Alternative A for 2: no CWX cap; rely on the 5 min maximum TX time. For: no new rule.
+  Against: up to 5 min of carrier from a hung host; TCI already caps `KEYER` at 1 s.
+- Alternative B for 4: a cap on the total duration of queued text. For: no client duty.
+  Against: `CW_TERMINAL` and appended macros make the total unbounded and speed-dependent.
+
+**Reason.** Each TX source that a cached bit or a queue can hold on now has a bound well
+below the maximum TX time.
+
+## 26. Mode class change while keyed (review N-M3)
+
+**Problem.** Table B8-2 said a `TX_MODE_CLASS` change while keyed "applies at once", while
+TCI refuses `MODULATION` while keyed (C7.6.3). A class change under RF moves the power limit
+(25 W AM carrier against 100 W PEP) during a transmission.
+
+**Chosen rule.** One principle, A3.9c: the TX mode class never changes under a transmission.
+On P2 a `TX_MODE_CLASS` write with another value while keyed unkeys first (`UNKEY`, arm kept,
+`TX_STATE` unkey reason 10), then applies; the same value is a no-op. On TCI a `MODULATION`
+change while keyed stays refused with `KEYED` (C7.6.3).
+
+- Alternative: refuse the P2 write with `KEYED`. For: same form as TCI. Against: on P2 the
+  host's mode has already changed (the radio does not know the host's mode, 0007 Sub-decision
+  4 rule 3); a refused class would let an AM carrier run under the SSB limit.
+
+**Reason.** On P2 the declared class must follow the host's signal; on TCI the server makes
+the signal, so refusing the mode keeps both in step. In both, no RF runs under a class other
+than the one in force.
+
+## 27. Class-1 fault clear hold-off and escalation (review N-M4)
+
+**Problem.** A host could clear a class-1 fault at once and re-arm in a loop (for example
+repeated `SWR_REPEATED` into a broken antenna), so a class-1 fault limited nothing in time.
+
+**Chosen rule.** A3.5:
+
+1. `FAULT_CLEAR` (and `G7250_FAULT_CLEAR`) MUST be rejected with `NOT_CLEARABLE` until 10 s
+   have passed since the latest fault entry.
+2. The third entry of the same class-1 code since power-on is handled as class 2: latched
+   until reset, `FAULT_CLASS` 2.
+3. The per-code fault entry counters, a reset counter (by cause) and `TRIP_COUNT` count since
+   power-on: they survive `RESTART` and every other reset without loss of power, and are
+   cleared only at power-on; whether the hardware keeps them across a processor reset is
+   HIS-13. They are read with `GET_STATS` and logged. After an escalation the operator has to
+   be at the radio (power cycle).
+
+- Alternative A: no hold-off, escalation only. For: quick recovery. Against: three fast
+  clear-arm loops still go by in seconds.
+- Alternative B: counters cleared by `RESTART`. For: a remote restart recovers fully.
+  Against: a remote loop of fault, restart, fault would never escalate.
+
+**Reason.** A real fault cannot be cleared away faster than its cause can be seen, and a
+repeating one needs someone at the radio.
+
+## 28. ATU memory recall (review N-M5)
+
+**Problem.** An internal ATU may recall a stored L/C state per frequency (whether the G7250
+ATU does: HIS-08). A retune
+while keyed could make the ATU switch its network under RF, outside a tune cycle.
+
+**Chosen rule.** Every change of the ATU L/C network or in/out state is an RF-path state
+change (A3.9). No recall happens while keyed. A retune while keyed that would recall another
+ATU state unkeys first (`TX_STATE` unkey reason 6, as §1), then the recall is applied after RF
+gone and settle (§23). Which frequencies share an ATU state: HIS-08.
+
+- Alternative: keep transmitting and defer the recall to the unkey. For: no broken
+  transmission. Against: the ATU stays matched for the old frequency, SWR rises under RF; the
+  same case as §1 Alternative A.
+
+**Reason.** The same rule as every other relay; the ATU network is a relay set.
+
+## 29. Takeover notice and host guidance (review N-M6)
+
+**Problem.** The old owner receives one `TX_ARM_STATE` (`TAKEOVER`) and nothing more (A2.4).
+One UDP datagram can be lost; the old owner then keeps sending C&C and takes the radio back
+(ping-pong).
+
+**Chosen rule.** The G7250 sends the final `TX_ARM_STATE` (`TAKEOVER`) three times, about
+10 ms apart, identical, and nothing else. Host guidance: a host that receives neither DDC0
+data nor High Priority status packets for more than 200 ms while it believes it owns the radio
+SHOULD treat ownership as lost, stop sending C&C and tell the user; it starts a new session
+only on user action. For AetherSDR this is C7.2.1.
+
+- Alternative: a takeover notice with acknowledgement. For: reliable. Against: the radio would
+  keep state for a host that is no longer the owner; [P2] has no such packet.
+
+**Reason.** Repetition covers a single loss; the 200 ms rule covers the rest, since the
+status packet comes every 50 ms (B9.4).
+
+## 30. TCI drop reasons in Table B8-3 (review N-M7)
+
+**Chosen rule.** Table B8-3 gets drop reasons 13 `STOP` and 14 `HOLDER_LOST`, used on TCI
+only (C5.5.5 rows 2 and 3); never set over P2. 7 stays unused. Table B8-3 is then complete for
+every code name in part C.
+
+- Alternative: keep them as part C additions. Against: two lists; the register map YAML is
+  generated from Table B8-3 (§19).
+
+## 31. Built-in limits never writable; recovery of a persistent limit (review N-M8, L8)
+
+**Problem.** A3.4 rule 1 says built-in values are never writable; rule 2 said they "may only
+be tightened" over management; C5.5.5 row 11 spoke of "built-in limits over the management
+channel". A persistent limit tightened by mistake could not be undone except by a firmware
+change.
+
+**Chosen rule.** Built-in values are never writable, over any channel. Management C-3 writes
+only the persistent tier. An authenticated `SET_CONFIG` MAY set a persistent value anywhere
+between the strictest value and the built-in value, so it may also loosen it back toward the
+built-in value; such a loosening is accepted with status 0 and logged with the old value, the
+new value and the source; a value looser than the built-in value is refused with status 49.
+Any C-3 change while armed drops the arm (`MAINTENANCE`). `FACTORY_RESET` does not touch
+limits. 0008 C-3 ("MAY only be made stricter than the built-in limits") is read against the
+built-in value.
+
+- Alternative: include the limits in `FACTORY_RESET`. For: no loosening path at all.
+  Against: losing the network configuration and the secret to fix one limit.
+
+**Reason.** The safety bound is the built-in value; the persistent tier is a user choice
+below it and can be corrected by the same authenticated path that set it.
+
+## 32. Second-review small fixes (review LOW)
+
+1. **`ROLLBACK` while armed or keyed (L1).** Refused with status 50, like every update step
+   (A1.8 U-1; §8). Alternative: unkey and disarm first, like `RESTART`. For: rollback always
+   works. Against: switches firmware under an active transmission without the owner;
+   `RESTART` stays the unconditional stop.
+2. **DUC FIFO flush (L2).** The DUC FIFO is emptied at every unkey, session end and takeover,
+   so no stale I&Q is sent at the next key; on TCI the buffered TX audio is discarded at every
+   unkey (C7.7).
+3. **`G7250_FAULT_CLEAR` takes the code (L4).** `G7250_FAULT_CLEAR:<fault_code>;` with the
+   Table B8-3 name of the current `FAULT_CODE`; another name is `BAD_VALUE`. Same as P2, so
+   that a clear acknowledges the fault the client has seen. Alternative: no argument. Against:
+   a client could clear a fault it never displayed.
+4. **Case rule (L5).** One wording: Table B8-3 names appear on TCI verbatim, in upper case;
+   part C's own enumerations, which have no Table B8-3 name, are lower case.
+5. **Unkey reasons (L6).** `TX_STATE` [23:16] gets 8 keying client lost (TCI only), 9 CW
+   key-down longer than 1 s (§25), 10 TX mode class changed while keyed (§26). (L1) A TCI
+   `STOP` makes AetherSDR clear the P2 run bit (P2 drop `RUN_CLEARED`, which unkeys first);
+   its TCI clients get drop reason `STOP`.
+6. **Per-limit inhibit (L7).** `LIMIT_STATUS` has no free bits for a third field (bits 0–15
+   and 16–31 are per limit id), so a new register `LIMIT_INHIBIT` at 0x0221 in group 2: bit
+   *n* set while limit id *n* holds an inhibit. `G7250_TX_STATE` `inhibits` is derived from
+   it on level 1. Alternative: inhibit bits in `TX_STATE`. Against: no free per-limit field
+   there either.
+7. **Glossary and C8.2 wording (L9).** "Session" follows A2.3 (run bit; discovery not
+   required). C8.2 no longer speaks of a "generic arm holder": the holder has opted in.
+
+---
+
 ## Consequences
 
 - `spec/network-interface.md` draft 4 applies §1–§21 and cites them as "0022 §n"; Annex X1
@@ -539,6 +819,13 @@ case where part C uses lower-case enumerations.
   new `TX_STATE` unkey reasons 6 and 7.
 - Part C (`spec/part-c-tci-profile.md`) follows the names of §19 and the rules of §1, §2, §6
   and §7 in a later step.
+- §22–§32 (second review of the transmit side) are applied in `spec/network-interface.md`
+  draft 5 (A1.6, A1.8, A1.9, A2.4, A3.1a, A3.2, A3.4, A3.5, A3.6, A3.9–A3.9c, B8, B10, Annex
+  X1 D8, D10, D26, D27, Annex X2 C17, Annex X3) and `spec/part-c-tci-profile.md` draft 4. New
+  names for the register map YAML: register `LIMIT_INHIBIT` (0x0221); drop reasons 13 `STOP`
+  and 14 `HOLDER_LOST`; `TX_STATE` unkey reasons 8, 9 and 10. Values `P_rf_off`, `t_rf_off`,
+  `t_settle`, `t_blank` and the tune power belong to HIS-07, HIS-08, HIS-11 and HIS-12; the
+  survival of counters across a reset to HIS-13.
 - `open-questions-his.md`: HIS-07 (filter plan, which frequencies share an RF-path state),
   HIS-11 (PEP detector, temperature filter), HIS-12 (`P_swr`, `P_temp`, hysteresis) are
   extended by the coordinator; this file does not edit it.

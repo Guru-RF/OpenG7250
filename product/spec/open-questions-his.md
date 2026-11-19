@@ -72,6 +72,8 @@ Priority: **M1** = needed for milestone M1 (discovery, capability block, RX-IQ);
   might fit with identical meaning (0005); safe RX default (0015).
 - Added by 0022 §1: the filter plan: which TX frequencies share one low-pass filter and relay
   state (decides which retunes while keyed are allowed without unkeying).
+- Added by 0022 §23: relay settle time `t_settle` and the RF-gone guard time `t_rf_off`
+  (or forward-power threshold `P_rf_off`) before any relay moves after unkey.
 
 ### HIS-08 — Internal ATU (M2)
 
@@ -81,6 +83,8 @@ Priority: **M1** = needed for milestone M1 (discovery, capability block, RX-IQ);
 - Known: 20–150 Ω, initial tuning ≤ 10 s, memory recall ≤ 0.1 s, data stored per band;
   after tuning the radio "automatically returns to receive status", so tuning transmits
   [G7250-MAN].
+- Added by 0022 §22, §28: the tune power of an ATU tune cycle, and whether ATU memory recall
+  moves L/C relays (it is treated as an RF-path change).
 
 ### HIS-09 — External interfaces on the main unit (M2)
 
@@ -116,6 +120,7 @@ Priority: **M1** = needed for milestone M1 (discovery, capability block, RX-IQ);
 - Added by 0007: what plausibility check is possible per sensor (to detect a failed sensor)?
 - Added by 0022 §7, §17: is there a PEP detector, or only an average detector? What filter
   time constant does the PA temperature sensor need?
+- Added by 0022 §23: blanking time `t_blank` after unkey for the "RF while not keyed" check.
 
 ### HIS-12 — Power control and limits (M4)
 
@@ -125,6 +130,7 @@ Priority: **M1** = needed for milestone M1 (discovery, capability block, RX-IQ);
 - Known: SSB/CW/NFM 100 W, AM 25 W [G7250-MAN]; 50 MHz power not stated in the manual.
 - Added by 0022 §7: the fold-back power caps `P_swr` (high SWR) and `P_temp` (high
   temperature), the minimum forward power `P_min` for SWR evaluation, and the hystereses.
+- Added by 0022 §23: the forward-power threshold `P_rf_off` below which RF counts as gone.
 
 ### HIS-13 — Fault and reset behaviour (M3)
 
@@ -134,6 +140,8 @@ Priority: **M1** = needed for milestone M1 (discovery, capability block, RX-IQ);
 
 ## Network
 - Added by 0008: can the firmware read the cause of the last reset?
+- Added by 0022 §27: can fault and reset counters be kept across a reset without power loss
+  (RAM that survives a warm reset, or a reset-cause register)?
 
 ### HIS-14 — Ethernet controller and its connection (M1)
 

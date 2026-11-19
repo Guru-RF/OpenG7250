@@ -54,15 +54,15 @@ registers:
   - name: TX_STATE
     address: 0x0203
     access: "RO"
-    content: "bit 0 keyed (PA actually keyed); bit 1 `WARN` active; bit 2 `REDUCE` active; bit 3 last TX request outside the TX ranges; bit 4 PA disabled by the host (General byte 58 bit [0]); bit 5 inhibit active; [11:8] TX source 0 none, 1 PTT, 2 CWX, 3 KEY, 4 ATU; [23:16] last unkey reason 0 none, 1 TX request released, 2 keyed timeout, 3 TX IQ underrun, 4 limit, 5 arm dropped, 6 retune needs RF-path change (A3.9), 7 PA disabled by the host while keyed (B10.10); [31:24] limit id when reason 4"
+    content: "bit 0 keyed (PA actually keyed); bit 1 `WARN` active; bit 2 `REDUCE` active; bit 3 last TX request outside the TX ranges; bit 4 PA disabled by the host (General byte 58 bit [0]); bit 5 inhibit active; [11:8] TX source 0 none, 1 PTT, 2 CWX, 3 KEY, 4 ATU; [23:16] last unkey reason 0 none, 1 TX request released, 2 keyed timeout, 3 TX IQ underrun, 4 limit, 5 arm dropped, 6 retune needs RF-path change, ATU memory recall included (A3.9), 7 PA disabled by the host while keyed (B10.10), 8 keying client lost (TCI only, part C C8.2; never set by the radio over P2), 9 CW key-down longer than 1 s (B10.5a; TCI `KEYER`), 10 TX mode class changed while keyed (A3.9c); [31:24] limit id when reason 4"
     sent: "on every change (event)"
-    source: "0007 Decisions 1, 2, 4; 0006; 0020 §8, §22; 0022 §1, §14"
+    source: "0007 Decisions 1, 2, 4; 0006; 0020 §8, §22; 0022 §1, §14, §25, §26, §28, §32"
   - name: TX_MODE_CLASS
     address: 0x0204
     access: "W, owner"
-    content: "0 none declared (not writable); 1 SSB (including data modes sent as SSB), 2 CW, 3 AM, 4 FM; other values `BAD_VALUE`; power class 100 W PEP for 1, 2, 4 and 25 W carrier for 3 [G7250-MAN] (A3.4c); back to 0 at session end and at a takeover; a change while keyed applies at once"
+    content: "0 none declared (not writable); 1 SSB (including data modes sent as SSB), 2 CW, 3 AM, 4 FM; other values `BAD_VALUE`; power class 100 W PEP for 1, 2, 4 and 25 W carrier for 3 [G7250-MAN] (A3.4c); back to 0 at session end and at a takeover; a change to another value while keyed unkeys first (`TX_STATE` unkey reason 10, arm kept), then applies; the value in force is a no-op (A3.9c)"
     sent: "answer"
-    source: "0007 Decision 4 rule 3; 0020 §9; 0022 §3, §17"
+    source: "0007 Decision 4 rule 3; 0020 §9; 0022 §3, §17, §26"
   - name: KEYED_TIMEOUT
     address: 0x0205
     access: "W, owner"
@@ -96,27 +96,33 @@ registers:
   - name: FAULT_CLASS
     address: 0x0213
     access: "RO"
-    content: "0 none, 1 host-clearable, 2 latched until reset; the highest class among the codes set in `FAULT_FLAGS` (classes per code in Table B8-3)"
+    content: "0 none, 1 host-clearable, 2 latched until reset; the highest class among the codes set in `FAULT_FLAGS` (classes per code in Table B8-3; a class-1 code escalated by A3.5 counts as class 2)"
     sent: "event"
-    source: "0007 Decision 5; 0022 §5"
+    source: "0007 Decision 5; 0022 §5, §27"
   - name: TRIP_COUNT
     address: 0x0214
     access: "RO"
-    content: "limit trips with action `UNKEY` or stronger since power-on; saturates at 0xFFFFFFFF; not cleared over P2"
+    content: "limit trips with action `UNKEY` or stronger since power-on; saturates at 0xFFFFFFFF; not cleared over P2; survives `RESTART` and resets without power loss (A3.5)"
     sent: "event"
-    source: "0007 Decision 5; 0020 §8"
+    source: "0007 Decision 5; 0020 §8; 0022 §27"
   - name: FAULT_CLEAR
     address: 0x0215
     access: "W, owner"
-    content: "write the current `FAULT_CODE`; clears all flags if every flagged code is class 1 and its condition is gone (A3.5), else `NOT_CLEARABLE`; other values `BAD_VALUE`"
+    content: "write the current `FAULT_CODE`; clears all flags if every flagged code is class 1 (not escalated), its condition is gone and 10 s have passed since the latest fault entry (A3.5), else `NOT_CLEARABLE`; other values `BAD_VALUE`"
     sent: "answer"
-    source: "0007 Decision 5; 0022 §5"
+    source: "0007 Decision 5; 0022 §5, §27"
   - name: LIMIT_STATUS
     address: 0x0220
     access: "RO"
     content: "bit *n*: limit *n* limiting (`WARN` or `REDUCE`); bit 16 + *n*: limit *n* tripped (`UNKEY` or stronger) since the last TX request; limit ids in Table B8-3"
     sent: "event"
     source: "0006; 0007; 0020 §8"
+  - name: LIMIT_INHIBIT
+    address: 0x0221
+    access: "RO"
+    content: "bit *n* (1–15): limit id *n* holds an inhibit (Table A3-2: `LIMIT_PA_TEMP` above T3, `LIMIT_SUPPLY_VOLTAGE` over-voltage); bit 0 and bits 16–31 are 0; `TX_STATE` bit 5 is the OR of all bits"
+    sent: "event"
+    source: "0007 Decision 4; 0022 §32"
   - name: LIMIT_TX_TIME
     address: 0x0230
     access: "W, owner"
@@ -175,9 +181,9 @@ registers:
   - name: ATU_TUNE
     address: 0x0400
     access: "W, owner"
-    content: "1 starts internal ATU tuning (a TX request under the arm), 0 aborts; 1 while not armed: `NOT_ARMED`, not latched; other values `BAD_VALUE`"
+    content: "1 starts an ATU tune cycle (A3.9b; a TX request under the arm), 0 aborts; 1 while not armed: `NOT_ARMED`; 1 while keyed by another source: `KEYED`; neither is latched; 1 while the cycle runs: no-op; other values `BAD_VALUE`"
     sent: "answer"
-    source: "0007 Decision 6; HIS-08; 0020 §8; 0022 §14"
+    source: "0007 Decision 6; HIS-08; 0020 §8; 0022 §14, §22"
   - name: ATU_STATE
     address: 0x0401
     access: "RO"
@@ -245,8 +251,18 @@ code_sets:
         name: MAINTENANCE
       - value: 12
         name: REDISCOVERY
+      - value: 13
+        name: STOP
+        text: "(TCI only: `STOP` command, part C C5.5.5 row 2)"
+      - value: 14
+        name: HOLDER_LOST
+        text: "(TCI only: arm holder's connection closed, part C C5.5.5 row 3)"
+      - value: 7
+        text: "unused"
+      - value: 13
+        text: "and 14 are never set over P2"
       - value: 0x40
-        text: "+ limit id `LIMIT_<name>` (event 7)"
+        text: "+ limit id `LIMIT_<name>` (event 7) (0022 §30)"
   - set: "Limit id (`TX_STATE` [31:24]; `LIMIT_STATUS` bit *n*; drop reason 0x40 + id)"
     values:
       - value: 1
@@ -361,9 +377,12 @@ code_sets:
         name: NOT_CLEARABLE
       - value: 8
         name: KEYED
+        text: "(RF-path change or ATU tune while keyed)"
       - value: 9
         name: NOT_ARMED
-        text: "(B8.4)"
+        text: "(B8.4"
+      - value: 0022
+        text: "§22)"
 management_commands:
   - name: IDENTIFY
     code: "0x0001"
