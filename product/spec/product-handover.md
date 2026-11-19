@@ -37,6 +37,7 @@ on 2026-11-19, as recorded in `decisions/`.
 | 0016 | Level 1 uses openHPSDR Protocol 2 instead of Protocol 1; AetherSDR P2 support built by us if needed | accepted. Revises 0001, 0009, 0011; 0005 and 0015 rewritten |
 | 0017 | G7250-P2 offers no DDC audio stream (port 1028); frees one of the 8 CH394Q sockets | accepted |
 | 0018 | Licences: documents CC BY 4.0, firmware GPL-3.0-or-later (Apache-2.0 if the vendor SDK forbids GPL), AetherSDR backend GPL-3.0; © ON8ST | accepted |
+| 0019 | Reference model on the product side (`product/refmodel/`); shared test bench stays black-box | accepted |
 
 All numbers 0001–0018 are now in use.
 
