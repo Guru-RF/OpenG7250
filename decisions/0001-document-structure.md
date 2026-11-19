@@ -95,6 +95,10 @@ open-questions-his.md        questions only the hardware-interface spec (HIS) ca
 
 - ON8ST questions whether a P1 interface with its own board id, which requires applications
   to be adapted, should be complemented by a more generic standard interface. Options are
-  being worked out; outcome to be recorded as a separate decision.
+  being worked out; outcome to be recorded as a separate decision. Accepted so far: stay
+  close to standard P1 (0009).
+- ON8ST proposes a two-level product: a bare-bones SDR interface (G7250-P1, IQ) and a
+  complete radio interface (TCI with on-board DSP). This would change the out-of-scope list
+  ("TCI in firmware", "DSP in the radio"). Under discussion.
 - Should C&C be HL2-compatible where possible (proposed) or standard P1 plus own addresses?
 - Should a host that does not know the board id still be able to receive RX-IQ (generic P1)?
