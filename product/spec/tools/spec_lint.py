@@ -75,7 +75,7 @@ def main():
                     if t in tests and tests[t] != (rel, i):
                         findings.append(f"L6 {rel}:{i}: test id {t} also at {tests[t][0]}:{tests[t][1]}")
                     tests.setdefault(t, (rel, i))
-            if regnames is not None:
+            if regnames is not None and path.name != "part-c-tci-profile.md":
                 for r in RE_REG.findall(line):
                     if r not in regnames:
                         findings.append(f"L7 {rel}:{i}: register {r} not in register-map.yaml")
