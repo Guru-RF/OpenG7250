@@ -4,8 +4,9 @@ Project-wide decisions for OpenG7250, one short file per decision.
 Decisions that concern a single component live in that component's own
 `decisions/` folder.
 
-The clean room does not read this repository. A decision here that affects
-`g7250-fw` is also recorded in `g7250-fw`'s own `decisions/`, without RE detail.
+The product side does not read this repository. A decision here that affects
+`g7250-p1-spec` or `g7250-firmware` is also recorded in that component's own
+`decisions/`, without RE detail.
 
 ## Conventions
 

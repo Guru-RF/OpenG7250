@@ -3,7 +3,7 @@
 - Status: proposed
 - Date: YYYY-MM-DD
 - Decided by: ON8ST
-- Affects: re/analysis | re/emu | his | fw | project
+- Affects: re/analysis | re/emu | his | product/spec | product/firmware | testbench | project
 
 ## Context
 

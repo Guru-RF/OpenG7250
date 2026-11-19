@@ -1,31 +1,44 @@
 # OpenG7250
 
 Umbrella repository for all Xiegu G7250 work: reverse engineering of the stock
-firmware, an emulator and test harness, a clean-room hardware-interface spec, and
-independent new firmware.
+firmware, an emulator, a hardware-interface spec, a test bench, and a new
+product: independent firmware speaking a documented network protocol.
 
-Read [CLEANROOM.md](CLEANROOM.md) before working in any part of this project.
+Read [CLEANROOM.md](CLEANROOM.md) and [AGENTS.md](AGENTS.md) before working in
+any part of this project.
 
 ## Layout
 
-| Path | Side | Content | Status |
-|---|---|---|---|
-| [`re/analysis/`](re/analysis/) | RE | Own RE work: decryption and Ghidra tooling, findings, memory map, protocol coverage | Present |
-| `re/emu/` | RE | Emulator, harness, tests, hash-only image manifest (`g7250-emu`) | Planned submodule; integrated later |
-| `his/` | Gate | Reviewed hardware-interface spec, hardware facts only (`g7250-his`) | Planned submodule |
-| `fw/` | Clean room | New firmware "G7250-P1" (`g7250-fw`) | Planned; never checked out in an RE work tree |
+| Path | Side | Component | Content | Status |
+|---|---|---|---|---|
+| [`re/analysis/`](re/analysis/) | RE | — | Own RE work: decryption and Ghidra tooling, findings, memory map, protocol coverage | Present |
+| `re/emu/` | RE | `g7250-emu` | Emulator running the stock Main and Control firmware | Planned submodule; integrated later |
+| `his/` | Gate | `g7250-his` | Hardware-interface spec: hardware facts only | Planned submodule |
+| `product/spec/` | Product | `g7250-p1-spec` | Network interface spec: OpenHPSDR Protocol 1 with board id "G7250-P1" | Planned submodule |
+| `product/firmware/` | Product | `g7250-firmware` | New firmware, starting with a headless Main for AetherSDR | Later; never checked out in an RE work tree |
+| `testbench/` | Shared | `g7250-testbench` | Automated test framework and design of the HIL test bench | Planned submodule |
+| `website/` | — | — | Project website | Possibly later |
 
-## How knowledge flows
+## The three sides
 
 ```
-stock images ──► re/analysis ──► re/analysis/docs ──► his ──► fw
-                     │                 │
-                     └──► re/emu ◄─────┘ (models cite RE docs and HIS paragraphs)
+   re/  ── understand the stock radio ──►  his/  ──►  product/
+                                         (filter)     spec  ◄── host software (AetherSDR, …)
+                                                      firmware
 ```
 
-- Findings from the stock firmware become documents in `re/analysis/docs/`.
-- Only reviewed hardware facts pass to `his/`. Nothing else reaches `fw/`.
-- `fw/` is developed from `his/` and public datasheets only.
+- **RE** (`re/`) studies the stock firmware and hardware. Findings become
+  documents in `re/analysis/docs/`.
+- **HIS** (`his/`) is the filter: only reviewed hardware facts pass from the RE
+  side, never how the stock firmware does things.
+- **Product** (`product/`) is what is being built. `spec/` defines how host
+  software talks to the radio over the network; it is based on the public
+  OpenHPSDR Protocol 1 and own design choices, not on Xiegu's protocols.
+  `firmware/` implements `spec/` on the hardware described by `his/`.
+  The product side does not read `re/`.
+- **Test bench** (`testbench/`) tests against the specs as a black box, so it can
+  be used against the emulator, the real radio and the new firmware alike. Tests
+  that rely on stock-firmware behaviour stay in the emulator.
 
 ## External references
 
