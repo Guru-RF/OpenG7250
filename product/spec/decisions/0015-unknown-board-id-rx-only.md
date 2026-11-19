@@ -1,8 +1,6 @@
 # 0015 — Host that does not know the G7250 board type: RX only; TX needs an explicit arm
 
-- Status: proposed (rewritten for Protocol 2 after 0016, 2026-11-19). The intent (RX for any
-  host, TX only after an explicit G7250 arm) was accepted by ON8ST on 2026-11-19; the P2
-  mechanism below still needs acceptance.
+- Status: accepted (ON8ST, 2026-11-19; rewritten for Protocol 2 after 0016)
 - Date: 2026-11-19
 
 ## Context

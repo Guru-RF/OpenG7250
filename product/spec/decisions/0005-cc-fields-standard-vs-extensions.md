@@ -1,7 +1,6 @@
 # 0005 — Control fields on P2: standard fields where identical, G7250 functions in memory-mapped registers
 
-- Status: proposed (rewritten for Protocol 2 after 0016, 2026-11-19). The P1 version was
-  accepted by ON8ST on 2026-11-19; this rewrite still needs acceptance.
+- Status: accepted (ON8ST, 2026-11-19; rewritten for Protocol 2 after 0016)
 - Date: 2026-11-19
 - Supersedes: the P1 version of this decision ("standard P1, HL2 addresses only with
   identical meaning"), which lapsed with 0016.
