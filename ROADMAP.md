@@ -5,7 +5,7 @@
 | 1. RE | `re/analysis` | Understand startup, hardware interfaces and protocols of the V1.0.1 images; document findings |
 | 2. Emulator | `re/emu` | Run the stock Main and Control images against platform models; hash-checked images; regression suite |
 | 3. HIS | `his` | Reviewed hardware-interface spec with hardware facts only |
-| 4. Spec | `product/spec` | Network interface spec: OpenHPSDR Protocol 1, board id "G7250-P1", capability block, antenna/ATU/power/telemetry fields, sample rates, watchdog semantics |
+| 4. Spec | `product/spec` | Network interface spec based on the public OpenHPSDR protocols, with own board id and fields for the G7250; details in `product/spec/` |
 | 5. Test bench | `testbench` | Automated black-box tests against the specs; design of the HIL test bench |
 | 6. Firmware | `product/firmware` | New firmware, starting with a headless Main for AetherSDR, built from `his` and `product/spec` |
 | 7. Website | `website` | Possibly later |

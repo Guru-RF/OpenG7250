@@ -14,7 +14,7 @@ any part of this project.
 | [`re/analysis/`](re/analysis/) | RE | — | Own RE work: decryption and Ghidra tooling, findings, memory map, protocol coverage | Present |
 | `re/emu/` | RE | `g7250-emu` | Emulator running the stock Main and Control firmware | Planned submodule; integrated later |
 | `his/` | Gate | `g7250-his` | Hardware-interface spec: hardware facts only | Planned submodule |
-| `product/spec/` | Product | `g7250-spec` | Network interface spec: OpenHPSDR Protocol 1 with board id "G7250-P1" | Present; merged from `g7250-spec` with history |
+| `product/spec/` | Product | `g7250-spec` | Network interface spec based on the public OpenHPSDR protocols; details in `product/spec/` | Present (skeleton); content follows in a separate PR |
 | `product/firmware/` | Product | `g7250-firmware` | New firmware, starting with a headless Main for AetherSDR | Later; never checked out in an RE work tree |
 | `testbench/` | Shared | `g7250-testbench` | Automated test framework and design of the HIL test bench | Planned submodule |
 | `website/` | — | — | Project website | Possibly later |
@@ -33,7 +33,7 @@ any part of this project.
   side, never how the stock firmware does things.
 - **Product** (`product/`) is what is being built. `spec/` defines how host
   software talks to the radio over the network; it is based on the public
-  OpenHPSDR Protocol 1 and own design choices, not on Xiegu's protocols.
+  OpenHPSDR protocols and own design choices, not on Xiegu's protocols.
   `firmware/` implements `spec/` on the hardware described by `his/`.
   The product side does not read `re/`.
 - **Test bench** (`testbench/`) tests against the specs as a black box, so it can
