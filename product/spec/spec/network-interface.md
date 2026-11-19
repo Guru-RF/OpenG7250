@@ -1,6 +1,6 @@
 # G7250 network interface specification
 
-- Version: draft 5 (rc1 candidate), 2026-11-19
+- Version: rc1 (release candidate 1), 2026-11-19; changes in `spec/CHANGELOG.md`
 - Status: draft. Brings the text in line with decisions 0003, 0004, 0006, 0007 and 0008, all
   accepted by ON8ST on 2026-11-19, and applies the detail choices of 0020 (proposed, for
   ON8ST review at rc1), the points of 0021 that concern parts A and B, and the review fixes

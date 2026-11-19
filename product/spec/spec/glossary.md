@@ -1,6 +1,6 @@
 # Glossary — G7250-P2 network interface
 
-- Version: rc1 working draft, 2026-11-19
+- Version: rc1, 2026-11-19
 - © 2026 ON8ST, CC BY 4.0 (see `LICENSE.md`)
 
 Terms as used in `network-interface.md`, part C and the annexes. Where a term comes from

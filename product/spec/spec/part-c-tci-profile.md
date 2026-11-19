@@ -1,7 +1,7 @@
 # Part C — Level 2 and the G7250 TCI profile
 
-- Version: draft 4 (rc1 candidate), 2026-11-19
-- Status: draft 4 for review by ON8ST at rc1; the choices it applies are proposed in 0021
+- Version: rc1 (release candidate 1), 2026-11-19; changes in `spec/CHANGELOG.md`
+- Status: release candidate for review by ON8ST; the choices it applies are proposed in 0021
   (§18–§26 added for draft 3) and follow 0022 (proposed; §22–§32 applied in draft 4). Not yet merged into
   `spec/network-interface.md`.
 - © 2026 ON8ST, CC BY 4.0 (see `LICENSE.md`); quoted TCI material © Expert Group LLC under its
