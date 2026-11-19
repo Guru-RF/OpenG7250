@@ -89,7 +89,14 @@ with auto-start** — i.e. headless operation is feasible.
 - **Done (model):** PW-1 predictions for H1/H2 × PH5 variants, the T0 mapping,
   and this protocol — all from the PowerModel, self-tested
   (`r0_sim.py --selftest`, in the M1 smoke gate).
-- **Pending (image):** the PW-1 *emulator confirmation* — boot the decrypted
+- **Done (image, 2026-11-19):** the PW-1 *emulator confirmation* —
+  `harness/g7250emu/r0_confirm.py` boots the decrypted stock Main and checks it
+  against the "H2 / auto-start, PH5 high" prediction. **CONFIRMED:** the Main
+  reaches A1, drives PH9 high, brings the CH394/LAN up and programs the forced
+  default IP 192.168.3.199 on base port 50001, and issues no spontaneous
+  power-off — exactly the predicted headless no-panel behaviour (the stock
+  pitfall only triggers on a PH5-low, which did not occur). See docs/M1-status.md.
+- **Superseded note:** the PW-1 *emulator confirmation* — boot the decrypted
   stock Main under the PowerModel and check it matches these predictions (does
   it reach A1, drive PH9, bring the CH394 up, write the default IP, and react to
   a PH5-low as predicted). This is wired and waits only for the image
