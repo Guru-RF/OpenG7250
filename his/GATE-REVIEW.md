@@ -108,9 +108,52 @@ independent read is recommended before clearing.
   provenance, but each kept fact should cite an observation or datasheet, not
   disassembly, wherever possible.
 
+## Decide items (open, for ON8ST)
+
+Left unchanged in the HIS text and marked *(Decide, see GATE-REVIEW)*. Each
+has a short recommendation from the RE side; ON8ST decides.
+
+| # | Item | Where | Recommendation |
+| --- | --- | --- | --- |
+| D1 | Crystal / oscillator frequencies | 10 | Record HSE/LSE frequencies only once read from the board (crystal marking) or a schematic; do not derive them from stock PLL settings. Until then, leave the clock tree to the product firmware. |
+| D2 | EEPROM layout (settings block, 'd' markers, calibration @0x0800, NVPARAM @0x1800) | 30 | Drop the settings block, the 'd' markers and NVPARAM (stock data formats). Keep only "factory calibration is stored at 0x0800" if the first product must reuse factory calibration, as data on the device; its content format stays on the RE side until needed. |
+| D3 | VersaClock 6 0x70-byte init table | 30 | Replace the table with the output frequencies the hardware needs and which device each output feeds (e.g. the FPGA clock behind the 122.88 MHz NCO and the codec MCLK), decoded with the 5P49V6965 datasheet. Keep "0x68 or 0x6A" as the address. |
+| D4 | I²S format 32-bit, 48 kHz | 50 | Drop as a requirement unless the wiring (Control as I²S master, fixed codec link to another part) forces it; the codec supports other formats per datasheet. Keep "the Control codec is the I²S master". |
+| D5 | H-22 mic keypad "ratio-coded serial" on PI5 | 60 | Keep as a description of the microphone's signal (a property of the H-22), not of a decoder; replace it later by a measured description (levels, bit timing). |
+| D6 | Inter-link: SLIP framing, 460800 8N1, message types 0x01–0x03, 20 ms client tick | 70 | Remove from the HIS and keep it on the RE side (`re/analysis/docs/`): the first product is a headless Main (EH) without a stock Control, and ES is only a low-priority robustness test. Keep only "Main USART2 is wired to Control USART2 over the CTRL cable". "RX uses circular DMA" is stock implementation and should go in any case. |
+
+Points noticed while applying the review, outside the named items (already
+applied, listed here for the second read): the 0x00 command's "boot bus-check
+writes/reads 0–255" is now "a written byte reads back"; DRDY "runs the sample
+routine" is now "signals sample data ready"; the RX "192-sample blocks" and
+"decimated to the 48 kHz chain" (stock buffering and DSP) were removed; the
+GT911 "reads a 186-byte config block + checksum" (stock behaviour) was removed;
+the AXP223 "register writes, then a 256-byte dump read" became "register
+interface (datasheet)". The PH5 pull-up seen so far is the MCU's internal
+pull-up as configured by stock; whether the board has an external one is not
+measured (noted in 20).
+
+## Gate review 1: changes applied
+
+Applied by the openg7250-emu session (RE side). **Status stays "not yet
+cleared"**: the Decide items are open and the second, independent read has
+not happened.
+
+| Commit | Branch | Change |
+| --- | --- | --- |
+| e0d54c4 | his/integrate | All Remove items applied (10, 20, 30, 40, 50, 60, 80); README and 00-overview rewritten for the umbrella (product/firmware, re/emu, re/analysis, product spec protocol-neutral; no IP-review condition); every section states its evidence and where a fact rests only on disassembly; Decide items unchanged and marked; 70 untouched. |
+| a3fe5f1 | emu/integrate | "Emulator status", "Original note", "M3 attempt finding", "M3 approach pinned" moved from 80-rf-fpga.md to `re/emu/docs/FPGA-model-notes.md`, text unchanged. |
+| (this commit) | his/integrate | Decide items with recommendations; this section. |
+
+Evidence: no kept fact rests on an emulator observation alone or a datasheet
+alone yet; most still rest on disassembly (g7250-base) with an emulator
+observation confirming the address, pin or bus where one exists. Hardware
+measurements (T0 observations, crystal markings, panel and input wiring) are
+the way to retire the "rests on disassembly" notes.
+
 ## Next steps
 
-1. Apply the Remove and Move items, and rewrite the README (RE side).
+1. ~~Apply the Remove and Move items, and rewrite the README (RE side).~~ Done, see "Gate review 1: changes applied".
 2. Decide the Decide items (ON8ST).
 3. Second, independent read; then mark this review **cleared** and update the
    root README status for `his/`.
