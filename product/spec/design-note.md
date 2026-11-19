@@ -3,6 +3,7 @@
 - Version: draft 1, 2026-11-19
 - Status: draft for review by ON8ST
 - Structure: as agreed in 0001, amended by decisions 0002–0017.
+- © 2026 ON8ST. Licensed under CC BY 4.0 (see `LICENSE.md`, decision 0018).
 - The normative interface is in `spec/network-interface.md` (not yet written). This note
   describes the product; it does not define the protocol.
 

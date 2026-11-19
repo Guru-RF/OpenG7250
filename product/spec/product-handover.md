@@ -30,6 +30,7 @@ on 2026-11-19, as recorded in `decisions/`.
 | 0015 | Host that does not know the board type: RX only; TX needs an arm in the G7250 register map | accepted |
 | 0016 | Level 1 uses openHPSDR Protocol 2 instead of Protocol 1; AetherSDR P2 support built by us if needed | accepted. Revises 0001, 0009, 0011; 0005 and 0015 rewritten |
 | 0017 | G7250-P2 offers no DDC audio stream (port 1028); frees one of the 8 CH394Q sockets | accepted |
+| 0018 | Licences: documents CC BY 4.0, firmware GPL-3.0-or-later (Apache-2.0 if the vendor SDK forbids GPL), AetherSDR backend GPL-3.0; © ON8ST | accepted |
 
 Numbers 0003, 0004 and 0006–0008 are reserved for: capability block,
 streams and sample rates, telemetry, watchdog and safety (including the TX arm from 0015),
