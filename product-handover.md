@@ -1,0 +1,65 @@
+# Product handover (g7250-spec → product/spec/)
+
+Date: 2026-11-19. Source of everything below: the start brief and the discussion with ON8ST
+on 2026-11-19, as recorded in `decisions/`.
+
+## Where things stand
+
+- All work is on the local branch **`docs/initial-structure`**, not merged into `main` and
+  not pushed. When the move into the main repo used `main`, this branch still has to be
+  brought over.
+- Neither document has been written yet. Only the structure was agreed, plus several
+  decisions. `design-note.md`, `spec/`, `sources.md` and `open-questions-his.md` do not
+  exist yet.
+- No technical P1 or TCI details have been checked against public sources yet. Everything
+  about frames, ports and board ids is still unverified.
+
+## Decisions
+
+| #    | Title | Status |
+|------|-------|--------|
+| 0001 | Structure of the design note and the network-interface spec | proposed. ON8ST called it "a strong starting point". Its open points are tracked in the file. |
+| 0009 | Stay as close to standard Protocol 1 as possible | accepted |
+| 0010 | No compatibility modes for now (HL2 rejected, ANAN out of scope for now) | accepted |
+| 0011 | Two-level product interface: L1 G7250-P1 / L2 TCI with on-board DSP. Single owner, shared safety core, L2 only after gate G6 | accepted |
+| 0012 | Every integration supports full functionality including TX; no SoapySDR module | accepted |
+
+Numbers 0002–0008 are reserved for: board-id value, capability block, streams and sample
+rates, C&C standard vs extensions, telemetry, watchdog and safety, management channel.
+
+## Open questions for ON8ST
+
+1. **Integration route for level 1 (becomes 0013).** Options presented:
+   - (1) Native support in existing P1 applications through upstream patches.
+   - (2) AetherSDR as integration hub (TCI/CAT/rigctl).
+   - (3) A host-side bridge that does the DSP and offers the same TCI interface as level 2.
+
+   Recommendation: (3) as the main route, (1) as an extra. Also open: should the bridge be a
+   separate program or a mode of AetherSDR? If WDSP is used, the GPL licence has to be
+   decided explicitly.
+2. **C&C:** reuse HL2-style extensions where they fit (recommended), or standard P1 plus own
+   addresses? This becomes 0005.
+3. **Unknown board id:** should a host that does not know the board id still get RX-IQ
+   (generic P1)?
+4. **0001:** to be marked accepted once the points above are settled.
+
+## Open questions for the HIS (to put into `open-questions-his.md`)
+
+- ADC type and sample clock: which sample rates are feasible?
+- Sensors: forward/reflected power, SWR, temperature, supply voltage.
+- ATU control.
+- Antenna and filter switching.
+- Where PTT and TX interlock sit.
+- Compute resources (DSP/FPGA/MCU), memory, network stack (TCP, WebSocket). These are
+  needed for gate G6.
+
+## Next step
+
+1. Get ON8ST's answer on the integration route and record it as 0013.
+2. Create `sources.md`, collecting and checking the public sources: P1 documentation, HL2
+   documentation, the TCI spec (version and terms of use), and the G7250 product
+   specifications and manual.
+3. Write `design-note.md` (both levels, milestones M1–M7 and G6, out-of-scope list as
+   amended by 0010–0012).
+4. Write spec part B (level 1, starting with M1: discovery, capability block, RX-IQ), with
+   sources cited.
