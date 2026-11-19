@@ -121,6 +121,8 @@ Priority: **M1** = needed for milestone M1 (discovery, capability block, RX-IQ);
 - Added by 0022 §7, §17: is there a PEP detector, or only an average detector? What filter
   time constant does the PA temperature sensor need?
 - Added by 0022 §23: blanking time `t_blank` after unkey for the "RF while not keyed" check.
+- Added by 0022 §43: if the detector gives no PEP, the conservative SSB mean limit
+  `P_ssb_mean` (start value 25 W); whether envelope samples exist for the AM carrier estimate.
 
 ### HIS-12 — Power control and limits (M4)
 

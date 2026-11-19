@@ -1,6 +1,6 @@
 # Glossary — G7250-P2 network interface
 
-- Version: rc1, 2026-11-19
+- Version: rc2 draft, 2026-11-19
 - © 2026 ON8ST, CC BY 4.0 (see `LICENSE.md`)
 
 Terms as used in `network-interface.md`, part C and the annexes. Where a term comes from
@@ -15,6 +15,7 @@ named.
 | **Board type** | Byte 11 of the P2 discovery reply; 200 (0xC8) for G7250-P2. | [P2], 0002 |
 | **Host** | Software on the network that talks to the radio (for example AetherSDR). | [P2] |
 | **Session** | Level 1: starts when a host sets RUN (High Priority byte 4 bit [0]) from 0 to 1 while no session runs, or takes over a running session; a discovery is not required. Ends when RUN is cleared, at watchdog expiry, takeover, link loss or a link below 100 Mbit/s, the start of a firmware update, a level change or a reset (A2.3). On TCI, the TCI session ends when the last client disconnects, on a level change or a reset (part C C5.10.1). | [P2] "Detailed operation", 0007, 0022 §3, §32 |
+| **Set-up phase** | Level 1: while no session runs, the latest General, DDC-specific and DUC-specific packets of each source (up to 4) are kept; they count for the session that source starts with its run bit, and the others are discarded then (B5.1a). | [P2] "Detailed operation", 0022 §34 |
 | **Owner** | The host whose control packets the radio follows, identified by IP address and UDP port. At most one owner at a time. | 0007, 0011 |
 | **Takeover** | A different host (other IP address or other port) sending control packets while another host is owner. Always allowed; always unkeys and disarms. | [P2], 0007 |
 | **C&C / control packets** | The four P2 host-to-radio "Control Elements" packets: General, DDC-specific, DUC-specific, High Priority. They feed the watchdog. Register-map packets are not C&C. | [P2], 0003, 0007 |
@@ -26,8 +27,11 @@ named.
 | **Mode class** | Host-declared class of the transmitted signal (for example AM vs. SSB/CW/FM), used to apply per-mode limits. Required before arming. | 0007 |
 | **Keyed** | Armed and transmitting (transmit bit set and accepted). | 0007 |
 | **Key rule** | The radio keys only on a 0→1 edge of a TX request at a moment when every key condition holds; a refused request is never latched (A3.1a). | 0007, 0022 §24 |
+| **RF-path state** | The setting of filters, band relays, ATU in/out and network, and antenna. Unkeyed it follows the receive frequency; at every key it is switched to the state for the TX frequency first, while unkeyed (A3.1b). | 0022 §33 |
+| **Continuous TX** | For the maximum TX time: from a key to the unkey after which the T/R path returns to receive; CW gaps shorter than the hang delay do not end it (A3.4d). | 0007, 0022 §51 |
 | **Tune cycle** | An internal ATU tune: starts only from unkeyed, runs at the tune power, owns the key throughout and ends unkeyed; the only time ATU relays move under RF (A3.9b). | 0007, 0022 §22 |
 | **Keyed timeout** | 500 ms without a High Priority packet while keyed: the radio unkeys, the arm stays. | 0007 |
+| **Commanded reset** | A reset caused by a management command (`RESTART`, `FACTORY_RESET`, `UPDATE_ACTIVATE`, `ROLLBACK`) or the abandoned-update timeout: unkey, RF gone, disarm, relays safe, then reset (A1.9). | 0022 §40 |
 | **Maximum continuous TX time** | 5 min default: the radio unkeys, the arm stays. A host may set it stricter. | 0007 |
 | **Disarm** | Leaving the armed state; the host must arm again. Each disarm has a reason code. | 0007 |
 | **Fault (class 1 / class 2)** | Class 1: cleared by the host once the condition is gone. Class 2: cleared only by reset. RX continues during a fault. | 0007 |

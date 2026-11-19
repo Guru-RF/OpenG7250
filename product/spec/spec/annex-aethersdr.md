@@ -1,6 +1,6 @@
 # Annex — Changes needed in AetherSDR
 
-- Version: rc1, 2026-11-19
+- Version: rc2 draft, 2026-11-19
 - Status: draft for review by ON8ST. Informative annex to `spec/network-interface.md`
   (0001, spec section 13; 0013, 0014, 0016).
 - © 2026 ON8ST, CC BY 4.0 (see `LICENSE.md`, decision 0018).
@@ -12,7 +12,7 @@ github.com/aethersdr/AetherSDR, at commit `9f7cbebcc976b7b798a33dd5a9fc491548d1b
 AetherSDR is GPL-3.0 [AETHER]; this annex quotes no AetherSDR code, only describes it.
 Line numbers are those of that commit and will drift.
 
-Spec sections cited as "B3.4" and similar refer to `spec/network-interface.md` rc1 of
+Spec sections cited as "B3.4" and similar refer to `spec/network-interface.md` rc2 draft of
 2026-11-19.
 
 ---
@@ -189,7 +189,7 @@ These parts of the ANAN P2 code already match the G7250 and need no change, only
 | Item | AetherSDR | G7250 |
 |------|-----------|-------|
 | Discovery request and reply parse | `P2Protocol.cpp:47–77` | 60-byte short reply, bytes 0–3 zero (B3.2, B3.3; 0003 §1) |
-| General byte 38 bit [0] = 1, byte 39 = 0 | `P2Protocol.cpp:87–90` | watchdog on, required for arming (0007 §2.3); BE 3-byte (0004 point 1) |
+| General byte 38 bit [0] = 1, byte 39 = 0 | `P2Protocol.cpp:87–90` | watchdog on, required for arming (0007 §2.3); BE 3-byte (0004 point 1). Not yet compatible: byte 58 bit [0] (PA enable) is not among the bytes AetherSDR sets (§2.2; the backend is RX-only, `P2Protocol.h:17–20`), and checked: the 60-byte General packet is zero-initialised and only bytes 4, 37, 38 and 39 are set (`P2Protocol.cpp:79–93`), so byte 58 = 0; while it is 0 no TX request keys (B7 Table B7-1; B10.10); see G-08a, G-08b |
 | DDC I&Q parse, 24-bit, length from bytes 14–15 | `P2Protocol.cpp:303–329` | 238 samples, 1444 bytes; host must read bytes 14–15 (B6.4) |
 | DDC0 from source port 1035 to the discovery source port | `P2Protocol.h:43–63`; `P2Client.cpp:156` | B2.4, B6.1 |
 | Sample size 24 written explicitly | `P2Protocol.cpp:127` | B6.5 Table B6-2, byte 22 |
@@ -336,7 +336,8 @@ These parts of the ANAN P2 code already match the G7250 and need no change, only
 - **Required.** DUC0 I&Q to port 1029, 192 ksps, 24 bits, 240 samples per packet, 1444-byte
   packets; a DUC-specific packet with rate 192 and 24 bits, else DUC I&Q is not accepted and
   TX is refused (0004 points 2 and 7; [P2] DUC I&Q packet, NOTE2). Drive level in High
-  Priority byte 345 (0005). A DUC FIFO underflow longer than a hardware-dependent time (TBD, HIS-18) unkeys, arm kept (0007 §2; B10.5).
+  Priority byte 345 (0005). General byte 58 bit [0] (PA enable) set: while it is 0 no TX
+  request keys, and clearing it while keyed unkeys (B10.10; Table B7-1; 0022 §14). A DUC FIFO underflow longer than a hardware-dependent time (TBD, HIS-18) unkeys, arm kept (0007 §2; B10.5).
 - **Today.** No DUC code in the P2 backend (`P2Protocol.h:17–20`). The HL2 chain outputs
   48 kHz (`Hl2TxDsp.h:56`) into a P1 queue of 126-sample packets (`MetisProtocol.h:471`;
   `MetisClient.h:421–439`).
@@ -344,7 +345,8 @@ These parts of the ANAN P2 code already match the G7250 and need no change, only
   configurable); a DUC I&Q packet builder (sequence number plus 240 × 6 bytes); a pacer at
   800 packets/s on the I/O thread, with priming, silence on underflow and drop-oldest on
   overflow as in `MetisClient`; the DUC-specific packet to port 1026; the DUC frequency in
-  High Priority bytes 329–332 in the encoding of G-11; drive level. A sideband/handedness
+  High Priority bytes 329–332 in the encoding of G-11; drive level; General byte 58 bit [0]
+  = 1 in the set-up General packet (not set today, §3.1). A sideband/handedness
   check against an external receiver, as upstream plans for its own Phase 3
   (`docs/architecture/anan-p2-backend-design.md:402–406`).
 
@@ -354,7 +356,9 @@ These parts of the ANAN P2 code already match the G7250 and need no change, only
   `token XOR ARM_MAGIC` to `TX_ARM` and waits until `TX_ARM_STATE` shows armed with a new
   generation number. After that, the radio keys only on a 0→1 edge of High Priority byte 4
   bit [1] that arrives after the confirmation. Preconditions include RUN set, watchdog bit
-  set, no fault, PTT bit 0 at the arm moment, level 1 active. Every drop issues a new token;
+  set in a General packet of the session or of its set-up phase, General byte 58 bit [0]
+  (PA enable) set for keying, no fault, PTT bit 0 at the arm moment, level 1 active (B10.2
+  item 3; A3.1a). Every drop issues a new token;
   the host must re-arm with it. The class must be updated on every mode change; AM class
   carries the 25 W limit. (0007 sub-decision 1, rules 1–5; sub-decision 4 rule 3.)
 - **Today.** The gate is a host-side boolean (`MetisClient.h:379–391`) and the engine guard
@@ -365,6 +369,16 @@ These parts of the ANAN P2 code already match the G7250 and need no change, only
   confirmed arm and `tx` bit 1 of the record. Map each host TX mode to a mode class and
   write it before arming and on every change. Send PTT = 0 until the confirmation, then a
   fresh 0→1 edge. A user-visible arm control (see Q-O3).
+- **Set-up phase** (B5.1a; 0022 §34). AetherSDR sends the General packet at set-up, before
+  the run bit, and its keepalive is the High Priority packet (§2.2; `P2Client.cpp:156–170`,
+  `:547–556`). The radio keeps that General packet (byte 38 bit [0], byte 58 bit [0], byte 39)
+  and the DDC-specific and DUC-specific packets for the session the run bit starts, so
+  AetherSDR need not resend them; it must resend the General packet after every session end
+  before it arms again (for example after a restart with the run bit only). The capability
+  record arrives once, unasked, at the session start (B4.4 item 2).
+- **High Priority sequence numbers** (B11.6a; 0022 §35). Number the High Priority packets
+  from 1 upwards, so that the radio discards a reordered or duplicated packet; with all
+  numbers 0 a PTT edge after less than 10 ms of PTT 0 is ignored.
 
 ##### G-08c High Priority refresh ≤ 100 ms while keyed; 500 ms keyed timeout — S
 
@@ -490,6 +504,14 @@ These parts of the ANAN P2 code already match the G7250 and need no change, only
   one TCI client onto the one P2 arm; write `TX_ARM` = 0 only when no holder remains (0021 §24).
   Broadcast `TRX:0,false;`/`TUNE:0,false;` after every radio-side unkey. Never retake the radio
   after a takeover; on a new session rewrite mode class, limits and keyed timeout (0021 §26).
+- **Added by the final rc1 review (0022 §33–§51).** Accept two holders of the one P2 arm, the
+  user interface and one TCI client, which joins without a new P2 arm; the holder that set
+  `G7250_TX_POLICY:holder` owns it (C5.5.5.1, C5.5.8; 0022 §46). Never start a session on a TCI
+  `START` while discovery answers 0x03 without the user's confirmation (C4; 0022 §47). Stop C&C
+  at once on a `TAKEOVER` notice and when the radio's streams restart at sequence 0 by
+  themselves (A2.4; C7.2.1; 0022 §48). Report `update` and `link` stream reasons and the
+  firmware-update state to TCI clients (C2.8, C5.11). Pass `NOT_KEYABLE` for a refused
+  `G7250_ATU_TUNE` on (C5.7).
 - **Added by the second review (0022 §22–§32).** Treat ownership as lost and stop C&C when
   neither DDC0 nor status packets arrive for more than 200 ms (A2.4; C7.2.1); expect the final
   `TX_ARM_STATE` (`TAKEOVER`) up to three times. Map TCI `STOP` to clearing the P2 run bit
@@ -671,4 +693,4 @@ None new. G-07, G-08 and G-11 depend on HIS-01, -04, -11, -12 and -18, already o
 - [TCI] Transceiver Control Interface 2.1 (version, `TRX_COUNT`, `PROTOCOL`).
 - [G7250-MAN] Xiegu G7250 Operation Manual rev 0.1 (modes, AM power).
 - Decisions 0002, 0003, 0004, 0005, 0006, 0007, 0008, 0012, 0013, 0014, 0015, 0016, 0017,
-  0018; `spec/network-interface.md` draft 4 (A, B); `design-note.md`.
+  0018; `spec/network-interface.md` rc2 draft (A, B); `design-note.md`.

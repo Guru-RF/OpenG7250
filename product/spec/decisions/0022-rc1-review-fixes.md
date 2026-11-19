@@ -255,8 +255,9 @@ unkey and disarm, always in the order of A3.2 (unkey, disarm, new token, push). 
 - Firmware update: refused while armed or transmitting (0008 U-1, unchanged).
 - Every other command leaves the TX state alone.
 
-0008 U-1 "cannot disarm … for them" is read as: an update does not disarm; the owner
-disarms first.
+This amends 0008 U-1 ("cannot disarm … for them"): management MAY unkey and disarm through
+the commands above; an update itself never disarms, the owner disarms first (stated so in A1.9;
+§51 item 8).
 
 - Alternative: refuse `RESTART` and `FACTORY_RESET` with status 50 while keyed. For: a
   management tool cannot cut a QSO. Against: a remote restart is the last way to stop a radio
@@ -746,8 +747,10 @@ only on user action. For AetherSDR this is C7.2.1.
 - Alternative: a takeover notice with acknowledgement. For: reliable. Against: the radio would
   keep state for a host that is no longer the owner; [P2] has no such packet.
 
-**Reason.** Repetition covers a single loss; the 200 ms rule covers the rest, since the
-status packet comes every 50 ms (B9.4).
+**Reason.** Repetition covers a single loss of the notice. Corrected by §48: the 200 ms rule
+does not prevent a retake by C&C that the old owner sent before it saw the notice; §48 adds the
+repeated notice, the stop-at-once rule and the sequence-0 sign, and states the remaining race as
+a known limit.
 
 ## 30. TCI drop reasons in Table B8-3 (review N-M7)
 
@@ -807,6 +810,375 @@ below it and can be corrected by the same authenticated path that set it.
 7. **Glossary and C8.2 wording (L9).** "Session" follows A2.3 (run bit; discovery not
    required). C8.2 no longer speaks of a "generic arm holder": the holder has opted in.
 
+## 33. RF-path state for the TX frequency at every key (final review H1)
+
+**Problem.** A3.1a lists no condition on the RF path. A3.9 only acts on a TX-frequency change
+*while keyed*. With split or cross-band operation (DDC0 at 7.1 MHz, DUC0 at 14.2 MHz [P2] High
+Priority bytes 9–12, 329–332; TCI channel A and B with split, [TCI] §4.2 SPLIT_ENABLE) the radio
+could key into the low-pass filter, band relays, ATU network or antenna set for the receive
+frequency.
+
+**Chosen rule.** A3.1a gets a key condition: the RF-path state (TX low-pass filter, band
+relays, ATU in/out and network, antenna where it depends on the band) is the one required for
+the effective TX frequency in force (DUC0; the TCI TX frequency). A3.1b: while unkeyed the
+state follows the receive frequency (DDC0; `DDS`); at every key, if the state differs, the
+radio switches unkeyed, waits until settled (A3.9a item 2) and then keys, with the bounded
+wait of A3.9a item 3; at the unkey it returns to the receive state once RF is gone. If HIS-07
+shows a TX low-pass filter outside the receive path, it MAY stay set for the TX frequency
+while unkeyed. Part C C7.6.1 item 4 and C7.6.2 apply the same on TCI.
+
+- Alternative A: while unkeyed the state follows the TX frequency. For: no relay movement and
+  no settle delay at each key in split. Against: the radio receives through the filter and ATU
+  network of another band, which degrades receive, the use that runs all the time.
+- Alternative B: refuse a key whose TX frequency needs another state than the one in use. For:
+  no relay timing at the key. Against: split cross-band would never key; the host cannot tell
+  why.
+
+**Reason.** Receive is the continuous state; the extra `t_settle` (HIS-07) at a cross-band key
+is the price of never keying into a wrong filter.
+
+## 34. Set-up phase: packets before the run bit count for the session (final review H2)
+
+**Problem.** B5.6 and B10.2 item 3 accept an arm only after a General packet "in this session"
+with byte 38 bit [0] set, and the session starts with the run bit (A2.3). [P2] has the host send
+General, DDC-specific and DUC-specific packets before the High Priority packet with run ([P2]
+"Detailed operation"; packet introductions; B5.1), and AetherSDR sends the General packet only
+at set-up (`annex-aethersdr.md` §2.2: the keepalive is the High Priority packet). A standard host
+could never arm; General byte 58 bit [0] (PA enable) and byte 39 would also be lost.
+
+**Chosen rule.** B5.1a: while no session runs, the G7250 keeps the latest General, DDC-specific
+and DUC-specific packet of each source (IP address and port) since the last session end, for up
+to 4 sources (least recently heard evicted). When a host starts a session with its run bit, its
+kept packets count for that session, in order, before the run packet. Kept packets of other
+sources are discarded at that moment. At every session end the set is emptied. Nothing is kept
+on level 2 or from outside the subnet (§49). B5.2, B5.6, B10.2 item 3, T-B5-14 (extended to the
+B5.1 order) and T-B5-15 follow; Annex X2 C18.
+
+- Alternative A: keep only the latest set-up packets, from any source. For: one slot. Against:
+  set-up from another host (or a spoofed one) would count for the owner.
+- Alternative B: keep the set-up across a session end for the same host. For: a restart with
+  the run bit only ([P2] "Detailed operation", restart path) could arm at once. Against: state
+  from an ended session carries over; the host is told by `WATCHDOG_DISABLED` and resends one
+  General packet.
+
+**Reason.** It makes the [P2] order work as written and binds the set-up to the host that then
+owns the session.
+
+## 35. Reordered or duplicated High Priority packets (final review M1)
+
+**Problem.** B2.7 and B11.6 never reject a packet for its sequence number. A reordered or
+duplicated High Priority packet (PTT 1 arriving after a newer PTT 0) makes a false 0→1 edge and
+keys the radio. [P2] gives the host's High Priority sequence number as 0x00000000.
+
+**Chosen rule.** B11.6a: once the owner's High Priority packets carry a non-zero sequence number
+in a session, a packet that is not newer than the last accepted one, in 32-bit serial-number
+arithmetic (RFC 1982), is discarded and counted; the comparison restarts at each session start
+and takeover. Hosts SHOULD number from 1. With numbers 0 (as [P2]), a PTT or CWX 0→1 edge counts
+only after the bit has read 0 for at least 10 ms; the remaining risk (a packet more than 10 ms
+late) is stated as a known limit. Annex X1 D28.
+
+- Alternative A: no check; rely on the LAN. For: [P2] as written. Against: one duplicated
+  packet keys 100 W.
+- Alternative B: a longer minimum PTT-off time (for example 50 ms) in both cases. For: covers
+  later packets. Against: cuts fast PTT-keyed CW (a dot gap at 60 wpm is 20 ms) and is not
+  needed for numbered hosts.
+
+**Reason.** Numbered hosts get an exact check; unnumbered hosts get a guard that costs nothing
+at normal keying speeds.
+
+## 36. CWX bits of High Priority byte 5 (final review M2)
+
+**Problem.** Table B7-2, B10.1, B10.5a and D26 treat byte 5 bit [0] as the key. [P2] (High
+Priority packet byte 5, p. 34) defines bit [0] as "CWX", which selects CW from the host, and bits
+[1] and [2] as dot and dash, sent at the keyer speed. The key-down cap was put on the wrong
+bit.
+
+**Chosen rule.** With bit [0] set, bits [1] and [2] are the paddle inputs of the radio's keyer,
+which forms the elements at the keyer speed and weight (DUC-specific bytes 9–10). The TX request
+is asserted while bit [0] and bit [1] or [2] are 1; its 0→1 edge is the key edge. With bit [0]
+clear, bits [1] and [2] are ignored. The 1 s cap applies to the time either paddle bit is held,
+whichever bit, also while the keyer is between elements. Annex X2 C19; Table B7-2 rows 5, B10.1,
+B10.5a, B10.9, D26.
+
+- Alternative: treat bit [0] alone as a straight key. For: simple. Against: not what [P2]
+  says; a host that sets bit [0] to select CW would key the carrier.
+
+**Reason.** Follow [P2]; the cap guards against a cached paddle bit, which is the hung-host
+case of §25.
+
+## 37. TX edge while relays move or settle from an earlier change (final review M3)
+
+**Problem.** A3.9a item 3 waits only for changes in the *same* packet. A host that moves DUC0 in
+one High Priority packet and sets PTT in the next (10 ms later [P2] "Detailed operation",
+100 ms rate) finds the relays still settling; A3.1a then refuses the edge, which is not latched,
+and the host's PTT is lost.
+
+**Chosen rule.** The bounded wait covers every edge that arrives while an RF-path change is
+pending, moving or settling, whatever the cause: same packet, earlier packet, the key-time
+switch of §33, or right after an unkey. Bound: `t_rf_off` + `t_settle` from the edge (HIS-07,
+HIS-12). A further RF-path change during the wait, or reaching the bound, refuses the request
+(not latched). Part C C7.6.5.
+
+- Alternative: refuse every edge while relays move, and say so. For: no deferred request.
+  Against: ordinary hosts lose PTT presses after a band change, with no way to see why.
+
+**Reason.** The wait is short and bounded and keeps the one rule of A3.1a: keying happens only
+when every condition holds.
+
+## 38. ATU state after a tune that did not end tuned (final review M4)
+
+**Problem.** After a failed, aborted or time-limited tune cycle, or a takeover during it, the
+ATU network is undefined; nothing says whether `ATU_STATE` = 4 blocks keying.
+
+**Chosen rule.** Once RF is gone the ATU returns to the stored state for the TX frequency if one
+exists (HIS-08), else to bypass. `ATU_STATE` = 4 means "the last tune did not end tuned; ATU at
+the stored state or bypassed" and stays until the next tune cycle or an in/out change. It does
+not block keying. A3.9b item 7; Table B8-2; part C C5.7.
+
+- Alternative: block keying until a new tune or a bypass. For: no TX into an unknown match.
+  Against: the network is no longer unknown after the restore; the SWR limits of Table A3-2
+  protect the PA; an operator with a good antenna would be stopped for nothing.
+
+**Reason.** A defined network plus the SWR limits is safe; blocking adds no protection.
+
+## 39. `ATU_TUNE` retries (final review M5)
+
+**Problem.** B8.4 lets a host repeat a write after 100 ms without an answer and calls repeated
+writes harmless. A retried `ATU_TUNE` = 1 that arrives after a short cycle has ended starts a
+second tune carrier.
+
+**Chosen rule.** A start within 2 s after the end of the previous cycle is a no-op, answered
+with the value in force and `ATU_STATE`; the same on TCI (`G7250_ATU_TUNE`). B8.4 is reworded.
+
+- Alternative: require the host to read `ATU_STATE` before a retry. For: no timer. Against:
+  relies on every host; the radio cannot enforce it.
+
+**Reason.** 2 s covers several 100 ms retries; a deliberate second tune waits 2 s.
+
+## 40. Commanded resets wait until RF is gone (final review M6)
+
+**Problem.** `RESTART` and `FACTORY_RESET` unkey and reset (A1.9), but nothing makes the reset
+wait for RF to decay; during a reset the state of the PA, SEND and relay lines is not known
+(HIS-13), so relays could move under RF.
+
+**Chosen rule.** Every commanded reset (`RESTART`, `FACTORY_RESET`, `UPDATE_ACTIVATE`,
+`ROLLBACK`, the abandoned-update restart of §51) runs: reply, unkey, RF gone (`P_rf_off` or
+`t_rf_off`, A3.9a item 1), disarm and push, relays to the A3.6 state only after RF is gone,
+then reset. A1.9, A3.6, Table A1-2.
+
+- Alternative: reset at once and rely on the hardware reset state. For: simplest. Against:
+  HIS-13 is open; the relay sequence of §23 would not hold.
+
+**Reason.** The same relay rule as every other unkey.
+
+## 41. One drop reason for a limit trip with action `FAULT` (final review M7)
+
+**Problem.** A limit trip with action `FAULT` was both Table A3-1 event 6 (`FAULT`) and event 7
+(`LIMIT_<name>`); Table B8-3 and C5.5.5 gave two reasons.
+
+**Chosen rule.** Event 7 covers only the action `DISARM` (no limit of Table A3-2 has it in this
+version); a trip with action `FAULT` is event 6, drop reason 6 `FAULT`, with the cause in
+`FAULT_CODE`. Table A3-1, Table B8-3, C5.5.5 rows 7 and 8.
+
+- Alternative: drop reason 0x40 + limit id and the fault code in `FAULT_CODE`. For: the limit
+  is visible in the drop reason. Against: the same fault (`PA_OVERTEMP`) would give different
+  drop reasons depending on the path; `FAULT_CODE` already names the cause.
+
+**Reason.** One reason per event; the fault registers carry the detail.
+
+## 42. Under-voltage recovery (final review M8)
+
+**Problem.** Table A3-2 gives "inside range for 2 s" as recovery for the supply, but only the
+over-voltage `UNKEY` held an inhibit, so after an under-voltage `UNKEY` a new TX request could
+key at once on a sagging supply.
+
+**Chosen rule.** An under-voltage `UNKEY` also holds an inhibit until the supply has been inside
+the range for 2 s; `LIMIT_INHIBIT` bit 5 covers both. An under-voltage `REDUCE` holds none.
+
+- Alternative: no inhibit after under-voltage. For: the operator can retry at once. Against:
+  the supply recovers as soon as the load is gone, so keying again trips again and the radio
+  oscillates between key and unkey.
+
+**Reason.** The 2 s recovery already in Table A3-2 needs the inhibit to mean anything.
+
+## 43. Power measurement for AM and for a mean-only detector (final review M9)
+
+**Problem.** A3.4c applied the 25 W AM limit [G7250-MAN] to the 100 ms mean. A 25 W carrier with
+100 % sine modulation has a mean of 37.5 W (carrier × (1 + m²/2)) and a PEP of 100 W, so a
+correct AM signal was reduced. And "the mean is used for every class" when the detector gives no
+PEP lets SSB peaks far above 100 W. T-B10-06 tested only an unmodulated carrier.
+
+**Chosen rule.** Where the detector gives envelope samples (HIS-11), AM uses a carrier estimate,
+the square of the mean envelope amplitude over 100 ms, at most 25 W, plus PEP at most 100 W.
+Without envelope samples AM uses mean at most 25 W. Without PEP: CW and FM mean at most 100 W,
+SSB mean at most `P_ssb_mean`, starting value 25 W (6 dB PEP-to-mean), final HIS-11, HIS-12.
+T-B10-06, T-A3-32, T-A3-33, part C C5.6, T-C5-09, T-C8-14.
+
+- Alternative A: mean at most 37.5 W together with PEP at most 100 W. For: needs only mean and
+  PEP. Against: an unmodulated carrier could reach 37.5 W, 50 % over the 25 W rating.
+- Alternative B: carrier from the envelope minimum or a longer window. For: simple hardware.
+  Against: the minimum is 0 at 100 % modulation; a longer window delays the limit.
+
+**Reason.** The mean envelope amplitude is the carrier amplitude for any modulation that
+averages to zero; the fallbacks err on the low side.
+
+## 44. Network configuration change while armed (final review M10)
+
+**Problem.** A `SET_CONFIG` C-1 change of the radio's address is applied after the reply (A1.6)
+but was not listed in A1.9 or Table A3-1, unlike P2 Set IP (drop event 9).
+
+**Chosen rule.** A C-1 change of address or netmask ends a running session (A2.3) and, while
+armed, is drop event 9 (`SESSION_CHANGED`); it is applied after the reply and after RF is gone.
+On TCI it is C5.5.5 row 14.
+
+- Alternative: refuse C-1 while armed (status 50). For: no session cut by management.
+  Against: P2 Set IP cannot be refused (0008 point 6), so the radio can lose its address while
+  armed anyway; two rules for one effect.
+
+**Reason.** Same handling as Set IP; management only makes the radio safer (§8).
+
+## 45. Firmware update while level 2 is active (final review M11)
+
+**Problem.** A1.8 states the update state for P2 (session ends, `BUSY`, `STREAM_STATUS`
+reason 10); part C had no counterpart for streams, connections and replies on level 2.
+
+**Chosen rule.** Part C C2.8: from `UPDATE_BEGIN` the server stops every stream
+(`G7250_STREAM_STATE` `stopped`, reason `update`), sends `TX_ENABLE:0,false;`, keeps the
+connections open, answers set requests with the value in force and `BUSY`, rejects arm requests
+with `MAINTENANCE` and stream starts with `refused` `update`, and closes every connection with
+1001 just before the commanded reset. On level 1 AetherSDR passes items 1 and 2 on.
+
+- Alternative: close all TCI connections at `UPDATE_BEGIN`. For: simple. Against: clients lose
+  the progress and safety notifications for the whole update and reconnect into a refused
+  state.
+
+**Reason.** The TCI form of the P2 rule: nothing changes, everything is still visible.
+
+## 46. Level-1 holder rules (final review M12)
+
+**Problem.** C5.5.5.1 item 1 (a second valid arm is a no-op; a client becomes holder only after
+a drop) contradicted item 2 and C5.5.7 (AetherSDR's interface and one TCI client both hold);
+how a TCI client becomes holder while the interface holds the arm, and who may lift
+`G7250_TX_POLICY:holder`, were open (0021 §24; T-C5-27).
+
+**Chosen rule.** Item 1 applies between TCI clients. On level 1 the one P2 arm can have two
+holders, the interface and one TCI client; this is the only exception. A TCI client becomes
+holder by a valid `G7250_TX_ARM` while no TCI client holds the arm: with no P2 arm, AetherSDR
+performs the handshake; with the interface holding, the client joins without a P2 write or a
+new generation. The interface joins the same way. Under `holder` both holders key. The **policy
+owner**, the holder that set `holder` (or the remaining holder once it stops), alone may set
+`any`. This refines 0021 §24 items 1 and 2.
+
+- Alternative: one holder only; a TCI arm while the interface holds is refused. For: one rule
+  for both levels. Against: an application such as a logger could never arm while the user has
+  armed in AetherSDR, which 0021 §24 wanted to allow.
+
+**Reason.** Two holders of one P2 arm match how AetherSDR works; the policy owner keeps the
+restriction from being lifted by the other holder (0021 §1).
+
+## 47. TCI `START` on level 1 while the radio is in use (final review M13)
+
+**Problem.** On level 1 AetherSDR maps `START` to its P2 session start (C4). If the radio
+reports 0x03 in discovery byte 4, a TCI client's `START` would take the radio over from another
+host without anyone deciding to.
+
+**Chosen rule.** While discovery answers 0x03, AetherSDR MUST NOT start a session on a TCI
+`START` without confirmation by its own user (C4; C7.2.1; C-C17).
+
+- Alternative: allow it, since [P2] allows any takeover. For: [P2] as written. Against: any
+  TCI client on the LAN could then cut another operator's QSO; A2.4 already asks hosts to warn.
+
+**Reason.** A takeover is a user decision; a TCI command is not a user.
+
+## 48. Takeover race (final review M14)
+
+**Problem.** §29 said that the three repeated notices and the 200 ms host rule "cover the rest".
+They do not: C&C that the old owner sent before it saw the notice is itself a takeover ([P2]
+Discovery reply byte 4 NOTE), so the old owner can take the radio back within one keepalive
+(100 ms), before the 200 ms rule can act.
+
+**Chosen rule.** (1) For 5 s after a takeover, every non-C&C packet from the old owner (DUC I&Q,
+memory-mapped) is answered with one copy of the `TAKEOVER` notice, at most once per 100 ms.
+(2) Host guidance: stop C&C at once on a `TAKEOVER` notice; treat a stream of the session that
+restarts at sequence number 0 without its own stop and run as a sign of a takeover (counters
+restart at every takeover, B2.7), stop C&C and tell the user. (3) Known limit: the exchange ends
+after at most one bounce, possibly with both hosts stopped; neither transmits, because every
+takeover disarms. §29's reason is corrected accordingly.
+
+- Alternative: a hold-off of a few hundred ms in which the previous owner's C&C is not a
+  takeover. For: ends the race in the radio. Against: deviates from 0007 Decision 3 ("takeover
+  … at any time", accepted); a host whose notice was lost would be locked out silently.
+
+**Reason.** Within [P2] and 0007 the race cannot be removed in the radio; it can be made short,
+visible and safe.
+
+## 49. Unasked record and spoofed sources (final review M15)
+
+**Problem.** The capability record (about 1250 bytes) was sent unasked at a host's first
+General packet (B4.4; 0003 §2), not rate-limited: a spoofed 60-byte General packet made the
+radio send it to a victim. A spoofed run bit starts DDC0 to the spoofed address. B11.14 claimed
+the G7250 is "no amplifier".
+
+**Chosen rule.** The unasked record is sent once per session: at the session start if the
+owner's set-up phase holds a General packet (§34), else at its first General packet in the
+session; to the owner's register destination; counted against the `CAP_REQUEST` limit of that
+destination. A General packet outside a session gets no record. P2 C&C, DUC I&Q and
+memory-mapped packets from outside the radio's subnet are discarded (B11.15; D29). B11.14 states
+the in-subnet reflection by a spoofed run bit as a known limit inherent in [P2]. This reads
+0003 §2 ("at the host's first General packet") as "the first General packet of the session".
+
+- Alternative: no subnet rule; state the reflection as a known limit only. For: hosts behind a
+  router keep working. Against: a radio on a forwarded port could be made to stream 18 Mbit/s
+  to any address on the Internet, and could be keyed from there by anyone who sees the token.
+
+**Reason.** The management channel already answers only its own subnet (0008 S4); P2 carries
+the transmitter and gets the same reach.
+
+## 50. AetherSDR annex: PA enable (final review M16)
+
+**Chosen rule.** The annex lists General byte 58 bit [0] (PA enable) as required in G-08a and
+G-08b and marks it in the §3.1 table as not yet set by AetherSDR (taken as 0 until checked),
+since no TX request keys while it is 0 (B10.10; A3.1a). No alternative: this is a statement of
+fact about the spec, not a choice.
+
+## 51. Final-review small fixes (review LOW)
+
+1. **Status for `SWITCH_LEVEL` during an update (L1).** New status 58 "refused while a firmware
+   update is in progress" instead of 35 (another writer). Alternative: 50. Against: 50 means
+   armed or transmitting; a tool would disarm for nothing.
+2. **Register read mechanism (L3).** B8.4a: a register is read from pushes or by writing to it
+   (read-only: answered with the value and `READ_ONLY`); a non-owner can read every register,
+   `TX_ARM_TOKEN` included, through the `NOT_OWNER` echo. Accepted: the token is not a secret
+   (A3.1; 0007 option 1C). Alternative: suppress the value in `NOT_OWNER` answers. Against:
+   the token is visible on the wire to the same host anyway.
+3. **After a takeover (L4).** "Nothing more is sent to the old owner" is limited to stream
+   packets and register pushes; answers to its own requests follow their usual rules.
+4. **General packet on level 2 (L5).** Ignored and counted; no set-up phase on level 2.
+5. **Precedence 57 before 50 (L6).** A region change while a P2 session runs and armed gets 57:
+   ending the session also ends the arm. Alternative: 50 first. Against: after a disarm the
+   tool would still get 57.
+6. **`UPDATE_STATUS` (L7).** A read, answered at any time, also while armed.
+7. **TCI reason codes (L8).** A refused `G7250_ATU_TUNE` gets `NOT_ARMED`, `KEYED`, `BUSY` or the
+   new write reject reason 10 `NOT_KEYABLE` (another key condition of A3.1a fails), also on P2
+   for `ATU_TUNE`. `G7250_FAULT_CLEAR` gets `BAD_VALUE`, `NOT_CLEARABLE` or `BUSY`; any client
+   may send it, because in fault nobody holds the arm. Alternative for `NOT_KEYABLE`: reuse
+   `NOT_ARMED`. Against: misleading while armed.
+8. **0008 U-1 (L9).** §8 is an explicit amendment of 0008 U-1, stated in §8 and A1.9.
+9. **Abandoned update (L10).** After 10 min without an update command (`UPDATE_STATUS`
+   excluded) the update is aborted, logged, and the radio restarts into the running image as a
+   commanded reset (§40). Alternative: stay in the update state until a visit to the radio.
+   Against: a remote radio would stay RX-dead.
+10. **Underrun tolerance (L11).** B10.5 states it: not before the underrun time, unkeyed by the
+    underrun time + 10 ms, which T-B10-11 tests.
+11. **Level 2 below 100 Mbit/s (L12).** Part C C2.9: connections accepted, device not
+    started, streams refused (`link`), arm `NOT_RUNNING`; as level 1 (B5.8). Alternative: allow
+    control and TX audio. Against: two rules for one link; IQ does not fit 10 Mbit/s.
+12. **Continuous TX (L13).** A3.4d: from a key to the unkey after which the T/R path returns to
+    receive; CW gaps shorter than the hang delay do not end it; the key-down cap measures how
+    long one key bit is held.
+13. **"Relays settled" (L14).** The condition excludes the T/R relay and the RX attenuator
+    during TX, which move inside the key sequence of A3.9a item 4.
+
 ---
 
 ## Consequences
@@ -826,6 +1198,16 @@ below it and can be corrected by the same authenticated path that set it.
   and 14 `HOLDER_LOST`; `TX_STATE` unkey reasons 8, 9 and 10. Values `P_rf_off`, `t_rf_off`,
   `t_settle`, `t_blank` and the tune power belong to HIS-07, HIS-08, HIS-11 and HIS-12; the
   survival of counters across a reset to HIS-13.
+- §33–§51 (final review of rc1) are applied in `spec/network-interface.md` rc2 draft (A1.6,
+  A1.8, A1.9, Table A1-3, A2.3–A2.5a, A3.1a, A3.1b, Tables A3-1 and A3-2, A3.4c, A3.4d, A3.6,
+  A3.9a, A3.9b, B2.7, B4.4, B5.1a, B5.2, B5.6, B7, B8.4, B8.4a, Tables B8-2 and B8-3, B10.1,
+  B10.2, B10.5, B10.5a, B10.9, B11.6a, B11.14, B11.15, Annex X1 D10, D26–D29, Annex X2 C18,
+  C19, Annex X3), in `spec/part-c-tci-profile.md` rc2 draft (C2.8, C2.9, C4, C5.5.5,
+  C5.5.5.1, C5.5.8, C5.6, C5.7, C5.10–C5.12, C7.2.1, C7.6, C8.1, C9, C-B13–C-B15, C-C17), in
+  `spec/annex-aethersdr.md` and `spec/glossary.md`. New names for the register map YAML:
+  write reject reason 10 `NOT_KEYABLE`; management status 58; stream-state reasons `update`
+  and `link` (part C enumerations). `P_ssb_mean` belongs to HIS-11 and HIS-12; the filter plan
+  for the receive state (§33) to HIS-07; envelope samples of the detector (§43) to HIS-11.
 - `open-questions-his.md`: HIS-07 (filter plan, which frequencies share an RF-path state),
   HIS-11 (PEP detector, temperature filter), HIS-12 (`P_swr`, `P_temp`, hysteresis) are
   extended by the coordinator; this file does not edit it.

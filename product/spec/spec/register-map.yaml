@@ -120,9 +120,9 @@ registers:
   - name: LIMIT_INHIBIT
     address: 0x0221
     access: "RO"
-    content: "bit *n* (1–15): limit id *n* holds an inhibit (Table A3-2: `LIMIT_PA_TEMP` above T3, `LIMIT_SUPPLY_VOLTAGE` over-voltage); bit 0 and bits 16–31 are 0; `TX_STATE` bit 5 is the OR of all bits"
+    content: "bit *n* (1–15): limit id *n* holds an inhibit (Table A3-2: `LIMIT_PA_TEMP` above T3; `LIMIT_SUPPLY_VOLTAGE` after an over-voltage or under-voltage `UNKEY`, until the supply has been inside the range for 2 s); bit 0 and bits 16–31 are 0; `TX_STATE` bit 5 is the OR of all bits"
     sent: "event"
-    source: "0007 Decision 4; 0022 §32"
+    source: "0007 Decision 4; 0022 §32, §42"
   - name: LIMIT_TX_TIME
     address: 0x0230
     access: "W, owner"
@@ -181,15 +181,15 @@ registers:
   - name: ATU_TUNE
     address: 0x0400
     access: "W, owner"
-    content: "1 starts an ATU tune cycle (A3.9b; a TX request under the arm), 0 aborts; 1 while not armed: `NOT_ARMED`; 1 while keyed by another source: `KEYED`; neither is latched; 1 while the cycle runs: no-op; other values `BAD_VALUE`"
+    content: "1 starts an ATU tune cycle (A3.9b; a TX request under the arm), 0 aborts; 1 while not armed: `NOT_ARMED`; 1 while keyed by another source: `KEYED`; 1 while another key condition of A3.1a fails: `NOT_KEYABLE`; none is latched; 1 while the cycle runs or within 2 s after its end: no-op; other values `BAD_VALUE`"
     sent: "answer"
-    source: "0007 Decision 6; HIS-08; 0020 §8; 0022 §14, §22"
+    source: "0007 Decision 6; HIS-08; 0020 §8; 0022 §14, §22, §39, §51"
   - name: ATU_STATE
     address: 0x0401
     access: "RO"
-    content: "0 off or bypassed, 1 in line, 2 tuning, 3 tuned, 4 failed"
+    content: "0 off or bypassed, 1 in line, 2 tuning, 3 tuned, 4 failed (the last tune did not end tuned; the ATU is back at the stored state or bypassed; stays until the next tune or an in/out change; does not block keying, A3.9b item 7)"
     sent: "event"
-    source: "0006; HIS-08; 0020 §8"
+    source: "0006; HIS-08; 0020 §8; 0022 §38"
   - name: ANT_STATE
     address: 0x0500
     access: "RO"
@@ -259,10 +259,10 @@ code_sets:
         text: "(TCI only: arm holder's connection closed, part C C5.5.5 row 3)"
       - value: 7
         text: "unused"
-      - value: 13
-        text: "and 14 are never set over P2"
       - value: 0x40
-        text: "+ limit id `LIMIT_<name>` (event 7) (0022 §30)"
+        text: "+ limit id `LIMIT_<name>` (event 7: action `DISARM` only"
+      - value: 0022
+        text: "§41) (0022 §30)"
   - set: "Limit id (`TX_STATE` [31:24]; `LIMIT_STATUS` bit *n*; drop reason 0x40 + id)"
     values:
       - value: 1
@@ -380,9 +380,11 @@ code_sets:
         text: "(RF-path change or ATU tune while keyed)"
       - value: 9
         name: NOT_ARMED
-        text: "(B8.4"
+      - value: 10
+        name: NOT_KEYABLE
+        text: "(ATU tune while another key condition of A3.1a fails, A3.9b) (B8.4"
       - value: 0022
-        text: "§22)"
+        text: "§22, §51)"
 management_commands:
   - name: IDENTIFY
     code: "0x0001"
@@ -447,7 +449,6 @@ management_commands:
 tci_commands:
   - name: AGC_GAIN
   - name: AGC_MODE
-  - name: AM
   - name: APP_FOCUS
   - name: AUDIO_SAMPLERATE
   - name: AUDIO_START
@@ -457,7 +458,6 @@ tci_commands:
   - name: AUDIO_STREAM_SAMPLE_TYPE
   - name: CALLSIGN_SEND
   - name: CLICKED_ON_SPOT
-  - name: CW
   - name: CW_KEYER_SPEED
   - name: CW_MACROS
   - name: CW_MACROS_DELAY
@@ -470,29 +470,11 @@ tci_commands:
   - name: CW_MSG
   - name: CW_TERMINAL
   - name: DDS
-  - name: DIGL
   - name: DIGL_OFFSET
-  - name: DIGU
   - name: DIGU_OFFSET
   - name: DRIVE
   - name: ECODER_SWITCH_CHANNEL
   - name: ECODER_SWITCH_RX
-  - name: G7250_ANT
-  - name: G7250_ATT
-  - name: G7250_ATU
-  - name: G7250_ATU_STATE
-  - name: G7250_ATU_TUNE
-  - name: G7250_FAULT_CLEAR
-  - name: G7250_KEEPALIVE
-  - name: G7250_KEYED_TIMEOUT
-  - name: G7250_LIMIT
-  - name: G7250_LIMIT_STATUS
-  - name: G7250_PREAMP
-  - name: G7250_SAFETY
-  - name: G7250_TX_ARM
-  - name: G7250_TX_ARM_STATE
-  - name: G7250_TX_ARM_TOKEN
-  - name: G7250_TX_STATE
   - name: HW_SENSORS
   - name: HW_SENSORS_ENABLE
   - name: IF
@@ -504,12 +486,10 @@ tci_commands:
   - name: LINE_OUT_START
   - name: LINE_OUT_STOP
   - name: LOCK
-  - name: LSB
   - name: MODULATION
   - name: MON_ENABLE
   - name: MON_VOLUME
   - name: MUTE
-  - name: NFM
   - name: PREAMP
   - name: PREAMP_PARAM
   - name: RIT_ENABLE
@@ -555,13 +535,36 @@ tci_commands:
   - name: TX_SENSORS_ENABLE
   - name: TX_STREAM_AUDIO_BUFFERING
   - name: TX_SWR
-  - name: USB
   - name: VFO
   - name: VFO_LOCK
   - name: VOLUME
-  - name: WFM
   - name: XIT_ENABLE
   - name: XIT_OFFSET
+tci_extensions:
+  - name: G7250_ANT
+  - name: G7250_ATT
+  - name: G7250_ATU
+  - name: G7250_ATU_STATE
+  - name: G7250_ATU_TUNE
+  - name: G7250_EXT
+  - name: G7250_FAULT_CLEAR
+  - name: G7250_FEATURES
+  - name: G7250_KEEPALIVE
+  - name: G7250_KEYED_TIMEOUT
+  - name: G7250_LIMIT
+  - name: G7250_LIMIT_STATUS
+  - name: G7250_PREAMP
+  - name: G7250_PROFILE
+  - name: G7250_REFUSED
+  - name: G7250_SAFETY
+  - name: G7250_STREAM_STATE
+  - name: G7250_TX_ARM
+  - name: G7250_TX_ARM_STATE
+  - name: G7250_TX_ARM_TOKEN
+  - name: G7250_TX_MODE_CLASS
+  - name: G7250_TX_POLICY
+  - name: G7250_TX_STATE
+  - name: G7250_WRITE_STATUS
 constants:
   - name: ARM_MAGIC
     value: 0x47375458

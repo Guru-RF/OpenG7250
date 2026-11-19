@@ -188,6 +188,7 @@ General standards cited in the decisions and the spec. Public; cited by number, 
 | [RFC2119] [RFC8174] | Key words for requirement levels | conformance language (spec B1) |
 | [FIPS180-4] | FIPS 180-4, Secure Hash Standard | SHA-256 image integrity (0008) |
 | [RFC2104] | RFC 2104, HMAC | challenge-response on the management channel (0008) |
+| [RFC1982] | RFC 1982, Serial Number Arithmetic | ordering of High Priority sequence numbers (0022 §35; spec B11.6a) |
 
 ## Discussion with ON8ST
 
