@@ -53,6 +53,10 @@ ANAN-G2, TCI server announcing protocol 2.1) come from its README, read 2026-11-
 - Network hardware of the main unit: Ethernet is present (ON8ST, 2026-11-19, see
   `sources.md` [G7250-TOFF]). ON8ST saw a WCH CH394Q during hardware inspection: confirm,
   and which SPI clock to the processor, and socket or MACRAW mode. See `analysis/ch394-network-budget.md`. Wi-Fi still open.
+- Audio path: does the main unit have an audio DAC/codec that can drive the speaker,
+  headphone or GY-10 output, and is the speaker in the main unit or the controller? Decides
+  whether P2 DDC audio (port 1028) and microphone data are offered
+  (`analysis/ch394-network-budget.md`).
 - Compute resources (DSP/FPGA/MCU), memory, network stack (TCP, WebSocket). These are
   needed for gate G6.
 
