@@ -37,6 +37,19 @@ LTDC VSYNC status bit, which Renode's STM32LTDC does not toggle headless (no
 display sink; the repainter does not run even with `FramesPerVirtualSecond`
 set). This is the Control's analogue of the Main's PWR/FPGA never-ready poll.
 
+## UPDATE — Control reaches the GUI service loop (C2 done, 2026-11-19)
+
+The STM32LTDC in this build does not implement CDSR and never toggles VSYNC
+headless. Fix (same C#-peripheral unlock as B): `control_run.py` compiles
+models/csharp/G7250Slaves.cs, `sysbus Unregister sysbus.ltdc`, and registers
+`G7250LtdcStub` in its place — a register-echo stub whose CDSR (0x48) status
+nibble toggles so the GUI framebuffer-swap's VSYNC wait completes. The Control
+now boots to its **GUI service loop** (45 s, verdict "running"): the last-window
+MMIO is a varied mix of **DMA2D** (Chrom-ART GUI rendering), timer5 (audio),
+GPIO panel lines, SDMMC and timer14 (input) — not a dead poll. The next minor
+never-ready register is `sdmmc IntStatus` (no SD card modelled), handled like
+the other optional devices.
+
 ## Done / deferred
 
 - **Done:** `control_run.py` + `bootcore.py` (shared with M1) + the Control I2C

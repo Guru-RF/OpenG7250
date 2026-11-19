@@ -18,6 +18,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 REPO = os.path.abspath(os.path.join(HERE, "..", ".."))
 REPL = os.path.join(REPO, "platforms", "g7250_control.repl")
 REPL_I2C_MOCK = os.path.join(REPO, "platforms", "g7250_control_i2c_mock.repl")
+CS_SLAVES = os.path.join(REPO, "models", "csharp", "G7250Slaves.cs")
 OUT = os.path.join(REPO, ".private", "control")
 
 sys.path.insert(0, HERE)
@@ -36,12 +37,12 @@ def build_resc(image_path, log_path):
         'mach create "control"',
         'machine LoadPlatformDescription @%s' % REPL,
         'machine LoadPlatformDescription @%s' % REPL_I2C_MOCK,
+        # swap the C# Video.STM32LTDC (no CDSR; never toggles VSYNC headless) for
+        # a stub whose CDSR VSYNCS toggles, so the GUI framebuffer-swap proceeds.
+        'i @%s' % CS_SLAVES,
+        'sysbus Unregister sysbus.ltdc',
+        'machine LoadPlatformDescriptionFromString "ltdc2: Antmicro.Renode.Peripherals.Miscellaneous.G7250LtdcStub @ sysbus 0x50001000"',
         'nvic Frequency %d' % CORE_HZ,
-        # drive the LTDC repainter headless so its CDSR VSYNC status toggles;
-        # the GUI framebuffer-swap polls LTDC_CDSR (0x48) for VSYNC and would
-        # otherwise spin forever (no display sink in --disable-xwt). ~47 Hz
-        # matches the panel refresh (control_unit/docs: ~46.9 Hz).
-        'ltdc FramesPerVirtualSecond 47',
     ]
     lines += observe.strict_logging_commands("machine", log_file=log_path)
     lines += [
