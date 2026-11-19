@@ -482,6 +482,14 @@ These parts of the ANAN P2 code already match the G7250 and need no change, only
   Add the `G7250_` extension commands of part C C5, including `G7250_TX_POLICY` (0021 §1).
   Require TX_CHRONO answers while keyed with TCI audio (0021 §7). Accept TCI connections only
   from the local subnet, with the optional allow-list (0021 §10).
+- **Added by the rc1 review (0021 §18–§26).** Apply the TCI-side keyed liveness rule before
+  forwarding TX to P2: only application frames feed the keyed timeout, a generic client's
+  `TUNE`/`KEYER`/CW key-down gets a 1 s window, and P2 PTT is cleared when it expires
+  (0021 §18; C8.2.4). Unkey on TX-frequency changes that leave the range or need another
+  RF-path state, and refuse front-end changes while keyed (0021 §19). Map the UI and at most
+  one TCI client onto the one P2 arm; write `TX_ARM` = 0 only when no holder remains (0021 §24).
+  Broadcast `TRX:0,false;`/`TUNE:0,false;` after every radio-side unkey. Never retake the radio
+  after a takeover; on a new session rewrite mode class, limits and keyed timeout (0021 §26).
 
 ### 3.3 Summary
 

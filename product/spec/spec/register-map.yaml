@@ -464,6 +464,8 @@ tci_commands:
   - name: G7250_ATU_STATE
   - name: G7250_ATU_TUNE
   - name: G7250_FAULT_CLEAR
+  - name: G7250_KEEPALIVE
+  - name: G7250_KEYED_TIMEOUT
   - name: G7250_LIMIT
   - name: G7250_LIMIT_STATUS
   - name: G7250_PREAMP
