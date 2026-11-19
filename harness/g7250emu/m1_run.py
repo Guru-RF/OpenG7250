@@ -24,8 +24,10 @@ from __future__ import annotations
 
 import argparse
 import os
+import re
 import subprocess
 import sys
+import threading
 import time
 from collections import deque
 
@@ -100,14 +102,35 @@ def _feed_tail(tail, text):
     return n
 
 
-def run_boot(image_path, timeout=60.0, cadence=0.5, pc_span=0x80, idle_hold=3.0):
-    """Boot the stock Main and classify the result by tailing the access log.
+_NUM_RE = re.compile(r"^(0x[0-9A-Fa-f]+|\d+)$")
 
-    The verdict comes from the log file (observe.classify_tail), not from polling
-    the monitor: at boot the access log floods the console, so Renode's stdout is
-    sent to /dev/null and we read the flushed `logFile` instead. stdin stays open
-    (Renode quits on EOF). Stops at the first poll-hang, at an idle gap after real
-    init, or at the timeout.
+
+def _drain(stream, replies):
+    """Background: keep stdout drained; stash numeric-only lines (monitor
+    replies to `cpu PC` / `cpu ExecutedInstructions`). The console log backend
+    is silenced (observe.strict_logging_commands), so stdout volume is low."""
+    try:
+        for line in stream:
+            s = line.strip()
+            if _NUM_RE.match(s):
+                replies.append(s)
+    except Exception:
+        pass
+
+
+def run_boot(image_path, timeout=60.0, cadence=0.5, pc_span=0x80, idle_hold=3.0):
+    """Boot the stock Main and classify the result from two live signals.
+
+    * MMIO heatmap + poll-hang: tailed from the flushed `logFile` (the console
+      backend is silenced so stdout stays usable).
+    * progress vs. dead: `cpu PC` + `cpu ExecutedInstructions` sampled over the
+      monitor each cadence.
+
+    Verdicts:
+      poll-hang  — one register dominates the recent MMIO (observe.classify_tail)
+      idle-hang  — executed instructions frozen for idle_hold (true WFI, no IRQ)
+      running    — still executing; MMIO may pause during a HAL_Delay busy-wait
+                   (executed keeps climbing) without being called a hang.
     """
     os.makedirs(OUT, exist_ok=True)
     log_path = os.path.join(OUT, "m1_renode.log")
@@ -120,49 +143,75 @@ def run_boot(image_path, timeout=60.0, cadence=0.5, pc_span=0x80, idle_hold=3.0)
         [RENODE, "--disable-xwt", "--console",
          "-e", "path add @%s" % REPO,
          "-e", "include @%s" % resc],
-        stdin=subprocess.PIPE,
-        stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
-        text=True)
+        stdin=subprocess.PIPE, stdout=subprocess.PIPE,
+        stderr=subprocess.STDOUT, text=True, bufsize=1)
+    replies = deque(maxlen=64)
+    threading.Thread(target=_drain, args=(proc.stdout, replies), daemon=True).start()
+
+    def sample():
+        """Return (pc, executed) or (None, None)."""
+        replies.clear()
+        try:
+            proc.stdin.write("cpu PC\ncpu ExecutedInstructions\n")
+            proc.stdin.flush()
+        except Exception:
+            return None, None
+        time.sleep(0.15)
+        vals = list(replies)
+        if len(vals) < 2:
+            return None, None
+        try:
+            return int(vals[-2], 0), int(vals[-1], 0)
+        except ValueError:
+            return None, None
 
     tail = deque(maxlen=observe.TAIL_WINDOW)
     verdict = None
     t_start = time.time()
-    last_growth = t_start
     offset = 0
+    last_exec = None
+    exec_frozen_since = None
     try:
         while time.time() - t_start < timeout:
             time.sleep(cadence)
-            # Re-open by PATH each cadence: Renode's `logFile` recreates the log
-            # on a fresh inode, so a handle opened before it started would read
-            # the stale empty inode forever. Binary + byte-offset so seeking into
-            # the growing file is well-defined.
             try:
                 size = os.path.getsize(log_path)
             except OSError:
                 size = 0
-            chunk = ""
             if size > offset:
                 with open(log_path, "rb") as lf:
                     lf.seek(offset)
                     data = lf.read()
                 offset += len(data)
-                chunk = data.decode("utf-8", "replace")
-            new = _feed_tail(tail, chunk)
+                _feed_tail(tail, data.decode("utf-8", "replace"))
+
             v = observe.classify_tail(tail, pc_span=pc_span)
             if v is not None:
                 verdict = v
                 break
-            if new:
-                last_growth = time.time()
-            elif tail and (time.time() - last_growth) >= idle_hold:
-                verdict = observe.HangVerdict(
-                    "idle-hang",
-                    detail="no new MMIO for %.1fs after init — WFI / reached a wait "
-                           "(no IRQ source wired yet)" % (time.time() - last_growth))
-                break
+
+            pc, ex = sample()
+            now = time.time()
+            if ex is not None:
+                if last_exec is not None and ex <= last_exec:
+                    if exec_frozen_since is None:
+                        exec_frozen_since = now
+                    elif now - exec_frozen_since >= idle_hold:
+                        verdict = observe.HangVerdict(
+                            "idle-hang", pc_lo=(pc or 0), pc_hi=(pc or 0),
+                            detail="executed frozen at %d for %.1fs (WFI, no IRQ "
+                                   "scheduled)" % (ex, now - exec_frozen_since))
+                        break
+                else:
+                    exec_frozen_since = None
+                last_exec = ex
         if verdict is None:
+            # ran the whole window still executing: a healthy run (candidate
+            # main loop) unless it was a pure busy-wait the whole time.
             verdict = observe.HangVerdict(
-                "running", detail="timeout %.0fs reached, still making varied accesses" % timeout)
+                "running",
+                detail="timeout %.0fs reached, CPU still executing (no dead poll, "
+                       "no frozen WFI) — candidate main loop" % timeout)
     finally:
         try:
             proc.stdin.write("pause\nquit\n")

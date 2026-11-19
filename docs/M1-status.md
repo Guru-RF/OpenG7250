@@ -128,3 +128,35 @@ base H7 `pwr` Python stub returns a curated ready value for 0x0/0xC/0x18 but 0x0
 for 0x8, and the H72x Main polls a ready bit there. Next step: give the Main a
 PWR stub (or overlay) that returns the awaited ready bit at offset 0x8, then
 re-run and chase the next register toward the main loop.
+
+## MILESTONE — Main boots to the service loop (2026-11-19)
+
+With the PWR 0x08 ready override (g7250_main.repl) + the I2C1 slave shims +
+`nvic Frequency 275000000`, the stock Main now boots all the way to its service
+loop and runs 60 s of virtual time with **no dead hang** (verdict "running —
+candidate main loop"; last-window MMIO is a varied timer5/17/7 + i2c1 + usart1 +
+spi6 mix, dominant register only ~32 %, 987 distinct PCs).
+
+Reconstructed boot console (USART1, saved to `.private/m1/main_console.txt`):
+`System started.` → AXP223 PSU (all rails) → EEPROM (dummy → "[ERR] … incorrect"
+→ defaults, expected) → `[OK] 5p49v6965 ready` → CH394 → **`[DBG] [LAN] Init: IP
+192.168.3.199, GW 192.168.3.1, Mask 255.255.255.0, Port 50001`** → ADC/codec
+`[OK] aic3204 ready` → TRX `Start RX mode` (LSB, filters) → TIM5/6/17 →
+`[OK] Init FPGA` → 24× `[ERR] FPGA BUS Error` (GPIOE bit-bang not modelled;
+tolerated) → service loop.
+
+**M1 exit criteria met:** boot to main loop ✅; 60 s VT without a hang ✅;
+**A1.12 — the forced default IP 192.168.3.199 is programmed ✅** (console; a
+functional CH394 SPI6 slave would let us read it back from the chip too).
+
+Dual-signal runner: the hang verdict now combines the MMIO heatmap (poll-hang)
+with `cpu ExecutedInstructions` (true WFI idle = frozen), so a HAL_Delay
+busy-wait is no longer mis-flagged as idle (fixes the earlier false idle-hang).
+
+### Residual (tracked, not blocking M1)
+- **FPGA** GPIOE bit-bang bus errors (24, logged then skipped) — the fused FPGA
+  model is M3 work.
+- **Functional device data** — EEPROM NVPARAM and CH394 register read-back would
+  clear the EEPROM "[ERR]" lines and let A1.12 be read back from the chip;
+  needs real I2C/SPI slaves (the DummyI2CSlave only ACKs). Device logic is in
+  models/devices/.

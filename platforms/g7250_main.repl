@@ -37,6 +37,31 @@ axiSram:
 // TODO(M1): model RCC ready/lock flags and PWR SMPS/VOS0 so the boot polling
 // loops pass in strict mode (this is the first polling-loop work of M1).
 
+// --- PWR ready flags (H72x) ---------------------------------------------------
+// Override the inherited H7 PWR Python stub so it also answers offset 0x08. The
+// base stub (stm32h7.repl) returns the ready values for CR1 0x00, CSR1 0x04
+// (ACTVOSRDY), CR3 0x0C (USB33RDY) and D3CR 0x18 (VOSRDY), but leaves 0x08 at 0.
+// The H72x Main boot polls PWR+0x08 for a ready bit (PC 0x0802C2A0) and spins
+// forever on 0 (docs/M1-status.md). We return a ready value there so the boot
+// proceeds. HYPOTHESIS: 0x08 is a supply/voltage "ready"-type register on the
+// H72x PWR map; the exact bit is not pinned, so we return all-ones (a ready
+// poll only tests one bit). Revisit if a later read of 0x08 needs real fields.
+pwr:
+    script: '''
+if request.Offset == 0x00:
+    request.Value = 0xF000C100
+elif request.Offset == 0x04:
+    request.Value = 0x6000
+elif request.Offset == 0x08:
+    request.Value = 0xFFFFFFFF
+elif request.Offset == 0x0C:
+    request.Value = 0x4000000
+elif request.Offset == 0x18:
+    request.Value = 0x2000
+else:
+    request.Value = 0
+'''
+
 // --- SPI controllers absent from the H743 base (only spi4 is in the base) ---
 // The Main uses SPI1/SPI2 (sinks), SPI3/I2S3 (audio), and SPI6 (CH394). H7 base
 // addresses from RM0468 (SPI1 0x40013000 APB2, SPI2 0x40003800 APB1, SPI3

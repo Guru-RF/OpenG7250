@@ -62,6 +62,11 @@ def strict_logging_commands(machine="machine", log_file=None):
         # boot runner tailing the file) sees accesses as they happen. `logFile`
         # appends; the runner truncates the path first.
         cmds.append('logFile @%s true' % log_file)
+        # Silence the CONSOLE backend (keep the file backend at NOISY): the
+        # access flood would otherwise swamp stdout and make monitor replies
+        # (cpu PC / ExecutedInstructions) unreadable. The heatmap still comes
+        # from the file; stdout stays clean for sampling.
+        cmds.append("logLevel 3 console")
     return cmds
 
 
