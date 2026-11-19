@@ -92,7 +92,11 @@ def main():
         if len(r) < 2:
             continue
         out += [f"  - set: {q(r[0])}", "    values:"]
+        seen = set()
         for val, sym, rest, cls in parse_codes(r[1]):
+            if not sym and (val in seen or re.match(r"(and|or|are|is|to|of)\b", rest)):
+                continue  # prose fragment such as "13 and 14 are never set over P2"
+            seen.add(val)
             out.append(f"      - value: {val}")
             if sym:
                 out.append(f"        name: {sym}")
@@ -112,13 +116,21 @@ def main():
             out += [f"  - name: {nm}", f"    code: {q(code)}", f"    auth: {q(r[2])}"]
             ncmd += 1
 
-    tci = []
-    for l in PARTC.read_text().splitlines():
-        if re.match(r"\|\s*`(%s)`" % SYM, l):
+    tci, header = [], ""
+    ptext = PARTC.read_text()
+    for l in ptext.splitlines():
+        if l.startswith("|") and not re.match(r"\|\s*`", l) and not set(l) <= set("|-: "):
+            header = l.lower()          # remember the header row of the current table
+        elif not l.startswith("|"):
+            header = ""
+        if re.match(r"\|\s*`(%s)`" % SYM, l) and "modulation" not in header and "mode " not in header:
             tci += re.findall(r"`(%s)`" % SYM, l.split("|")[1])
-    tci = sorted(set(tci))
+    ext = sorted(set(re.findall(r"`(G7250_[A-Z0-9_]+)", ptext)) - {"G7250_"})
+    tci = sorted(set(tci) - set(ext) - {"G7250_"})
     out.append("tci_commands:")
     out += [f"  - name: {t}" for t in tci]
+    out.append("tci_extensions:")
+    out += [f"  - name: {t}" for t in ext]
 
     consts = dict(re.findall(r"Constant `(%s)` = (0x[0-9A-Fa-f]+)" % SYM, text))
     consts.update(re.findall(r"`(CAP_BASE)` = (0x[0-9A-Fa-f]+)", text)[:1])
@@ -126,9 +138,12 @@ def main():
     for name, val in consts.items():
         out += [f"  - name: {name}", f"    value: {val}"]
 
-    OUT.write_text("\n".join(out) + "\n")
+    new_text = "\n".join(out) + "\n"
+    if "--check" in sys.argv:
+        return 0 if OUT.exists() and OUT.read_text() == new_text else 1
+    OUT.write_text(new_text)
     print(f"{OUT.relative_to(ROOT)}: {nreg} registers, {ncode} codes, {ncmd} management commands, "
-          f"{len(tci)} TCI commands, {len(consts)} constants")
+          f"{len(tci)} TCI commands, {len(ext)} G7250 extensions, {len(consts)} constants")
     return 0
 
 

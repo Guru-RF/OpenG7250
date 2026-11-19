@@ -10,6 +10,7 @@ Checks over spec/*.md:
       [KEY], a decision number, or a section reference "Bn"/"An"/"Cn"
   L6  conformance test ids (T-...) are unique across the spec
   L7  register names used in the spec exist in spec/register-map.yaml (if that file exists)
+  L8  spec/register-map.yaml matches the spec tables (tools/regmap.py --check)
 
 Run from product/spec:  python3 tools/spec_lint.py    (exit 1 on any finding)
 """
@@ -88,6 +89,12 @@ def main():
                 if "RFC 2119" in b or "BCP 14" in b:
                     continue
                 findings.append(f"L5 {rel}: normative text without a source: {b.strip()[:100]}")
+    # L8: the generated register map must match the spec tables (tools/regmap.py --check)
+    import subprocess
+    if REGMAP.exists():
+        rc = subprocess.run([sys.executable, str(ROOT / "tools" / "regmap.py"), "--check"]).returncode
+        if rc:
+            findings.append("L8 spec/register-map.yaml is out of date: run python3 tools/regmap.py")
     for f in findings:
         print(f)
     print(f"\n{len(findings)} finding(s) in {len(SPEC)} file(s); {len(tests)} test id(s)")
