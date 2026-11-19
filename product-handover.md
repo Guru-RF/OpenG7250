@@ -23,20 +23,15 @@ on 2026-11-19, as recorded in `decisions/`.
 | 0010 | No compatibility modes for now (HL2 rejected, ANAN out of scope for now) | accepted |
 | 0011 | Two-level product interface: L1 G7250-P1 / L2 TCI with on-board DSP. Single owner, shared safety core, L2 only after gate G6 | accepted |
 | 0012 | Every integration supports full functionality including TX; no SoapySDR module | accepted |
+| 0013 | AetherSDR is the initial integration route for level 1; no separate bridge | accepted |
 
 Numbers 0002–0008 are reserved for: board-id value, capability block, streams and sample
 rates, C&C standard vs extensions, telemetry, watchdog and safety, management channel.
 
 ## Open questions for ON8ST
 
-1. **Integration route for level 1 (becomes 0013).** Options presented:
-   - (1) Native support in existing P1 applications through upstream patches.
-   - (2) AetherSDR as integration hub (TCI/CAT/rigctl).
-   - (3) A host-side bridge that does the DSP and offers the same TCI interface as level 2.
-
-   Recommendation: (3) as the main route, (1) as an extra. Also open: should the bridge be a
-   separate program or a mode of AetherSDR? If WDSP is used, the GPL licence has to be
-   decided explicitly.
+1. Should AetherSDR's host-side TCI match spec part C (level 2) exactly? This is not decided
+   in 0013.
 2. **C&C:** reuse HL2-style extensions where they fit (recommended), or standard P1 plus own
    addresses? This becomes 0005.
 3. **Unknown board id:** should a host that does not know the board id still get RX-IQ
@@ -55,7 +50,7 @@ rates, C&C standard vs extensions, telemetry, watchdog and safety, management ch
 
 ## Next step
 
-1. Get ON8ST's answer on the integration route and record it as 0013.
+1. (Done: 0013.)
 2. Create `sources.md`, collecting and checking the public sources: P1 documentation, HL2
    documentation, the TCI spec (version and terms of use), and the G7250 product
    specifications and manual.
