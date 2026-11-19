@@ -1,0 +1,18 @@
+1.	Official Xiegu Release Notes
+	G7250_V1.0.1_ReleaseNote-261109_(EN_CHS).txt
+	
+2.	Radioddity Release Notes based on the original Xiegu Release Notes 
+	but enhanced by adding improvements/changes not listed in the Xiegu version and with instructions on how to update
+	2026-11-09_Xiegu_G7250_update_V1.0.1.pdf
+	
+3.	Image file for update of Control-Unit
+	G7250_ControlUnit_Fw_V1.0.1.ctl
+
+4.	Image file for update of Main-Unit
+	G7250_MainUnit_Fw_V1.0.1.bbf
+
+5.	DLL for use with HDSDR
+	ExtIO_G7250_2026-10-22.dll
+	
+6.	G7250 CI-V REFERENCE Rev 1.2 as of 2026-11-06 
+	G7250_CI-V_REFERENCE_Rev_1.2_(EN).pdf

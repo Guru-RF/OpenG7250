@@ -1,0 +1,49 @@
+[EN]
+ControlUnit Changes:
+1.Optimized the touchscreen driver;
+2.Added the optfilter CIV command;
+3.Added network remote control related content;
+4.Fixed the issue where the waterfall plot colors changed when adjusting FFT REF LEVEL;
+5.Adjusted the status logic after ATU completion to ensure that the ATU status is ON after ATU completion;
+6.Hid the language option under the System menu;
+7.Upgraded the controller version to V1.0.1;
+
+MainUnit Changes:
+1.Added the network control protocol module;
+2.Added the compile switch for the TCI module; it is currently disabled;
+3.Optimized the ATU algorithm and added a dedicated fast SWR channel for the antenna tuner to the ADC;
+4.Upgraded the baseband version to V1.0.1;
+
+Firmware Files:
+G7250_ControlUnit_Fw_V1.0.1.ctl
+G7250_MainUnit_Fw_V1.0.1.bbf
+
+Firmware Infomation:
+APP Ver1.0.1    Oct 31 2026,10:35:53
+
+MCU Ver1.0.1    Oct 31 2026,10:38:32
+
+[CH]
+控制器修订记录:
+1.优化触摸屏驱动；
+2.添加optfilter CIV指令；
+3.添加网络远程控制相关内容；
+4.修复调节FFT REF LEVEL时瀑布图颜色发生变化的问题；
+5.调整ATU完成后的状态逻辑，确保ATU完成后ATU状态为打开；
+6.隐藏system菜单下的语言选项；
+7.控制器版本升级到V1.0.1;
+
+机身修订记录:
+1.添加网络控制协议模块;
+2.添加tci模块的编译开关,现在状态为关闭;
+3.优化atu算法,给adc加入了天调专用的快速swr通道;
+4.基带版本升级到V1.0.1;
+
+固件文件:
+G7250_ControlUnit_Fw_V1.0.1.ctl
+G7250_MainUnit_Fw_V1.0.1.bbf
+
+固件信息:
+APP Ver1.0.1    Oct 31 2026,10:35:53
+
+MCU Ver1.0.1    Oct 31 2026,10:38:32
