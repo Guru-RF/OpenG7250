@@ -99,7 +99,8 @@ open-questions-his.md        questions only the hardware-interface spec (HIS) ca
   close to standard P1 (0009).
 - ON8ST proposes a two-level product: a bare-bones SDR interface (G7250-P1, IQ) and a
   complete radio interface (TCI with on-board DSP). This would change the out-of-scope list
-  ("TCI in firmware", "DSP in the radio"). Under discussion.
+  ("TCI in firmware", "DSP in the radio"). Decided: accepted (0011); the spec gets parts
+  A (common), B (level 1) and C (level 2).
 - ON8ST wants to look further at compatibility modes. An HL2 mode is not an option because
   the HL2 has no 100 W amplifier and no ATU (ON8ST, 2026-11-19). An ANAN mode may be
   considered. This conflicts with the principle "we do not impersonate another board"
