@@ -5,7 +5,7 @@ Decisions that concern a single component live in that component's own
 `decisions/` folder.
 
 The product side does not read this repository. A decision here that affects
-`g7250-p1-spec` or `g7250-firmware` is also recorded in that component's own
+`g7250-spec` or `g7250-firmware` is also recorded in that component's own
 `decisions/`, without RE detail.
 
 ## Conventions
