@@ -50,3 +50,17 @@ outside a bus transaction triggers spurious EXTI/behaviour. The correct model
 must drive the data lines only during an active FPGA read strobe and must not
 disturb the other GPIOE uses (EXTI-aware, transaction-scoped). That is the M3
 work; the stock boot is unaffected because the errors are log-only.
+
+**M3 approach pinned (g7250-emu, 6 attempts):** (1) wiring a separate C# FPGA to
+the GPIOE pins breaks the boot — Renode GPIO is unidirectional and never
+high-impedance, so the FPGA forces pins that are also EXTI lines (PE3/4/6/10).
+(2) Subclassing Renode's STM32_GPIOPort to intercept IDR fails: its
+ReadDoubleWord/WriteDoubleWord are not virtual. (3) The viable path is a
+from-scratch FUSED GPIOE+FPGA port (one C# peripheral that is the GPIO port and
+computes IDR itself, returning FPGA data on reads with MODER giving direction).
+A first such port (`G7250GpioeFpga`, models/csharp/G7250Gpioe.cs) compiles and
+replaces gpioPortE, but stalls the boot just after PH9 — reimplementing the
+STM32H7 GPIO-port semantics the firmware's early init depends on must be exact
+(MODER/IDR/ODR/BSRR/AFR/PUPDR + the AF-timer and EXTI/syscfg routing). Finishing
+that, plus the STB/CMD read/write handshake and DRDY-paced 24-bit I/Q, is the M3
+deliverable.
