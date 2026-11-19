@@ -1,0 +1,34 @@
+// g7250_main_i2c1_mock.repl — minimal ACKing I2C1 slaves for the Main boot.
+//
+// Overlay for g7250_main.repl: load it AFTER the Main platform (it references
+// the `i2c1` controller defined there). Renode's STM32F7_I2C only drives the
+// TXIS/TC/STOPF flags the HAL I2C driver polls when a slave is present at the
+// addressed address; with no slave the HAL wait exits only via its per-byte
+// 100 ms timeout, so the whole AXP223/EEPROM/VersaClock/codec bring-up crawls
+// (docs/M1-status.md "First real boot").
+//
+// These are Renode's built-in `Mocks.DummyI2CSlave` — they ACK the address and
+// return mock bytes, which is enough to let every transfer complete at full
+// speed. The stock init tolerates every device's error path (EEPROM loader runs
+// with force-reset 1, AXP/VC6/codec errors are logged and skipped, per the
+// OpenG7250 RE), so mock data is sufficient to reach the main loop. When a test
+// needs real device behaviour (e.g. a valid EEPROM NVPARAM block with the three
+// 'd' markers), swap that one address for a functional slave; the device logic
+// is host-tested in models/devices/i2c_devices.py.
+//
+// Addresses (7-bit) from main_unit/docs/peripherals.md + the OpenG7250 RE:
+//   0x34  AXP223 PMIC            ("Init PSU"; first device)
+//   0x1A  AXP223 dump companion  (RE: dump read targets 0x1A / 0x34 / 0x0D)
+//   0x0D  AXP223 dump companion
+//   0x50  24Cxx EEPROM           (NVPARAM; settings/calibration)
+//   0x18  TLV320AIC3204 codec
+//   0x68  VersaClock 6           (tried first)
+//   0x6A  VersaClock 6           (retry address)
+
+i2c1_axp223:    Mocks.DummyI2CSlave @ i2c1 0x34
+i2c1_axp_1a:    Mocks.DummyI2CSlave @ i2c1 0x1A
+i2c1_axp_0d:    Mocks.DummyI2CSlave @ i2c1 0x0D
+i2c1_eeprom:    Mocks.DummyI2CSlave @ i2c1 0x50
+i2c1_aic3204:   Mocks.DummyI2CSlave @ i2c1 0x18
+i2c1_vc6_68:    Mocks.DummyI2CSlave @ i2c1 0x68
+i2c1_vc6_6a:    Mocks.DummyI2CSlave @ i2c1 0x6A

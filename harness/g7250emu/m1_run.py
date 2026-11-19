@@ -34,6 +34,7 @@ REPO = os.path.abspath(os.path.join(HERE, "..", ".."))
 RENODE = os.path.join(REPO, "tools", "renode-1.17.0",
                       "Renode.app", "Contents", "MacOS", "renode")
 REPL = os.path.join(REPO, "platforms", "g7250_main.repl")
+REPL_I2C1_MOCK = os.path.join(REPO, "platforms", "g7250_main_i2c1_mock.repl")
 OUT = os.path.join(REPO, ".private", "m1")
 
 sys.path.insert(0, HERE)
@@ -58,6 +59,9 @@ def build_resc(image_path, log_path):
     lines = [
         'mach create "main"',
         'machine LoadPlatformDescription @%s' % REPL,
+        # minimal ACKing I2C1 slaves so the device bring-up completes instead of
+        # each byte burning a 100 ms HAL timeout (docs/M1-status.md)
+        'machine LoadPlatformDescription @%s' % REPL_I2C1_MOCK,
         # give the NVIC the SysTick input clock so the 1 ms HAL tick advances
         'nvic Frequency %d' % CORE_HZ,
     ]

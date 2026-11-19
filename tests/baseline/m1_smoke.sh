@@ -66,6 +66,21 @@ EOF
     bad "expected 4 added SPI controllers"
   fi
 
+  echo "[3a2] I2C1 mock-slave overlay loads (7 DummyI2CSlave on i2c1)"
+  cat > "$OUT/smoke_i2c1mock.resc" <<EOF
+mach create "main"
+machine LoadPlatformDescription @platforms/g7250_main.repl
+machine LoadPlatformDescription @platforms/g7250_main_i2c1_mock.repl
+peripherals
+quit
+EOF
+  if [ "$(timeout 90 "$RN" --disable-xwt --console -e "path add @$REPO" \
+        -e "include @$OUT/smoke_i2c1mock.resc" </dev/null 2>&1 | grep -ciE 'DummyI2CSlave')" -eq 7 ]; then
+    ok "7 I2C1 mock slaves (AXP223/EEPROM/codec/VC6) register"
+  else
+    bad "expected 7 I2C1 mock slaves"
+  fi
+
   echo "[3b] Tag regions apply (H72x-only + unmodelled DAC1/MDMA)"
   { echo 'mach create "main"'
     echo 'machine LoadPlatformDescription @platforms/g7250_main.repl'

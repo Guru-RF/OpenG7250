@@ -108,3 +108,23 @@ heatmap toward the main loop.
 Tooling note: `observe.classify_tail` currently flags this as a flat poll-hang;
 it should be refined to recognise slow-but-forward progress (HAL tick advancing
 / new I2C target addresses appearing) vs a truly dead spin.
+
+## Update — I2C1 slave shims done; next blocker is PWR (2026-11-19)
+
+`platforms/g7250_main_i2c1_mock.repl` adds minimal ACKing `Mocks.DummyI2CSlave`
+slaves on `i2c1` at 0x34 (AXP223), 0x1A/0x0D (AXP dump companions), 0x50
+(EEPROM), 0x18 (AIC3204), 0x68/0x6A (VersaClock 6); `m1_run.py` loads it as an
+overlay after the Main platform. **Confirmed:** with the slaves present Renode's
+STM32F7_I2C drives TXIS/TC/STOPF, every transfer completes at full speed, and
+the I2C poll-hang is gone (i2c1 accesses drop from ~1.4M to a few hundred). Mock
+bytes are sufficient because every device's init error path continues
+(force-reset 1 on the EEPROM loader); swap one address for a functional slave
+(models/devices/i2c_devices.py logic) only when a test needs real device data.
+
+The boot now advances past the whole I2C1 bring-up and **poll-hangs on the next
+never-ready register: `pwr +0x8` reading 0x0** (tight 1-instruction wait, PC
+0x0802C2A0). This is the known `TODO(M1)` "model PWR SMPS/VOS0 ready" work: the
+base H7 `pwr` Python stub returns a curated ready value for 0x0/0xC/0x18 but 0x0
+for 0x8, and the H72x Main polls a ready bit there. Next step: give the Main a
+PWR stub (or overlay) that returns the awaited ready bit at offset 0x8, then
+re-run and chase the next register toward the main loop.
