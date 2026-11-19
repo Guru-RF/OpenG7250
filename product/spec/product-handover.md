@@ -5,9 +5,8 @@ on 2026-11-19, as recorded in `decisions/`.
 
 ## Where things stand
 
-- All work is on the local branch **`docs/initial-structure`**, not merged into `main` and
-  not pushed. When the move into the main repo used `main`, this branch still has to be
-  brought over.
+- The g7250-spec branch `docs/initial-structure` has been subtree-merged into
+  `product/spec/` in the main repo (merge commit a29155b, local, not pushed).
 - Neither document has been written yet. Only the structure was agreed, plus several
   decisions. `design-note.md`, `spec/`, `sources.md` and `open-questions-his.md` do not
   exist yet.
