@@ -1,7 +1,7 @@
 # Annex — Changes needed in AetherSDR
 
-- Version: rc3 draft, 2026-11-19
-- Status: rc3 draft, for review by ON8ST. Informative annex to `spec/network-interface.md`
+- Version: rc3, 2026-11-19
+- Status: rc3, for review by ON8ST. Informative annex to `spec/network-interface.md`
   (0001, spec section 13; 0013, 0014, 0016).
 - © 2026 ON8ST, CC BY 4.0 (see `LICENSE.md`, decision 0018).
 
@@ -13,7 +13,7 @@ AetherSDR is GPL-3.0 [AETHER]; this annex quotes no AetherSDR code, only describ
 Line numbers are those of that commit and will drift.
 
 Spec sections cited as "B3.4" and similar refer to `spec/network-interface.md` rc2 of
-2026-11-19, and to its rc3 draft for the sections added by 0022 §62–§73 (A3.6a, A3.9a item 1a).
+2026-11-19, and to its rc3 for the sections added by 0022 §62–§74 (A3.4d, A3.6a, A3.9a item 1a).
 
 ---
 
@@ -189,7 +189,7 @@ These parts of the ANAN P2 code already match the G7250 and need no change, only
 | Item | AetherSDR | G7250 |
 |------|-----------|-------|
 | Discovery request and reply parse | `P2Protocol.cpp:47–77` | 60-byte short reply, bytes 0–3 zero (B3.2, B3.3; 0003 §1) |
-| General byte 38 bit [0] = 1, byte 39 = 0 | `P2Protocol.cpp:87–90` | watchdog on, required for arming (0007 §2.3); BE 3-byte (0004 point 1). Not yet compatible: byte 58 bit [0] (PA enable) is not among the bytes AetherSDR sets (§2.2; the backend is RX-only, `P2Protocol.h:17–20`), and checked: the 60-byte General packet is zero-initialised and only bytes 4, 37, 38 and 39 are set (`P2Protocol.cpp:79–93`), so byte 58 = 0; while it is 0 no TX request keys (B7 Table B7-1; B10.10); see G-08a, G-08b |
+| General byte 38 bit [0] = 1, byte 39 = 0 | `P2Protocol.cpp:87–90` | Compatible for these two bytes: watchdog on, required for arming (0007 §2.3); BE 3-byte (0004 point 1). The rest of the General packet is not: the packet is zero-initialised and only bytes 4, 37, 38 and 39 are set (`P2Protocol.cpp:79–93`; the backend is RX-only, `P2Protocol.h:17–20`, §2.2), so byte 58 bit [0] (PA enable) stays 0, and while it is 0 no TX request keys (B7 Table B7-1; B10.10). That is a gap, listed under G-08a and G-08b |
 | DDC I&Q parse, 24-bit, length from bytes 14–15 | `P2Protocol.cpp:303–329` | 238 samples, 1444 bytes; host must read bytes 14–15 (B6.4) |
 | DDC0 from source port 1035 to the discovery source port | `P2Protocol.h:43–63`; `P2Client.cpp:156` | B2.4, B6.1 |
 | Sample size 24 written explicitly | `P2Protocol.cpp:127` | B6.5 Table B6-2, byte 22 |
@@ -450,7 +450,8 @@ These parts of the ANAN P2 code already match the G7250 and need no change, only
 - **Change.** Keep one socket for the whole session, and send register traffic (G-03),
   capability request (G-02), wideband (G-06) and DUC I&Q (G-08a) from it too. Use only the
   live rate change. Treat any restart as a new session: expect the arm to be dropped
-  (`TAKEOVER` or `REDISCOVERY`) and re-arm only on user action. Make sure the picker's own
+  (`TAKEOVER` or `REDISCOVERY`) and re-arm only on an explicit arm action of the user or a
+  valid `G7250_TX_ARM` from a TCI client (part C C5.5.7; 0021 §30, §43 item 16). Make sure the picker's own
   discovery socket is not mistaken for a second host (G-01 note, Q-S1).
 
 #### G-10 Antenna, filters, attenuator, ATU (0005, 0003, 0007) — M
@@ -514,8 +515,12 @@ These parts of the ANAN P2 code already match the G7250 and need no change, only
     `audio_samplerate`, `iq_samplerate` and the others).
   - **Values** (C3.2): `TRX_COUNT:1`; `VFO_LIMITS:500000,54000000`, fixed by the profile, not
     taken from `rx_range`, and the GET answer the same; `RECEIVE_ONLY` is an initialization
-    command ([TCI] §4.1), sent once per connection from record `tx` bit 1 (transmit
-    implemented), never from the arm state, which `TX_ENABLE` carries (C5.5.6);
+    command ([TCI] §4.1), sent once per connection from whether AetherSDR's G7250 backend can
+    transmit (part C C3.2; milestone M4), not from the capability record, which is not
+    available before a P2 session and a TCI client may connect before one runs; record `tx`
+    bit 1 (transmit implemented) and the session go to `G7250_FEATURES` token `tx` and to
+    `TX_ENABLE`, never to `RECEIVE_ONLY`; `RECEIVE_ONLY` never follows the arm state, which
+    `TX_ENABLE` carries (C5.5.6; 0021 §43 item 16);
     `modulations_list` as C3.4; `tx_enable` from the arm state and the band edges (C5.5.6);
     `hw_sensors` and `tx_sensors` from G-07.
   - **Receiver 0 is the TX slice** (C5.6; 0021 §31). With `TRX_COUNT:1` the one TCI receiver
@@ -607,6 +612,19 @@ These parts of the ANAN P2 code already match the G7250 and need no change, only
   the last 25 ms of DUC I&Q (B10.7; 0022 §63). A PTT 0 in a discarded High Priority packet
   unkeys (B11.6a; 0022 §72). A DDC0 change alone during the settle wait of a key does not
   refuse it (A3.9a item 3; 0022 §73 item 10).
+- **Added by the rc3 review of part C (0021 §43).** Write to each P2 `LIMIT_<name>` the
+  strictest of the user interface's value and the TCI session value, and answer a TCI write
+  looser than the user interface's value with `LOOSER_LIMIT` (C5.10.1 item 6). Report a P2
+  `RUN_CLEARED` caused by a TCI `STOP` as `STOP` (C5.5.5 row 5). Write `ATU_TUNE` = 0 also
+  when the requesting client's keyed liveness expires or its connection is lost (C5.7). Keep
+  the TX source fixed while keyed and unkey on `AUDIO_STOP` or an audio rate, block size or
+  channel change of a client keyed with TCI audio (C7.5 items 7, 8). Show `TRX`/`TUNE` by TX
+  source, `TUNE` `true` during an ATU tune (C7.4.1). Treat the hang delay of a TCI CW
+  transmission as keyed: refuse TCI `MODULATION` and front-end changes in it, and a
+  user-interface mode change in it unkeys first and discards queued CW text (C7.6.3, C7.6.7;
+  A3.4d; 0022 §74). Size TX_CHRONO with `length` = `AUDIO_STREAM_SAMPLES` over all channels
+  and `channels` of the client (C6.3.3, C-C25). Check the active level before reporting a
+  loss of ownership (C2.7). `RECEIVE_ONLY` from the backend's transmit capability (above).
 - **Other keying interfaces** (0021 §37). AetherSDR also has remote keying paths besides TCI
   (CAT, rigctl and its own TCI extensions `aethersdr_ext`, as the rc3 review reports; not
   surveyed in §2). Each of them SHOULD be bound by a keyed-liveness rule equivalent to part C

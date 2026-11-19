@@ -1,6 +1,6 @@
 # Glossary — G7250-P2 network interface
 
-- Version: rc3 draft, 2026-11-19
+- Version: rc3, 2026-11-19
 - © 2026 ON8ST, CC BY 4.0 (see `LICENSE.md`)
 
 Terms as used in `network-interface.md`, part C and the annexes. Where a term comes from
@@ -26,7 +26,7 @@ named.
 | **Arm holder** | On TCI, the connection whose `G7250_TX_ARM` armed the radio; on level 1 also AetherSDR's own user interface, so that one arm can have two holders (part C C5.5.5, C5.5.5.1). | 0021 §24, 0022 §46 |
 | **Arm handshake** | Host declares a mode class, reads the per-session arm token, writes the derived value; the radio confirms. | 0007 |
 | **Mode class** | Class of the transmitted signal (SSB, CW, AM, FM), used to apply per-mode limits. On P2 declared by the host in `TX_MODE_CLASS` before arming; on TCI derived by the server from `MODULATION` of receiver 0 and reported by `G7250_TX_MODE_CLASS`; on level 1 AetherSDR writes the class of the signal it actually transmits (part C C5.6). | 0007, 0021 §6, §31 |
-| **Keyed** | Armed and transmitting (transmit bit set and accepted). | 0007 |
+| **Keyed** | Armed and transmitting (transmit bit set and accepted). On TCI: armed and transmitting on a TX request of part C (`TRX`, `TUNE`, `KEYER`, CW text, `G7250_ATU_TUNE`), shown by `G7250_TX_STATE` and by `TRX`/`TUNE` per source (part C C7.4.1). For RF-path purposes (changes while keyed, relay sequence, mode class, start of a tune cycle) keyed means the continuous transmission of A3.4d, the CW hang delay included; on TCI CW text counts as keyed until its queue is empty (A3.1a, A3.4d; part C C7.6). | 0007, 0022 §74, 0021 §43 |
 | **Key rule** | The radio keys only on a 0→1 edge of a TX request at a moment when every key condition holds; a refused request is never latched (A3.1a). | 0007, 0022 §24 |
 | **RF-path state** | The setting of filters, band relays, ATU in/out and network, and antenna. Unkeyed it follows the receive frequency; at every key it is switched to the state for the TX frequency first, while unkeyed (A3.1b). | 0022 §33 |
 | **Continuous TX** | For the maximum TX time: from a key to the unkey after which the T/R path returns to receive; CW gaps shorter than the hang delay do not end it (A3.4d). | 0007, 0022 §51 |
@@ -34,7 +34,12 @@ named.
 | **Keyed timeout** | On P2: no High Priority packet within `KEYED_TIMEOUT` (500 ms default, 100–500 ms) while keyed: the radio unkeys, the arm stays. On TCI: no application frame from the keying client within the `G7250_KEYED_TIMEOUT` in force (100–500 ms, default 500 ms), for the sources of part C Table C8-1. | 0007, 0021 §18, §20 |
 | **Application frame** | On TCI, a complete WebSocket text message with at least one complete TCI command, or a complete binary message with a TX audio block; a fragmented message counts when its last fragment arrives; Ping, Pong and Close never count (part C C2.2, C8.2). | 0021 §18, §40 |
 | **Connection watchdog** | On TCI, the 1 s timer of the arm holder, fed by any frame, Pong included; the server sends a Ping at least every 250 ms; expiry drops the arm (`WATCHDOG`) (part C C8.2). | 0021 §18, 0022 §32 |
-| **Generic keyed window** | On TCI, the 1 s keyed-liveness timer of a keying client that has not opted in and keys with a source that produces no frames by itself; fed only by a restatement of the TX request (part C Table C8-1, C8.2.3). | 0021 §18, §27, §28 |
+| **Generic keyed window** | On TCI, the 1 s keyed-liveness timer of a keying client that has not opted in, for the TX sources for which Table C8-1 names it (`TRX` in `CW`, a microphone `TRX`, `TUNE`, `KEYER`, `CW_TERMINAL` after its text); fed only by a restatement of the TX request, never by other commands or Pongs (part C Table C8-1, C8.2.3). | 0021 §18, §27, §28 |
+| **Key-down cap** | On P2 the CWX cap: a paddle bit held for more than 1 s is cut (B10.5a). On TCI: a `KEYER` key-down played for more than 1 s without its release being played unkeys, from every client, whatever frames it sends (`unkey` 9; part C C8.2). | 0022 §25, 0021 §33 |
+| **CW text liveness** | On TCI, while the server sends CW text, the keying client must send an application frame at least every 30 s, else the radio unkeys and the queued text is discarded (`unkey` 2; part C Table C8-1 row 6, Table C8-2). | 0022 §25, 0021 §29 |
+| **TX audio underrun** | On TCI, no TX audio block from a client keyed with TCI audio for longer than `TX_STREAM_AUDIO_BUFFERING` + 500 ms: unkey, arm kept (`unkey` 3); a client that keeps answering TX_CHRONO, also with zero samples, is not caught by it (part C C8.2.1, C8.2.3a). | 0021 §7, §43 |
+| **Unkey broadcast** | On TCI, `TRX:0,false;` and/or `TUNE:0,false;` sent at once to all clients when the server unkeys without a client's request, by TX source; queued CW text and buffered TX audio are discarded (part C C7.4.1, C7.7). | 0021 §24, §43 |
+| **Effective TX frequency** | On TCI, the frequency the radio transmits on: channel A, or channel B with split on, plus the XIT offset when XIT is on; reported by `TX_FREQUENCY`; the TX frequency limit and the RF-path state at the key act on it (part C C4, C7.6.1). On P2, the DUC0 frequency. | 0021 §19, §34 |
 | **Keying client** | On TCI, the client whose TX request keyed the radio (`G7250_TX_STATE` `mine` true) (part C C7.4). | 0021 §1 |
 | **Opt-in** | On TCI, `G7250_EXT:true;` from a client: from then on it receives the G7250 extension messages; before it, it sees only standard TCI 2.1 (part C C5.2). | 0014, 0021 §29 |
 | **TX policy** | On TCI, `G7250_TX_POLICY`: `any` (every client may key while armed) or `holder` (only the arm holder may) (part C C5.5.8). | 0021 §1 |

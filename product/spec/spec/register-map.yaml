@@ -465,8 +465,12 @@ tci_commands:
     status: "MUST"
   - name: CALLSIGN_SEND
     status: "SHOULD"
+  - name: CHANNELS_COUNT
+    status: "MUST"
   - name: CLICKED_ON_SPOT
     status: "MAY on L1; NOT SUPPORTED on L2"
+  - name: CTCSS_*
+    status: "MUST NOT be sent or accepted"
   - name: CW_KEYER_SPEED
     status: "SHOULD"
   - name: CW_MACROS
@@ -491,6 +495,8 @@ tci_commands:
     status: "SHOULD"
   - name: DDS
     status: "MUST"
+  - name: DEVICE
+    status: "MUST"
   - name: DIGL_OFFSET
     status: "SHOULD"
   - name: DIGU_OFFSET
@@ -507,6 +513,8 @@ tci_commands:
     status: "SHOULD"
   - name: IF
     status: "MUST"
+  - name: IF_LIMITS
+    status: "MUST"
   - name: IQ_SAMPLERATE
     status: "MUST"
   - name: IQ_START
@@ -515,6 +523,10 @@ tci_commands:
     status: "MUST"
   - name: KEYER
     status: "MAY"
+  - name: LINE_OUT_RECORDER_BREAK
+    status: "NOT SUPPORTED on L2; MAY on L1"
+  - name: LINE_OUT_RECORDER_SAVE
+    status: "NOT SUPPORTED on L2; MAY on L1"
   - name: LINE_OUT_RECORDER_START
     status: "NOT SUPPORTED on L2; MAY on L1"
   - name: LINE_OUT_START
@@ -524,6 +536,8 @@ tci_commands:
   - name: LOCK
     status: "MAY"
   - name: MODULATION
+    status: "MUST"
+  - name: MODULATIONS_LIST
     status: "MUST"
   - name: MON_ENABLE
     status: "MAY"
@@ -535,6 +549,12 @@ tci_commands:
     status: "MUST NOT be sent or accepted"
   - name: PREAMP_PARAM
     status: "MUST NOT be sent or accepted"
+  - name: PROTOCOL
+    status: "MUST"
+  - name: READY
+    status: "MUST"
+  - name: RECEIVE_ONLY
+    status: "MUST"
   - name: RIT_ENABLE
     status: "SHOULD"
   - name: RIT_OFFSET
@@ -601,6 +621,8 @@ tci_commands:
     status: "MUST"
   - name: TRX
     status: "MUST (M7 on L2)"
+  - name: TRX_COUNT
+    status: "MUST"
   - name: TUNE
     status: "MUST (M7 on L2)"
   - name: TUNE_DRIVE
@@ -622,6 +644,8 @@ tci_commands:
   - name: TX_SWR
     status: "MUST NOT be sent or accepted"
   - name: VFO
+    status: "MUST"
+  - name: VFO_LIMITS
     status: "MUST"
   - name: VFO_LOCK
     status: "MAY"

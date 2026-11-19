@@ -1721,6 +1721,136 @@ Status: proposed.
 23. **Editorial (L23).** A1.8 no longer says "receive-safe" for a state in which RX stops;
     Annex X3 ids in order (T-A1-28, T-A3-14, T-A3-15 moved).
 
+## 74. CW keyer elements and the break-in hang delay (rc3-draft review M1)
+
+Status: proposed.
+
+**Problem.** A3.1a made the key rule apply to an edge of a TX request, but a keyer (CWX
+paddles, the hardware keyer behind KEY, TCI `KEYER` and CW text) forms many elements from one
+request; it was open whether every element is checked, and whether a failed check is held
+until it clears. A3.4d counted the hang delay as part of one continuous transmission for the
+time limit, and §73 item 9 kept SEND and the T/R relay in TX position during it, but A3.9,
+A3.9a and A3.9c spoke of "keyed" as the PA being keyed. In a gap between elements the radio
+was therefore unkeyed for the relay rules while SEND and the T/R relay were still in TX
+position: a deferred RF-path change could be applied, or an `ATU_TUNE` start, under an
+asserted SEND.
+
+**Rule.** Every keyer-generated element (CWX paddles, hardware keyer from KEY, and on TCI
+`KEYER` and CW text) is a key subject to every A3.1a condition; a failed condition stops the
+keyer and a new request edge is needed (not latched). For RF-path purposes (A3.9, A3.9a,
+A3.9c and the tune-cycle start) "keyed" means the A3.4d continuous transmission including the
+hang delay: a change that needs another TX RF-path state, a mode-class change or an RF-path
+relay change arriving in a gap ends the hang (unkey reason 6 or 10 as applicable), waits for
+RF gone, releases SEND and returns T/R, and only then moves relays or applies the change;
+receive-frequency-only changes stay deferred until the hang ends; PA enable cleared in a gap
+ends the hang (reason 7). Detail choices: an owner's register write that ends the hang is
+answered once the change is applied; a controller ANT or ATU button press stays ignored
+during the hang delay, as while keyed (A3.7: the controller is not a requester on level 1).
+The same rule is used in part C. Applied in A3.1a, A3.1b, A3.4d, A3.9, A3.9a items 1 and 4,
+A3.9b, A3.9c, B10.5a, B10.9 (KEY, SEND, internal ATU), B10.10, Annex X1 D31; T-A3-48,
+T-A3-49.
+
+**Alternatives.**
+
+- Defer every RF-path change in a gap until the hang delay ends, as while the PA is keyed.
+  For: no extra unkey; the operator's CW flows on. Against: a host that retunes during fast
+  break-in waits up to the hang delay with no sign of why; with a long hang delay the retune
+  appears lost; the mode class could not change at all during a CW over.
+- Treat the gap as unkeyed (apply changes at once). For: simplest firmware. Against: relays
+  and the mode class would change while SEND is asserted and an external amplifier is still
+  switched to transmit; the opposite of §73 item 9.
+
+**Reason.** The hang delay is the time an external amplifier and the T/R path stay in TX; it
+must be protected exactly like the keyed state, but a host change must not wait silently.
+Ending the hang delay with a visible unkey reason gives the change at once in the safe order
+(A3.9a item 4). Checking every element closes the gap in which a keyer could keep sending
+after PA enable is cleared or an inhibit is set.
+
+## 75. Management write session idle timer (rc3-draft review M2)
+
+Status: proposed.
+
+**Problem.** A1.10 ended the write session "after 60 s without a request". Any request
+counted, so an unauthenticated read, or a forged datagram with the holder's address and port,
+could keep the session open and lock other writers out with status 35 for as long as it
+continued.
+
+**Rule.** Only an authenticated request from the holder whose HMAC verifies refreshes the 60 s
+idle timer. Reads (`GET_STATS`, `IDENTIFY`, other unauthenticated commands), `GET_CHALLENGE`,
+any unauthenticated request and any request that fails authentication never do. A1.10,
+B11.10; T-A1-15.
+
+**Alternatives.**
+
+- Any request from the holder's address and port refreshes it. For: a monitoring tool of the
+  holder keeps its session alive with reads. Against: the address and port can be spoofed
+  without the secret; a read is no evidence that the writer is still there.
+- No idle timer, only `END_WRITE_SESSION`. For: no timer. Against: a crashed writer locks out
+  every other writer until a reset (0020 §24).
+
+**Reason.** The timer guards the lock that only an authenticated writer can take; only the
+same proof should extend it.
+
+## 76. Restart with the run bit only (rc3-draft review M3)
+
+Status: proposed.
+
+**Problem.** B5.4 allowed a restart "by a new High Priority packet with run set". B5.1a
+empties the set-up at every session end and B5.2 treats DDC0 as not enabled without a
+DDC-specific packet, so a host that restarts with the run bit only gets a session with
+`STREAM_STATUS` DDC0 reason 1, PA disabled and the TX settings of Table A3-4, with nothing in
+B5.4 telling it why.
+
+**Rule.** After any session end a host MUST resend its General, DDC-specific and DUC-specific
+packets, in its set-up phase (B5.1a, which counts only packets received since the session
+end) or in the session. A run bit alone gives the [P2] defaults: DDC0 not enabled
+(`STREAM_STATUS` reason 1), Table A3-4, and `WATCHDOG_DISABLED` for an arm until a General
+packet arrives. The takeover remains the one carry-over of RX-side settings (A2.4 step 4).
+This matches [P2] "Detailed operation", which describes the restart as a re-initiation of
+all C&C settings. B5.4, B5.1a item 3, Annex X2 C21; T-B5-16.
+
+**Alternatives.**
+
+- Keep the DDC-side RX settings of an ended session for a later session of the same host
+  (address and port). For: a host that only toggles run gets its stream back as before.
+  Against: the radio would have to keep a second, per-host copy of state that A3.6 resets at
+  every session end; a different program on the same port would inherit settings it never
+  sent; it contradicts the re-initiation of [P2].
+- Keep every setting, TX included. Against: undoes §64.
+
+**Reason.** One rule for every session start: what counts is what the host sent since the
+last session end. The status reason 1 already tells a host what is missing.
+
+## 77. rc3-draft review small fixes (review LOW)
+
+Status: proposed.
+
+1. **Abandonment after abort or verify (L1).** The 10-minute rule of A1.8 also runs after
+   `UPDATE_ABORT` and after `UPDATE_VERIFY` without `UPDATE_ACTIVATE`; the radio restarts into
+   the running image as a commanded reset. T-A1-46. Alternative: stay in the update state
+   until `RESTART`. Against: RX stays unavailable until someone visits the radio or the
+   management channel, which §51 removed for an unfinished transfer.
+2. **Takeover notice copies asynchronous (L2).** The three copies of A2.4 step 1 are sent in
+   the background; steps 2–5 do not wait for the second and third. T-A2-15. Alternative: send
+   all three first. Against: 20 ms without streams for the new owner, and a PTT edge in the
+   takeover packet delayed by it.
+3. **Citation (L3).** Table A3-1 event 11 cites A1.6 C-3 for the change of limits, A1.8 for
+   the update.
+4. **Cache churn (L4).** Known limit in B11.14: the per-host caches (challenges, stored
+   replies, set-up; 4 entries each, LRU) can be churned by a source inside the subnet. No
+   safety effect. Alternative: larger caches. Against: RAM, and any finite cache can be
+   churned; the subnet rule of B11.15 and A1.10 S4 already bounds who can do it.
+5. **`ATU_TUNE` = 0 (L5).** From the owner always accepted, also while the cycle keys and
+   whatever the arm state; a no-op when no cycle runs. A3.9b item 1, B10.9; T-A3-50.
+   Alternative: reject 0 while unarmed with `NOT_ARMED`. Against: an abort must never be
+   refused.
+6. **Oversize management request (L6).** A request whose header declares more than 1000
+   bytes (18 + *N*, plus 32 with the HMAC flag) gets status 19, decided from the header before
+   the length check, because the 1 KB receive buffer may truncate the datagram; a datagram
+   above 1000 bytes with a smaller *N* gets 17 from the length check. A1.4 and the precedence
+   order of Table A1-3; T-A1-47. Alternative: status 17 for every oversize datagram. Against:
+   the host cannot tell "too large" from "corrupted", and status 19 exists for this case.
+
 ---
 
 ## Consequences
@@ -1773,6 +1903,12 @@ Status: proposed.
   §68 and §73 items 9, 10, 18 in a later step. HIS-18 gets the DUC-to-coupler delay and the
   keyed FIFO capacity (§62, §63); HIS-11 and HIS-12 the crest-factor margin and the ordering of
   the "RF while not keyed" threshold, `P_rf_off`, `t_blank` and `t_reset_wait` (§62, §68).
+- §74–§77 (review of the rc3 draft) are applied in `spec/network-interface.md` rc3 (A1.4,
+  Table A1-3 precedence, A1.8, A1.10, A2.4, A3.1a, A3.1b, Table A3-1, A3.4d, A3.9, A3.9a,
+  A3.9b, A3.9c, B5.1a, B5.4, B10.5a, B10.9, B10.10, B11.10, B11.14, Annex X1 D31, Annex X2
+  C21, Annex X3 T-A1-15, T-A1-46, T-A1-47, T-A2-15, T-A3-48 to T-A3-50, T-B5-16). Table B8-2
+  is unchanged, so `spec/register-map.yaml` needs no regeneration for them. Part C applies
+  §74 in its keyer, CW text and break-in rules.
 - `open-questions-his.md`: HIS-07 (filter plan, which frequencies share an RF-path state),
   HIS-11 (PEP detector, temperature filter), HIS-12 (`P_swr`, `P_temp`, hysteresis) are
   extended by the coordinator; this file does not edit it.
