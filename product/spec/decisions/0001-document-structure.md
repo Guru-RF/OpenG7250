@@ -1,6 +1,6 @@
 # 0001 — Structure of the design note and the network-interface spec
 
-- Status: proposed (ON8ST: "a strong starting point", 2026-11-19; one point under review, see Open points)
+- Status: accepted (ON8ST, 2026-11-19; earlier "a strong starting point"; all open points settled, see Open points)
 - Date: 2026-11-19
 
 ## Context
@@ -78,7 +78,7 @@ open-questions-his.md        questions only the hardware-interface spec (HIS) ca
 | 0002 | Numeric value of the board id                    | 8-bit byte; the name "G7250-P1" goes in the capability block; pick a value outside the known P1/HL2 values |
 | 0003 | Format and location of the capability block      | |
 | 0004 | Streams and sample rates                         | depends partly on HIS (ADC, sample clock) |
-| 0005 | C&C fields: standard vs extensions               | reuse HL2 extensions where they fit, or standard P1 plus own addresses |
+| 0005 | C&C fields: standard vs extensions               | accepted: standard P1, HL2 addresses only with identical meaning |
 | 0006 | Telemetry                                        | |
 | 0007 | Watchdog and safety                              | |
 | 0008 | Management channel                               | |
@@ -107,4 +107,9 @@ open-questions-his.md        questions only the hardware-interface spec (HIS) ca
   (start brief) and would need an explicit decision revising it. Decided: out of scope for
   now (0010).
 - Should C&C be HL2-compatible where possible (proposed) or standard P1 plus own addresses?
+  Decided: standard P1, HL2 addresses only where the meaning is identical, TX safety always
+  on G7250 addresses (0005).
 - Should a host that does not know the board id still be able to receive RX-IQ (generic P1)?
+  Decided: yes, RX only; TX needs an explicit arm on a G7250 C&C address (0015).
+- Should AetherSDR's host-side TCI match spec part C? Decided: yes, one TCI profile for
+  both levels (0014).
