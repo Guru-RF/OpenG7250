@@ -108,7 +108,8 @@ board type. Protocol 1 is out of scope. If AetherSDR does not have the needed P2
   P2 fields fit the G7250 as they are, and where G7250 fields go (reserved bytes, or a
   G7250-specific packet).
 - **0015 (unknown board type)** keeps its intent (RX for any host, TX only after an
-  explicit G7250 arm), but the arm moves from a P1 C&C address to a P2 field. P2's own
+  explicit G7250 arm), but the arm moves from a P1 C&C address to a register in the G7250 register map (0005,
+  0015 as rewritten). P2's own
   watchdog [P2] covers part of 0007.
 - **Board type value (0002).** P2 assigns 0–6 and 10, reserves 7–9, and uses 254 and 255 for
   descriptions [P2]. A G7250 value should not collide with future openHPSDR assignments.
@@ -130,6 +131,8 @@ board type. Protocol 1 is out of scope. If AetherSDR does not have the needed P2
   management channel (0008) cannot have its own socket unless another port is freed, for
   example by sharing port 1024 or by leaving out DDC audio. Sample rates are limited by SPI
   throughput (0004).
+- **Update after 0017.** DDC audio (port 1028) is not offered, so standard P2 plus the register
+  map uses 7 of 8 sockets and one socket is free for the management channel (0008).
 - **HIS.** The compute and network budget becomes more pressing, because P2 is the heavier
   protocol (several UDP ports, 24-bit TX path at 192 ksps [P2]).
 

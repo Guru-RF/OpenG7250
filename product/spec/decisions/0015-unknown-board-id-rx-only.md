@@ -24,7 +24,7 @@ What standard P2 already gives [P2]:
 The G7250 has a 100 W PA [G7250]. The safety core (watchdog, TX limits, fault state) sits
 below both levels and applies to every host (0011). Full functionality including TX is
 delivered through AetherSDR (0012, 0013, 0016). G7250-specific control lives in a G7250
-register map carried by the P2 memory-mapped register packets (0005, proposed).
+register map carried by the P2 memory-mapped register packets (0005).
 
 ## Options considered
 

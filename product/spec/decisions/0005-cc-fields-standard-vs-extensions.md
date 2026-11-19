@@ -124,6 +124,11 @@ standard packets are not used.
     rejects it, with a source;
   - a G7250 register map: address, name, data layout, direction, access, and source (HIS or
     decision).
+- The G7250 uses **one local UDP port** for the register map in both directions: it receives
+  memory-mapped packets from the host on that port and sends its own memory-mapped packets
+  from the same port. General packet bytes 29–30 name the radio's receive port and bytes
+  31–32 the host's destination port [P2], so one socket suffices. This keeps the register map
+  to one of the 8 CH394Q sockets (0017; spec B2.3).
 - The spec defines the memory-mapped ports, because P2 gives the default as "xxxx". The
   G7250 sets the "Memory mapped registers supported" flag in its full description
   (Appendix C, byte 23), if the capability block uses that reply (0003).
