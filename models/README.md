@@ -28,6 +28,7 @@ version boundary.
 | --- | --- | --- | --- |
 | `devices/ch394.py` | register-file logic + A1.12 check | **SPI6** slave, INT on PC13 (VERIFIED). Not yet wired as an SPI slave — needs the image to drive SPI6 frames. The class is transport-agnostic so the wiring lands without a rewrite. | `python3 models/devices/ch394.py` (self-test: forced default IP 192.168.3.199 → `a1_12_ok`) |
 | `devices/i2c_devices.py` | EEPROM24C, AXP223, VC6, AIC3204 register-file stubs | **I²C1** slaves behind the STM32 I²C1 controller, addressed by the firmware's I²C transfers. Shared `I2CRegDevice` base (address-pointer protocol); transport-agnostic, wired as I²C slaves when the image drives I²C1. | `python3 models/devices/i2c_devices.py` (self-test: EEPROM round-trip + page wrap, AXP power-status/rail readback, VC6 locked, AIC3204 page select) |
+| `system/power_model.py` | Main power/reset state machine (PH5/PH9, H1/H2) | Logic model behind risk **R0** / milestone M8c and the NF-Main power reqs P-1..P-11 (§3.8). Drives PH5/PH9 + the DC rail; reproduces the stock no-panel pitfall and the P-1 fix. | `python3 models/system/power_model.py` (self-test: PH9-hold→ON, PH5 long-low→off-request, `ignore_ph5` suppresses it, H1 reset drops power) |
 
 ## Deliberately *not* modelled as sysbus peripherals yet
 

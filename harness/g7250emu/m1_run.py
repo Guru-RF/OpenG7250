@@ -37,6 +37,7 @@ OUT = os.path.join(REPO, ".private", "m1")
 
 sys.path.insert(0, HERE)
 import observe  # noqa: E402
+import platform_extras  # noqa: E402
 
 # Verified Main reset facts (main_unit/docs/startup.md, memory_map.md):
 LOAD_BASE = 0x08020000      # app vector table / load base
@@ -50,6 +51,9 @@ def build_resc(image_path, log_path):
         'mach create "main"',
         'machine LoadPlatformDescription @%s' % REPL,
     ]
+    # H72x-only blocks absent from the H743 base: tag them so a touch is named
+    # and logged ("known H72x block, not modelled") rather than faulting.
+    lines += platform_extras.h72x_tag_commands()
     # observe: strict logging + per-access log mirrored to a file the parser reads
     lines += observe.strict_logging_commands("machine", log_file=log_path)
     lines += [

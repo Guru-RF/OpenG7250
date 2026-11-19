@@ -28,6 +28,9 @@ python3 models/devices/ch394.py >/dev/null 2>&1 && ok ch394 || bad ch394
 echo "[2b] i2c_devices.py self-test"
 python3 models/devices/i2c_devices.py >/dev/null 2>&1 && ok i2c_devices || bad i2c_devices
 
+echo "[2c] power_model.py self-test"
+python3 models/system/power_model.py >/dev/null 2>&1 && ok power_model || bad power_model
+
 if [ ! -x "$RN" ] && [ ! -f "$RN" ]; then
   echo "[3-4] SKIP (pinned Renode not found at tools/renode-1.17.0)"
 else
@@ -44,6 +47,18 @@ EOF
     ok "axiSram = 0x24000000..0x2404FFFF (320 KiB)"
   else
     bad "axiSram override not found (expected 320 KiB)"
+  fi
+
+  echo "[3b] H72x-only Tag regions apply on the platform"
+  { echo 'mach create "main"'
+    echo 'machine LoadPlatformDescription @platforms/g7250_main.repl'
+    python3 harness/g7250emu/platform_extras.py
+    echo 'echo TAGS_OK'; echo 'quit'; } > "$OUT/smoke_tags.resc"
+  if timeout 90 "$RN" --disable-xwt --console -e "path add @$REPO" \
+        -e "include @$OUT/smoke_tags.resc" </dev/null 2>&1 | grep -q "TAGS_OK"; then
+    ok "TIM23/24, UART9, USART10 tagged"
+  else
+    bad "H72x Tag regions rejected"
   fi
 
   echo "[4] observe end-to-end (log capture + parse)"
