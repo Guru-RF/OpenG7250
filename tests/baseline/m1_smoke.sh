@@ -114,6 +114,21 @@ EOF
     bad "control expected 2 added SPI controllers"
   fi
 
+  echo "[3d] Control I2C mock overlay loads (4 DummyI2CSlave on i2c1/i2c2)"
+  cat > "$OUT/smoke_ctrl_i2c.resc" <<EOF
+mach create "control"
+machine LoadPlatformDescription @platforms/g7250_control.repl
+machine LoadPlatformDescription @platforms/g7250_control_i2c_mock.repl
+peripherals
+quit
+EOF
+  if [ "$(timeout 90 "$RN" --disable-xwt --console -e "path add @$REPO" \
+        -e "include @$OUT/smoke_ctrl_i2c.resc" </dev/null 2>&1 | grep -ciE 'DummyI2CSlave')" -eq 4 ]; then
+    ok "4 Control I2C mock slaves (GT911/AIC3204/PCA9557) register"
+  else
+    bad "expected 4 Control I2C mock slaves"
+  fi
+
   echo "[4] observe end-to-end (log capture + parse)"
   LOG="$OUT/smoke_e2e.log"; : > "$LOG"
   cat > "$OUT/smoke_e2e.resc" <<EOF

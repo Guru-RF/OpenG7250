@@ -1,0 +1,15 @@
+// g7250_control_i2c_mock.repl — minimal ACKing I2C slaves for the Control boot.
+//
+// Overlay for g7250_control.repl (load AFTER it). Same rationale as the Main
+// overlay: Renode's STM32F7_I2C only drives the HAL TXIS/TC/STOPF flags when a
+// slave is present, so without these the Control's I2C bring-up would crawl on
+// per-byte 100 ms timeouts. Addresses from control_unit/docs/peripherals.md:
+//   I2C1: GT911 capacitive touch 0x14 (reset selects 0x14; fallback 0x5D)
+//   I2C2: AIC3204 codec 0x18, PCA9557 I/O expander 0x19
+// Mock bytes suffice to reach the GUI service loop; swap one for a functional
+// slave (models/devices/control_i2c.py) when a test needs real device data.
+
+i2c1_gt911:     Mocks.DummyI2CSlave @ i2c1 0x14
+i2c1_gt911_alt: Mocks.DummyI2CSlave @ i2c1 0x5D
+i2c2_aic3204:   Mocks.DummyI2CSlave @ i2c2 0x18
+i2c2_pca9557:   Mocks.DummyI2CSlave @ i2c2 0x19
