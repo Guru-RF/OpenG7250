@@ -90,7 +90,7 @@ the source has been found but not checked.
   TCP/IP, 8 sockets on CH394Q / 4 on CH394L, 32 KB RAM, SPI up to 62 MHz).
 - Where: wch.cn; copy read from atta.szlcsc.com,
   `/upload/public/pdf/source/20251203/9EC0C6F644C6D345895781592F6A1E96.pdf`.
-- Version: 1.2. Chinese, 3 pages; mainly the CH394Q. The CH394L manual (CH394DS2) has not been
+- Version: 1.2. Chinese, 45 pages; mainly the CH394Q. The CH394L manual (CH394DS2) has not been
   read.
 - Read: 2026-11-19.
 - Used for: `analysis/ch394-network-budget.md`.
@@ -113,7 +113,8 @@ the source has been found but not checked.
 
 ### [G7250] Public G7250 product information
 
-- **[G7250-MAN] Xiegu G7250 Operation Manual, English, rev 0.1.** Primary source.
+- **[G7250-MAN] Xiegu G7250 Operation Manual, English.** Primary source. The file name says
+  "rev0.1"; the title page says "Rev.1.01".
   radioddity.s3.amazonaws.com/Xiegu_G7250_Operation_Manual_EN_rev0.1_20261008.pdf
   (file dated 2026-10-08; back cover "Edition Jul 2026", XDT-B00; © WeiSheng Communication).
   49 pages. Read 2026-11-19 (link from ON8ST). The manual states that specifications may

@@ -20,6 +20,8 @@ Priority: **M1** = needed for milestone M1 (discovery, capability block, RX-IQ);
   realistic rates to 384 ksps or lower (`analysis/ch394-network-budget.md`). Decision 0004
   (streams and sample rates) needs the hardware side.
 - Known: "RF direct sampling" [G7250-MAN]. No ADC type or rate is published.
+- Added by 0006: can the ADC chain give a peak magnitude per period (for P2 ADC max
+  magnitude)?
 
 ### HIS-02 — Number of receivers (M1)
 
@@ -87,6 +89,7 @@ Priority: **M1** = needed for milestone M1 (discovery, capability block, RX-IQ);
 - Known: these connectors and their pins [G7250-MAN].
 
 ## Transmit and safety
+- Added by 0007: is SEND an output only (keying external equipment) or also an input?
 
 ### HIS-10 — PTT and TX interlock (M3, M4)
 
@@ -95,6 +98,7 @@ Priority: **M1** = needed for milestone M1 (discovery, capability block, RX-IQ);
   block each of them?
 - Why: TX arm (0015), watchdog and safety (0007), single owner (0011). The arm only works if
   the firmware is the only path to the PA, or can block every other path.
+- Added by 0007: can the controller key the PA on its own, without the main-unit firmware?
 
 ### HIS-11 — Sensors (M2, M3)
 
@@ -104,6 +108,10 @@ Priority: **M1** = needed for milestone M1 (discovery, capability block, RX-IQ);
 - Why: P2 High Priority status carries forward/reverse power and supply voltage, sent every
   1 ms during TX [P2]; telemetry (0006) and SWR/temperature limits (0007).
 - Known: supply 13.8 V ±15 %, TX current ≤ 23 A [G7250-MAN].
+- Added by 0006: where does the power coupler sit relative to the ATU; is there a separate
+  exciter detector; does per-unit calibration data exist in the radio, and where; what is the
+  fastest rate at which each sensor can be read?
+- Added by 0007: what plausibility check is possible per sensor (to detect a failed sensor)?
 
 ### HIS-12 — Power control and limits (M4)
 
@@ -119,6 +127,7 @@ Priority: **M1** = needed for milestone M1 (discovery, capability block, RX-IQ);
 - Why: safe state after reset or fault (0001 spec section 9, 0007).
 
 ## Network
+- Added by 0008: can the firmware read the cause of the last reset?
 
 ### HIS-14 — Ethernet controller and its connection (M1)
 
@@ -128,11 +137,15 @@ Priority: **M1** = needed for milestone M1 (discovery, capability block, RX-IQ);
   decides the 8-socket budget (`analysis/ch394-network-budget.md`, 0016, 0017).
 - Known: LAN port on the main unit [G7250-MAN]; ON8ST saw a CH394Q during his own hardware
   inspection (2026-11-19).
+- Added by 0007: does the CH394Q report link status (cable unplugged) to the processor?
+- Added by 0008: is a DHCP client present in the current design? (The CH394 has none built
+  in, per 0008.)
 
 ### HIS-15 — MAC address (M1)
 
 - Question: where is the MAC address stored, and is it unique per unit?
 - Why: the P2 discovery reply carries the MAC address [P2].
+- Added by 0008: is there a unique serial number besides the MAC address?
 
 ### HIS-16 — Public sources on the network interface (M1)
 
@@ -155,6 +168,10 @@ Priority: **M1** = needed for milestone M1 (discovery, capability block, RX-IQ);
   has no audio connector [G7250-MAN], (ON8ST, 0017).
 
 ## Compute and firmware
+- Added by 0008: can the main unit read the controller's TF card or USB, show a confirmation
+  on the controller's screen, or receive a button press from it (first-secret set-up,
+  physical-presence confirmation, local factory reset)? Does the controller's NETWORK page
+  write the main unit's network settings?
 
 ### HIS-18 — Processor, memory and logic (G6, M1)
 
@@ -163,6 +180,8 @@ Priority: **M1** = needed for milestone M1 (discovery, capability block, RX-IQ);
 - Why: P2 is the heavier protocol (several ports, 24-bit TX IQ at 192 ksps [P2]); the
   WebSocket layer and TCI commands for level 2 run on the processor, not in the CH394Q
   (`analysis/ch394-network-budget.md`); gate G6 (0011).
+- Added by 0008: flash size and layout (room for two images, or one plus staging), RAM for a
+  log buffer, and whether an FPGA image is loaded by the main-unit firmware.
 
 ### HIS-19 — Firmware loading and recovery (M5)
 
@@ -170,6 +189,13 @@ Priority: **M1** = needed for milestone M1 (discovery, capability block, RX-IQ);
   a failed update, and can an update be done over the network?
 - Why: firmware update over the management channel (0001 spec section 10, 0008); P2 also has
   program packets on port 1024 [P2].
+- Added by 0008: can the boot choice be switched atomically, and can the boot loader detect
+  an unconfirmed trial boot?
+
+### HIS-20 — Source of randomness (M5)
+
+- Question: is there a hardware random-number generator or an equivalent entropy source?
+- Why: challenges for the management channel (0008) and the per-session TX arm token (0007).
 
 ## Sources
 

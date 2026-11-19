@@ -13,7 +13,7 @@
 
 - [CH394] WCH, 以太网协议栈芯片 CH394 手册 1 (CH394 manual 1), version 1.2, wch.cn. Copy read
   from atta.szlcsc.com (`/upload/public/pdf/source/20251203/9EC0C6F644C6D345895781592F6A1E96.pdf`),
-  2026-11-19. Chinese; 3 pages. Mainly about the CH394Q; the CH394L is described in a
+  2026-11-19. Chinese; 45 pages. Mainly about the CH394Q; the CH394L is described in a
   separate manual (CH394DS2), not read.
 - [P2] openHPSDR Ethernet Protocol V4.4 (see `sources.md`).
 - [P1-METIS] Metis – How it works V1.33 (see `sources.md`).
