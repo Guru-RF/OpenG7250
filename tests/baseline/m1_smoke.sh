@@ -31,6 +31,9 @@ python3 models/devices/i2c_devices.py >/dev/null 2>&1 && ok i2c_devices || bad i
 echo "[2c] power_model.py self-test"
 python3 models/system/power_model.py >/dev/null 2>&1 && ok power_model || bad power_model
 
+echo "[2c2] r0_sim.py self-test (PW-1 predictions)"
+python3 harness/g7250emu/r0_sim.py --selftest >/dev/null 2>&1 && ok r0_sim || bad r0_sim
+
 echo "[2d] bias_trim_plant.py self-test"
 python3 models/devices/bias_trim_plant.py >/dev/null 2>&1 && ok bias_trim_plant || bad bias_trim_plant
 
