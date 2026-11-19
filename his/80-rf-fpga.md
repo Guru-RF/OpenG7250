@@ -32,7 +32,15 @@ on GPIOE** (no FMC). A clean-room firmware must drive exactly this interface.
 - **Errors are log-only** in stock: a bus-test mismatch or an unchanging first
   RX sample is logged, with no re-init or reset.
 
-## Emulator status (g7250-emu)
+## Emulator status (g7250-emu) — MODELLED (2026-11-19)
+
+A fused GPIOE+FPGA port (g7250-emu models/csharp/G7250Gpioe.cs) now implements
+this interface: the loopback test register (0x00), the 3-byte version (0x08 ->
+1.0.0), and DRDY (PE10) pulsing a changing 24-bit RX I/Q. The stock Main boots
+to "Check FPGA BUS... Check complete!" with no FPGA errors (m1_run --fpga). The
+remaining realism (true 48 kHz NCO-accurate I/Q, TX path) can build on this.
+
+### Original note
 Not yet modelled: the base GPIOE absorbs the Main's init bit-bang, so the stock
 Main boots to its service loop but logs "[ERR] FPGA BUS Error" (the read-back
 loopback has no FPGA driving the data lines) and no live I/Q flows. A **fused
