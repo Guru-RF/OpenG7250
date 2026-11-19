@@ -109,6 +109,25 @@ the source has been found but not checked.
   ("Transmit is a future phase"). Backends use an `IRadioBackend` seam. TCI server
   announcing protocol 2.1. Licence GPL-3.0.
 
+### [AETHER-SRC] AetherSDR source code
+
+- What: the public source of AetherSDR (GPL-3.0), read-only, for the annex "Changes needed in
+  AetherSDR" (`spec/annex-aethersdr.md`).
+- Where: github.com/aethersdr/AetherSDR, shallow clone of commit 9f7cbeb (2026-11-18), kept in
+  the session scratchpad, not in this repository. Cited by `path:line`; no code copied.
+- Read: 2026-11-19.
+- Facts used: `anan` backend (P2, receive-only), Hermes-Lite 2 backend (P1 TX path), TCI server
+  on port 50001 announcing `ExpertSDR3,2.1`; DDC sample-rate field written in ksps
+  (`src/core/backends/anan/P2Protocol.cpp:123–125`).
+
+### [PIHPSDR] piHPSDR source code
+
+- What: a public openHPSDR host (P1 and P2), used only to confirm the unit of the P2 DDC
+  sample-rate field.
+- Where: github.com/dl1ycf/pihpsdr, commit 422bec5 (2026-11-19). `src/new_protocol.c:1403–1404`
+  writes `sample_rate / 1000` (ksps) into DDC-specific bytes 18–19.
+- Read: 2026-11-19.
+
 ## The radio
 
 ### [G7250] Public G7250 product information
