@@ -5,15 +5,17 @@ on 2026-11-19, as recorded in `decisions/`.
 
 ## Where things stand
 
-- The g7250-spec branch `docs/initial-structure` has been subtree-merged into
-  `product/spec/` in the main repo (merge commit a29155b, local, not pushed).
-- `design-note.md` exists as draft 1 (2026-11-19), for review by ON8ST.
-  `spec/network-interface.md` exists as draft 1 (part B for M1: B1–B3, B5, B6 written;
-  B4 and later sections wait for 0003–0008 to be accepted). `sources.md` and `open-questions-his.md` exist.
-- Level 1 is G7250-P2: openHPSDR Protocol 2, board type 200 (0016, 0002). The P2, P1, HL2
-  and AetherSDR sources and the CH394 datasheet have been read; the TCI 2.1 PDF has not.
-- Analyses: `analysis/p1-vs-p2.md`, `analysis/ch394-network-budget.md`.
-- The G7250 operation manual rev 0.1 is the primary product source (`sources.md`).
+- Spec release candidate rc1 is being finished on branch `restructure/umbrella` (local only).
+  Files: `spec/network-interface.md` (parts A and B, draft 4), `spec/part-c-tci-profile.md`
+  (TCI profile), `spec/annex-aethersdr.md`, `spec/glossary.md`, generated
+  `spec/register-map.yaml` and `spec/traceability-auto.md`; `design-note.md` draft 2.
+- Checks: `python3 tools/spec_lint.py` (0 findings required), `python3 tools/trace.py`,
+  `python3 tools/budget.py`, `python3 tools/regmap.py` (regenerate after B8 or A1-2 changes).
+- Level 1 is G7250-P2: openHPSDR Protocol 2, board type 200 (0016, 0002). Analyses in
+  `analysis/`. Primary product source: the G7250 operation manual (`sources.md`).
+- Before any push: `.claude/settings.json` in the history contains local paths and the name of
+  a decrypted stock-firmware folder; it must be removed from the history or the push must be a
+  cleaned, squashed tree (ON8ST to decide).
 
 ## Decisions
 
@@ -38,6 +40,9 @@ on 2026-11-19, as recorded in `decisions/`.
 | 0017 | G7250-P2 offers no DDC audio stream (port 1028); frees one of the 8 CH394Q sockets | accepted |
 | 0018 | Licences: documents CC BY 4.0, firmware GPL-3.0-or-later (Apache-2.0 if the vendor SDK forbids GPL), AetherSDR backend GPL-3.0; © ON8ST | accepted |
 | 0019 | Reference model on the product side (`product/refmodel/`); shared test bench stays black-box | accepted |
+| 0020 | rc1 detail choices: ports 7250 (register map) and 7251 (management), address map, codes, timers, B11 error handling | proposed (review at rc1) |
+| 0021 | TCI profile choices: port 50001, PROTOCOL ExpertSDR3,2.1, DEVICE G7250, TX policy, mode class from MODULATION, FLOAT32 IQ, LAN restrictions | proposed (review at rc1) |
+| 0022 | rc1 review fixes: RF path frozen while keyed, takeover procedure, non-owner TX IQ discarded, fault classes, limit tiers, SWR fold-back, level-switch procedure, rate limits | proposed (review at rc1) |
 
 All numbers 0001–0018 are now in use.
 
