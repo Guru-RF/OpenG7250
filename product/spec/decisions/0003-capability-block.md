@@ -1,6 +1,6 @@
 # 0003 — Capability block: standard short discovery reply with board type 200; capability record as read-only registers in the G7250 register map
 
-- Status: proposed (to be accepted by ON8ST)
+- Status: accepted (ON8ST, 2026-11-19)
 - Date: 2026-11-19
 
 ## Context
@@ -225,7 +225,7 @@ G7250-P2 answers a Discovery packet with the P2 short reply (format 1) [P2]:
 | Byte | Content on the G7250 | Source |
 |------|----------------------|--------|
 | 0–3 | sequence number 0 | [P2] |
-| 4 | 0x02, or 0x03 when another host has a session (the case of level 2 active is open, see Consequences) | [P2], 0011 |
+| 4 | 0x02, or 0x03 when another host has a session or level 2 is active (with `level` bits [7:4] = 2 in the record) | [P2], 0011; ON8ST, 2026-11-19 |
 | 5–10 | MAC address | [P2]; storage HIS-15 |
 | 11 | 200 | 0002 |
 | 12 | P2 version implemented, decimal (44 for V4.4) | [P2] |
@@ -266,11 +266,13 @@ no G7250 meaning. Bytes 14–19 are sent as zero.
   and does not feed the watchdog. The answer goes to the source IP address and port of the
   request when the host has no session; otherwise to the host's memory-mapped port set in the
   General packet (bytes 31–32) [P2]. This is a clarification of P2 and is listed in the annex
-  "Differences from standard P2".
+  "Differences from standard P2". Accepted by ON8ST, 2026-11-19: register-map packets do not
+  count as C&C for the watchdog.
 - **Stability.** The values are constant for the duration of a session. They may change only
   between sessions (for example after a firmware update, a region change of the TX bands, or a
-  change of the active level). Dynamic state is not part of the record: TX armed (0015), fault
-  state and limits in force (0007), and telemetry values (0006) are separate status registers.
+  change of the active level, a new per-unit calibration, or a change of link speed). Dynamic state is not part of the record: TX armed (0015), fault
+  state and limits in force (0007), telemetry values (0006), and the current link speed and session
+  refusal reason (0004) are separate status registers.
 
 ### 3. Fields (record version 1.0)
 
@@ -288,7 +290,7 @@ that HIS question; the value shown is the current assumption. Bit numbers are 0 
 | 0x09 | `p2_version` | P2 version implemented, as discovery byte 12 | [P2] |
 | 0x0A | `hw_revision` | main-unit hardware revision, 0 = not identified | HIS-18 (unverified whether a revision can be read at all) |
 | 0x0B | `level` | bit 0 level 1 present (always 1); bit 1 level 2 present in this firmware; bit 2 level 2 active; bits [7:4] active level (0 none, 1, 2) | 0011; level 2 only after G6 |
-| 0x0C | `streams` | bit 0 RX IQ; bit 1 TX IQ (DUC); bit 2 DDC audio (always 0, 0017); bit 3 microphone data; bit 4 wideband data; bit 5 time stamping of IQ | bit 0 = 1; bit 1 per `tx` below; bit 3 HIS-17 (assumed 0); bit 4 HIS-01, HIS-18 (assumed 0); bit 5 = 0 |
+| 0x0C | `streams` | bit 0 RX IQ; bit 1 TX IQ (DUC); bit 2 DDC audio (always 0, 0017); bit 3 microphone data; bit 4 wideband data; bit 5 time stamping of IQ | bit 0 = 1; bit 1 per `tx` below; bit 3 HIS-17 (assumed 0); bit 4 = 0 before M2, 1 from M2 (0004; HIS-01, HIS-18); bit 5 = 0 |
 | 0x0D | `num_adc` | number of RF ADCs | HIS-01, HIS-03 (assumed 1) |
 | 0x0E | `num_ddc` | number of DDCs; equals discovery byte 20 | HIS-02 (assumed 1) |
 | 0x0F | `num_duc` | number of DUCs | assumed 1: one transmitter [G7250-MAN]; how it is built is HIS-18 |
@@ -301,11 +303,17 @@ that HIS question; the value shown is the current assumption. Bit numbers are 0 
 | 0x1D | `atu` | bit 0 internal ATU present; bit 1 host can control it; bit 2 per-band memory; bit 3 external tuner interface present; bit 4 host can control the external tuner interface | bits 0, 2, 3 = 1 [G7250-MAN]; bit 1 HIS-08; bit 4 HIS-09 |
 | 0x1E | `atu_range` | [31:16] minimum, [15:0] maximum load in Ω | 20, 150 [G7250-MAN] |
 | 0x1F | `telemetry` | bit 0 forward power; bit 1 reverse power; bit 2 PA temperature; bit 3 supply voltage; bit 4 supply current; bit 5 PA current; bit 6 ADC overload | HIS-11; meaning and scale in 0006 |
-| 0x20 | `tx` | bit 0 TX hardware present; bit 1 TX implemented in this firmware (0 before M4); bit 2 TX arm required (always 1, 0015) | bit 0 = 1 [G7250-MAN]; bit 1 per milestone; bit 2 = 1 |
+| 0x20 | `tx` | bit 0 TX hardware present; bit 1 TX implemented in this firmware (0 before M4); bit 2 TX arm required (always 1, 0015); bit 3 declared TX mode class required for arm (always 1, 0007) | bit 0 = 1 [G7250-MAN]; bit 1 per milestone; bits 2, 3 = 1 |
 | 0x21 | `tx_band_count` | number of valid entries below (max 16) | 10 [G7250-MAN] |
 | 0x22–0x51 | `tx_band[0..15]` | 3 registers per band: start Hz; stop Hz; [31:16] maximum power SSB/CW/FM, [15:0] maximum power AM, both in 0.1 W | ranges per region [G7250-MAN]; 100 W SSB/CW/NFM, 25 W AM [G7250-MAN]; 50 MHz power not in the manual (90 W in [G7250-PUDX], [G7250-RIGPIX], unverified), HIS-12 |
 | 0x52 | `mgmt` | bit 0 management channel present; [31:16] its port | 0008 |
 | 0x53 | `regmap_groups` | bit mask of register groups present in the G7250 map (for example antenna, ATU, TX arm and safety, telemetry, external interfaces); assignment in part B | 0005, 0007 |
+| 0x54 | `link` | [15:0] minimum link speed in Mbit/s for a session; on a slower link the radio refuses the session and reports the reason in a status register | 100 (0004; [CH394]) |
+| 0x55 | `wb_format` | wideband data, fixed parameters: [31:16] samples per packet, [15:8] bits per sample, [7:0] update rate in ms; 0 when `streams` bit 4 = 0 | small fixed values from 0004 (P2 General bytes 24–27 [P2]; Appendix C bytes 43–50) |
+| 0x56 | `wb_frame` | wideband data: [7:0] packets per frame; 0 when `streams` bit 4 = 0 | 0004 (P2 General byte 28 [P2]) |
+| 0x57 | `cal_info` | conversion of the standard P2 status fields that carry raw ADC words (0006): bit 0 power constants per band (set *i* applies to `tx_band[i]`; else set 0 applies to all bands); bits 1–4 forward power, reverse power, exciter power, supply volts filled; [15:8] number of power constant sets (1, or `tx_band_count`); [31:16] ADC full-scale divisor *N* | 0006; per-unit and per-band values HIS-11; *N* = 4095 in [P2, Appendix A] |
+| 0x58 | `cal_supply_c` | supply constant *c* in units of 10⁻⁶, for `V = x / N × c` | this unit's calibration, 0006, HIS-11 |
+| 0x59–0xB8 | `cal_power[0..15]` | 6 registers per set, units of 10⁻⁶: forward *c1*, *c2*; reverse *c1*, *c2*; exciter *c1*, *c2*, for `W = (x / N × c1)² / c2` | this unit's calibration, 0006, HIS-11 |
 
 Notes on the fields:
 
@@ -316,6 +324,13 @@ Notes on the fields:
   `dsp_clock_hz` bytes 27–30, DDC audio byte 59, microphone byte 72, DUC rate and format
   bytes 79–80) [P2], it uses the same meaning, so that code written for Appendix C maps over
   directly. Only the location differs.
+- The calibration group (0x57–0xB8) holds the constants of **this unit**, not of the board
+  type: P2 lists such constants per board in Appendix A [P2, Appendix A], with the formulas
+  above, and board type 200 has no entry there. The G7250 sends raw ADC words in the standard
+  status fields (0006) and the host applies the formula with the constants from this record.
+  The sensor chain, the ADC width and whether the coupler needs per-band constants are HIS-11;
+  the encoding details belong to 0006. Unused sets are 0.
+- The record is 0xB9 = 185 registers long, within the 239-register limit of section 2.
 - `streams` bit 2 and `num_ddc` must agree with what the radio actually does: no socket on
   port 1028 (0017), and only as many DDC I&Q ports as `num_ddc` (`analysis/ch394-network-budget.md`).
 
@@ -380,28 +395,38 @@ Notes on the fields:
 - The AetherSDR G7250 backend reads the record after discovery and before opening a session,
   and uses it for sample rates, antennas, ATU, TX power and the TX implemented flag. This goes
   in the annex "Changes needed in AetherSDR".
-- 0004 must agree with `ddc_rates` and with discovery byte 22. 0006 defines the telemetry bits
-  and their scale. 0008 decides whether the management channel repeats identification and the
+- 0004 must agree with `ddc_rates`, discovery byte 22, `link`, `wb_format` and `wb_frame`, and
+  defines the status register that gives the current link speed and the session refusal reason.
+  0006 defines the telemetry bits, the raw ADC encoding and how the constants of `cal_info`,
+  `cal_supply_c` and `cal_power` are obtained per unit. 0007 relies on `tx` bit 3. 0008 decides whether the management channel repeats identification and the
   active level, and fills `mgmt`.
 - Every field marked HIS-nn above stays provisional until the HIS answers. M1 needs at least
   HIS-01, -02, -04, -15 for the values in this record (design note, section 6).
 
-## Open points for ON8ST
+## Resolved (ON8ST, 2026-11-19)
 
-- What discovery reports while level 2 is active: byte 4 = 0x03 ("in use", the closest P2
-  meaning [P2]), or no reply at all? Proposed: 0x03, with `level` bits [7:4] = 2 in the record.
-  To be settled with 0008 and spec part A.
-- Is it acceptable that the capability record is not in the discovery reply, so that a host
-  needs one extra request? The alternative with everything in discovery (option C) conflicts
-  with the reserved-bytes rule.
-- Is a transmit-power table per band and mode in the record wanted, or is a single maximum per
-  mode enough? The table follows the per-region band list of [G7250-MAN].
-- Should the record carry a unit serial number? Not proposed: the MAC address is already in the
-  discovery reply, and a serial would depend on HIS-15/HIS-18.
+- Option A is accepted: the capability record is in the register map, not in the discovery
+  reply; a host needs one extra request after discovery.
+- While level 2 is active, discovery answers byte 4 = 0x03 ("in use" [P2]), with `level`
+  bits [7:4] = 2 in the record. Spec part A and 0008 follow this.
+- The record carries a transmit-power table per band and mode, at most 16 bands.
+- The record carries no serial number; the MAC address in the discovery reply suffices.
+- A request-only memory-mapped packet is not C&C (no takeover, no watchdog effect); ON8ST
+  accepted that register-map packets do not count for the watchdog. Listed in the annex
+  "Differences from standard P2".
+- Consequences of decisions taken at the same time are in the field table: raw ADC values with
+  per-unit constants (0006) in `cal_info`, `cal_supply_c`, `cal_power`; wideband data in M2
+  with fixed parameters (0004) in `streams` bit 4, `wb_format`, `wb_frame`; session refusal on
+  a link slower than 100 Mbit/s (0004) in `link`; TX mode class required for arm (0007) in
+  `tx` bit 3.
+
+Not for ON8ST, left to spec part B: the address of `CAP_BASE` (0x0000 proposed) and
+`CAP_REQUEST`, and the default memory-mapped port numbers.
 
 ## Sources
 
-- Discussion with ON8ST, 2026-11-19 (task brief for this decision).
+- Discussion with ON8ST, 2026-11-19 (task brief for this decision; decisions on options and
+  open points, recorded as "ON8ST, 2026-11-19").
 - Decisions 0001, 0002, 0004 (being written), 0005, 0006–0008 (reserved), 0009, 0011, 0015,
   0016, 0017.
 - `analysis/p1-vs-p2.md`, `analysis/ch394-network-budget.md`, `open-questions-his.md`
@@ -412,8 +437,11 @@ Notes on the fields:
   including the 0xFE/0xFF note, board type list, bytes 12–24); command codes 0x02–0x05;
   General packet bytes 29–32; Memory mapped registers from PC and from hardware (bytes 0–1443,
   "sent whenever data changes and optionally periodically", default port "xxxx"); DDC sample
-  rates 48/96/192/384/768/1536 ksps; Appendix B ("To be written"); Appendix C (bytes 11–96 and
+  rates 48/96/192/384/768/1536 ksps; General packet bytes 23–28 (wideband); Appendix A
+  (per-board constants and conversion formulas for power and supply); Appendix B ("To be written"); Appendix C (bytes 11–96 and
   97–1439); revision history V3.1.
 - [G7250-MAN] Xiegu G7250 Operation Manual rev 0.1: receive and transmit ranges, TX power,
   antennas, ATU, TUNER interface.
 - [G7250-PUDX], [G7250-RIGPIX]: 90 W on 50 MHz (secondary, unverified).
+- [CH394] WCH CH394 manual 1, version 1.2: 10/100 Mbit/s link (via 0004 and
+  `analysis/ch394-network-budget.md`).

@@ -122,7 +122,7 @@ g7250-testbench, then on the radio. (0001 item 6, 0011)
 | Milestone | Content | Exit criterion (outline) | Depends on |
 |-----------|---------|--------------------------|------------|
 | **M1** | Discovery, capability block, RX-IQ on G7250-P2 | a P2 host finds the radio as board type 200, reads its capabilities and receives IQ at the supported rates | 0003, 0004; HIS-01, -02, -04, -14, -15, -18 |
-| **M2** | Control and telemetry: frequency, antenna, filters, ATU; forward/reflected power, temperature, supply | every control in the P2 field table and the G7250 register map works and is confirmed; telemetry at the specified rates | 0005, 0006; HIS-05 to -09, -11 |
+| **M2** | Control and telemetry: frequency, antenna, filters, ATU; forward/reflected power, temperature, supply; wideband data (4096 samples, 20 frames/s, 0004) | every control in the P2 field table and the G7250 register map works and is confirmed; telemetry at the specified rates | 0005, 0006; HIS-05 to -09, -11 |
 | **M3** | Watchdog and safety, specified and tested | host loss, takeover, reset and every limit lead to the specified safe state, without TX hardware active | 0007; HIS-10, -13 |
 | **M4** | Transmit (only after M3) | TX via arm and P2 transmit bit, TX IQ, drive level, within all limits; AetherSDR G7250 backend transmits | 0007, 0012, 0015; HIS-03, -10, -12, -17 |
 | **M5** | Management channel: firmware update, configuration, logs, identification | update with recovery after failure; configuration survives restart | 0008; HIS-19 |

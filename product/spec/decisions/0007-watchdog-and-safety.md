@@ -1,6 +1,6 @@
 # 0007 — Watchdog and safety core as seen on the network
 
-- Status: proposed
+- Status: accepted (ON8ST, 2026-11-19)
 - Date: 2026-11-19
 - Gate for: M3 (watchdog and safety, specified and tested) and M4 (transmit, only after M3)
   (design note section 6; 0001 item 6, spec section 9).
@@ -91,8 +91,9 @@ block, what happens at reset) is unknown and asked in HIS-06 to HIS-13 and HIS-1
 - **Session.** Starts when a host sets RUN (High Priority byte 4 bit [0]) from 0 to 1 while
   the radio is not in a session. Ends when RUN is cleared, the P2 watchdog sends the radio to
   standby, another host takes over, or the radio resets.
-- **Owner.** The host of the current session, identified by its source address. Whether that
-  is the IP address alone or IP address and port is left to spec part B (open question 4).
+- **Owner.** The host of the current session, identified by its source IP address and UDP
+  port together (resolved item 4). A host that reopens its socket on a new port is a different
+  host: its first C&C packet is a takeover (sub-decision 3), which unkeys and drops the arm.
 - **Armed.** The owner has completed the arm handshake (sub-decision 1) and the radio has
   confirmed it. Only an armed radio can key.
 - **Keyed.** The PA is transmitting, for any reason (PTT, CWX, KEY, ATU tuning).
@@ -174,7 +175,9 @@ Rules:
    rejected with a reason in `TX_ARM_STATE`: it comes from the owner; RUN is set; the
    watchdog is effectively on (sub-decision 2); the radio is not in fault (sub-decision 5);
    no limit inhibit is active (sub-decision 4); High Priority byte 4 bit [1] is 0 at that
-   moment; level 1 is the active level (0011); no firmware update is in progress (0008).
+   moment; level 1 is the active level (0011); no firmware update is in progress (0008); a TX
+   mode class has been declared in `TX_MODE_CLASS` for this session (sub-decision 4, rule 3;
+   reject reason `NO_MODE_CLASS`).
 2. **Confirmation.** The arm takes effect when the radio pushes `TX_ARM_STATE` = armed with a
    new generation number. The host must wait for it. P2 does not order memory-mapped and High
    Priority packets [P2], so: **after arming, the radio keys only on a 0→1 edge of a TX
@@ -193,7 +196,7 @@ Rules:
 | 1 | Owner writes 0 to `TX_ARM` | `HOST_DISARM` |
 | 2 | RUN cleared (High Priority byte 4 bit [0] = 0) — this is P2's "stop" | `RUN_CLEARED` |
 | 3 | P2 watchdog: no C&C packet from the owner for 1 s (sub-decision 2) | `WATCHDOG` |
-| 4 | Takeover: C&C from another host (sub-decision 3) | `TAKEOVER` |
+| 4 | Takeover: C&C from another host, including the owner's IP address on a different UDP port (sub-decision 3) | `TAKEOVER` |
 | 5 | Any reset: power-on, brown-out, processor watchdog, software reset (HIS-13) | (state after reset: disarmed; logged, 0008) |
 | 6 | Entry into the fault state (sub-decision 5) | `FAULT` |
 | 7 | A limit trip whose action is DISARM or FAULT (sub-decision 4), including maximum TX time | `LIMIT_<name>` |
@@ -204,8 +207,9 @@ Rules:
 | 12 | A new Discovery from the owner while armed (P2's restart path starts with a Discovery [P2]) | `REDISCOVERY` |
 | 13 | A TX path that must be blocked is found not blocked (sub-decision 6) | `FAULT` (via 6) |
 
-   Not on the list, on purpose: the keyed timeout and TX IQ underrun (sub-decision 2) and
-   UNKEY-level limit trips end the current transmission but keep the arm; changes of
+   Not on the list, on purpose: the keyed timeout and TX IQ underrun (sub-decision 2),
+   maximum continuous TX time and other UNKEY-level limit trips end the current transmission
+   but keep the arm; changes of
    frequency, antenna, filters or drive while not keyed.
 
 ## Sub-decision 2 — Watchdog
@@ -219,8 +223,8 @@ packets are the four "Control Elements" packets (General, DDC-specific, DUC-spec
 Priority) [P2]. Packets from other hosts do not feed the watchdog. No real alternative was
 considered: this is the standard and 0016 chose P2 partly for it.
 
-Open point for spec part B: whether memory-mapped register packets also feed the watchdog.
-This decision says no, because P2 does not head them "Control Elements" [P2].
+Memory-mapped register packets do not feed the watchdog, because P2 does not head them
+"Control Elements" [P2] (accepted, ON8ST, 2026-11-19).
 
 ### 2.2 A shorter timeout while keyed?
 
@@ -263,9 +267,11 @@ Unkey if DUC I&Q (port 1029) stops while keyed.
 
 - Base watchdog 1 s as P2 (2.1).
 - Option 2C, plus 2D as an extra check for non-CW TX:
-  - `KEYED_TIMEOUT` register: proposed default 300 ms (three missed packets at 100 ms);
-    the host may write a shorter value, floor 100 ms; it cannot write a longer value than the
-    default (0011). Action: UNKEY, reason in `TX_STATE`; arm kept.
+  - While keyed, the owner sends a High Priority packet at least every 100 ms (P2's
+    recommended rate [P2]). `KEYED_TIMEOUT` register: default 500 ms (ON8ST, 2026-11-19);
+    if no High Priority packet from the owner arrives within it, the radio unkeys. The host
+    may write a shorter value, floor 100 ms; it cannot write a longer value than the default
+    (0011). Action: UNKEY, reason in `TX_STATE`; arm kept.
   - TX IQ underrun: when keyed in a non-CW TX, a DUC FIFO underflow (reported in High Priority
     status byte 30 bit [2] [P2]) that lasts longer than TBD ms unkeys. The value depends on
     the DUC FIFO size (HIS-18).
@@ -342,7 +348,7 @@ processes the new host's packet. The new owner starts unarmed and must arm itsel
 - Against: an accidental takeover breaks a QSO. P2 asks the host to warn the user first
   (discovery byte 4 = 0x03 [P2]); the G7250 depends on hosts doing that.
 - Against: on a network with an aggressive auto-connecting host the operator may lose the
-  radio repeatedly. Mitigation is a host matter, or a later option (open question 5).
+  radio repeatedly. Mitigation is a host matter, or a later option (resolved item 5).
 
 #### 3C. Refuse takeover always
 
@@ -364,7 +370,10 @@ The owner must write a release register before another host can take over.
 
 Option 3B. Takeover is allowed at any time, never carries the arm, and always unkeys before the
 new host is served. The discovery reply reports 0x03 while a session is active [P2]. Listed as
-a deviation in the annex (only the arm part deviates).
+a deviation in the annex (only the arm part deviates). Since the owner is IP address and UDP
+port, a host that reopens its socket on a new port takes over from itself: unkey and disarm.
+Accepted risk (ON8ST, 2026-11-19): an accidental takeover by an auto-connecting host may break
+a transmission; hosts should warn before taking over a radio that reports 0x03 [P2].
 
 ## Sub-decision 4 — TX limits
 
@@ -420,7 +429,7 @@ carry the HIS id.
 | Forward power | forward power (HIS-11) vs band and TX mode class | built-in maxima: 100 W SSB/CW/NFM, 25 W AM [G7250-MAN]; 50 MHz TBD (90 W in [G7250-PUDX], [G7250-RIGPIX]; HIS-12); margin TBD | `REDUCE`; if still over after TBD ms, `UNKEY` | next TX request |
 | Supply voltage | supply sensor (HIS-11) | outside 13.8 V ±15 % (11.73–15.87 V) per [G7250-MAN] as starting values; final values HIS-11, HIS-12 | under-voltage while keyed: `REDUCE`, below a lower value `UNKEY`; over-voltage: `UNKEY` with inhibit | inside range for TBD s |
 | Supply / PA current | current sensor, if any (HIS-11) | above 23 A (TX max in [G7250-MAN]); final value HIS-12 | `UNKEY` | next TX request |
-| Maximum continuous TX time | firmware timer, any TX source | TBD (ON8ST; thermal rating HIS-12) | `DISARM` | host re-arms |
+| Maximum continuous TX time | firmware timer, any TX source | 5 min built-in default (ON8ST, 2026-11-19); host or owner may set it stricter, never looser; to be checked against the thermal rating (HIS-12) | `UNKEY` (arm kept) | next TX request |
 | ATU tune time | firmware timer | above initial tuning time ≤ 10 s [G7250-MAN] plus margin, TBD (HIS-08) | `UNKEY`, tune reported as failed | next tune command |
 | Sensor plausibility | all of the above | sensor missing, stuck or out of range (HIS-11) | `FAULT` | sub-decision 5 |
 | RF while not keyed | forward power (HIS-11) | above TBD with no TX active | `FAULT` | sub-decision 5 |
@@ -436,8 +445,13 @@ Rules:
    Persistent tightening belongs to the management channel configuration (0008).
 3. **TX mode class.** On level 1 the DSP is in the host (0011), so the radio does not know
    whether the host sends AM or SSB, except CW selected in DUC-specific byte 5 bit [1] [P2].
-   The host declares the class in `TX_MODE_CLASS`; until it does, the strictest class (AM,
-   25 W [G7250-MAN]) applies. The power measurement still applies whatever the host declares.
+   The host must declare the class in `TX_MODE_CLASS` before arming: an arm attempt without a
+   declared class is refused (`NO_MODE_CLASS`, sub-decision 1 rule 1). The host must update
+   the class whenever its TX mode changes. The AM limit (25 W [G7250-MAN]) applies whenever
+   the declared class is AM. The power measurement still applies whatever the host declares.
+   Rejected option (ON8ST, 2026-11-19): no class declared means the strictest class (AM,
+   25 W) applies; rejected because a silent default hides a missing declaration, while a
+   refused arm makes it visible at once.
 4. **Drive mapping.** How the P2 drive level 0–255 (byte 345 [P2]) maps to power is for spec
    part B and HIS-12; `REDUCE` acts on the radio side, so the host's value is not changed.
 5. All limits apply on both levels (0011). ATU tuning uses its own SWR and power profile,
@@ -524,8 +538,8 @@ The arm only works if the firmware is the only path to the PA or can block every
 - For: mic PTT on the controller still works with a host that keys on the reported PTT bit.
 - Against: if the controller has a path to the PA that the firmware cannot block (HIS-10,
   HIS-17), this option cannot be built as stated.
-- Against: no standalone use of the controller as a radio while this firmware runs (open
-  question 6).
+- Against: no standalone use of the controller as a radio while this firmware runs (resolved
+  item 6: accepted for level 1, revisit for level 2).
 
 #### 6C. Local inputs key only when no network session exists
 
@@ -536,8 +550,10 @@ The arm only works if the firmware is the only path to the PA or can block every
 
 ### Decision 6
 
-Option 6B, with per-path rules. All depend on HIS-10 and HIS-17; if a path cannot be blocked,
-M4 is blocked for that path until ON8ST decides.
+Option 6B, with per-path rules. On level 1 the controller has no standalone operation:
+its inputs are reported and never key the radio (accepted, ON8ST, 2026-11-19; revisit for
+level 2). All depend on HIS-10 and HIS-17; if a path cannot be blocked, M4 is blocked for that
+path until ON8ST decides.
 
 | Path | Rule |
 |------|------|
@@ -555,12 +571,15 @@ M4 is blocked for that path until ON8ST decides.
 
 1. TX arm by per-session token: write `TX_ARM_TOKEN XOR ARM_MAGIC` to `TX_ARM`; confirmed by
    `TX_ARM_STATE`; keying only on a TX-request edge after the confirmation; 13 drop events.
-2. P2 1 s watchdog as written; while keyed, a High Priority refresh duty with a 300 ms
-   proposed `KEYED_TIMEOUT` (UNKEY), and a TX IQ underrun check. General byte 38 bit [0] is
+2. P2 1 s watchdog as written; while keyed, a High Priority refresh duty (at least every
+   100 ms) with a 500 ms `KEYED_TIMEOUT` (UNKEY, arm kept), and a TX IQ underrun check.
+   Memory-mapped packets do not feed the watchdog. General byte 38 bit [0] is
    honoured when not armed, forced on while armed, and must be set to arm.
-3. Takeover is allowed at any time, always unkeys and drops the arm first.
+3. Takeover is allowed at any time, always unkeys and drops the arm first. The owner is IP
+   address and UDP port; a new port is a takeover.
 4. Limit table with built-in values, actions WARN/REDUCE/UNKEY/DISARM/FAULT and recovery;
-   hosts may only tighten, per session.
+   hosts may only tighten, per session. Maximum continuous TX time 5 min, UNKEY only. Arming
+   requires a declared TX mode class.
 5. Fault state in two classes (host-clearable, latched until reset); safe state after any
    reset.
 6. Local TX paths are reported, never key by themselves; SEND, TUNER and ATU tuning are under
@@ -578,7 +597,8 @@ M4 is blocked for that path until ON8ST decides.
   takeover drops the arm; PTT1–PTT3 ignored; TUNE bit does not tune; open-collector outputs
   ignored.
 - Annex "Changes needed in AetherSDR": arm handshake with token, wait for confirmation, High
-  Priority every ≤ 100 ms while keyed, byte 38 bit [0] set, `TX_MODE_CLASS`, show arm state,
+  Priority every ≤ 100 ms while keyed, byte 38 bit [0] set, `TX_MODE_CLASS` declared before
+  arming and updated on every mode change, keep one UDP socket and port per session, show arm state,
   fault and drop reasons, warn before takeover (P2 note on byte 4 [P2]).
 - g7250-testbench: one conformance test per drop event, per limit row, per fault class, and
   for the reset state (M3 exit criterion).
@@ -588,13 +608,47 @@ M4 is blocked for that path until ON8ST decides.
   tightening of limits, firmware update as a drop event.
 - M3 cannot be closed without answers to HIS-10, HIS-11 and HIS-13; M4 not without HIS-12 and
   HIS-17 as well.
-- HIS questions to extend (in `open-questions-his.md`, by ON8ST): HIS-09 direction of SEND;
-  HIS-10 whether the controller can key the PA on its own; HIS-11 a plausibility check per
-  sensor; HIS-14 whether the CH394Q reports link status.
+- HIS questions extended: HIS-09 direction of SEND; HIS-10 whether the controller can key
+  the PA on its own; HIS-11 a plausibility check per sensor; HIS-14 whether the CH394Q reports
+  link status. These were added to `open-questions-his.md` by the coordinator.
+
+## Resolved (ON8ST, 2026-11-19)
+
+1. **TX arm and takeover.** Takeover is always allowed; every takeover unkeys and drops the
+   arm (option 3B as drafted).
+2. **Keyed timeout.** `KEYED_TIMEOUT` = 500 ms, not the proposed 300 ms. While keyed the host
+   sends a High Priority packet at least every 100 ms (recommended rate [P2]); if none
+   arrives within 500 ms the radio unkeys and keeps the arm.
+3. **Maximum continuous TX time.** Default 5 minutes. Reaching it unkeys only; the arm stays
+   (changed from the draft, which had `DISARM`). A host or the owner may set it stricter,
+   never looser.
+4. **Owner identity.** IP address and UDP port. A host that reopens its socket on a new port
+   counts as a takeover (unkey and disarm).
+5. **Accidental takeover.** Accepted: an auto-connecting host may break a transmission; hosts
+   should warn before taking over (discovery byte 4 = 0x03 [P2]). No radio-side mitigation
+   on level 1.
+6. **Standalone controller.** No standalone operation from the controller on level 1:
+   controller inputs are reported and never key the radio. Revisit for level 2.
+7. **TX mode class.** Arming requires a declared class; an arm without one is refused
+   (`NO_MODE_CLASS`); the host updates the class when the mode changes; the 25 W AM limit
+   applies whenever the declared class is AM. "No class means AM limit" is rejected.
+8. **Watchdog feed.** Memory-mapped register packets do not count for the watchdog.
+9. **Class-2 faults.** Not stored across a reset; the start-up self-check detects a
+   persistent cause again, and the fault is logged (0008).
+10. **Manual revision.** Settled: the file name says rev0.1, the title page says Rev.1.01;
+    both refer to the same document [G7250-MAN].
+11. **PTT1–PTT3 vs reserved.** P2 High Priority byte 4 lists PTT1–PTT3 in the byte table but
+    calls bits [2]–[7] reserved in the text [P2]. This inconsistency is to be noted as a
+    clarification in spec Annex X2; the G7250 ignores these bits either way (sub-decision 1,
+    rule 4).
+
+Still open: the TBD values in the limit table and the TX IQ underrun time (HIS-08, HIS-11,
+HIS-12, HIS-18); the register addresses, `ARM_MAGIC` value and bit layouts (spec part B).
 
 ## Sources
 
-- Discussion with ON8ST, 2026-11-19 (0015, 0011).
+- Discussion with ON8ST, 2026-11-19 (0015, 0011); decisions by ON8ST, 2026-11-19 (section
+  "Resolved").
 - Decisions 0001 (spec section 9), 0005, 0006 (reserved), 0008 (reserved), 0011, 0012, 0015,
   0016, 0017.
 - `open-questions-his.md`: HIS-06 to HIS-14, HIS-17, HIS-18.
@@ -606,7 +660,7 @@ M4 is blocked for that path until ON8ST decides.
   revision history V2.7.
 - [G7250-MAN] Xiegu G7250 Operation Manual: specifications (TX power, transmit ranges,
   supply, current, temperature), ATU section and ATU parameters, SWR scan, interface
-  definitions (microphone, KEY, SEND, TUNER, ALC). The extracted text reads "Rev.1.01" on
-  the title page, while `sources.md` lists rev 0.1; to be reconciled in `sources.md`.
+  definitions (microphone, KEY, SEND, TUNER, ALC). File name rev0.1, title page "Rev.1.01"
+  (settled, resolved item 10).
 - [G7250-PUDX], [G7250-RIGPIX] for the 50 MHz power (see `sources.md`).
 - [CH394] WCH CH394 manual 1, V1.2 (link status not yet checked).

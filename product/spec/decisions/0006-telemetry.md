@@ -1,6 +1,6 @@
 # 0006 — Telemetry: standard High Priority status where the meaning fits, G7250 telemetry in the register map
 
-- Status: proposed
+- Status: accepted (ON8ST, 2026-11-19)
 - Date: 2026-11-19
 
 ## Context
@@ -131,19 +131,27 @@ Same rule as 0005, applied to the hardware-to-PC direction.
 
 ### 2. Units and scales in the standard fields
 
-#### 2A. Raw ADC counts, with G7250 constants in Appendix A form (P2 practice)
+#### 2A. Raw ADC counts, with the unit's own constants in Appendix A form (chosen, ON8ST, 2026-11-19; includes 2D)
 
-The firmware copies the sensor ADC reading into the field. The capability block (0003) gives
-the constants for `V = x/4095 × c` and `W = (x/4095 × c1)² / c2`.
+The firmware copies the sensor ADC reading into the field, as [P2] does. The capability block
+(0003) gives the constants for `V = x/4095 × c` and `W = (x/4095 × c1)² / c2` [P2,
+Appendix A]. As in 2D, the constants are those of this unit (per-unit calibration), and per
+band if the hardware needs it (HIS-11), not fixed constants for board type 200.
 
-- For: exactly what [P2] does for every listed board.
-- Against: the formula assumes one fixed constant per board type. Per-unit calibration and
-  any frequency dependence of the directional coupler cannot be expressed. The G7250 sensor
-  chain is unknown (HIS-11); it may not be a 12-bit linear ADC with a square-law power
-  relation at all.
-- Against: the safety core needs calibrated values anyway (SWR, power limits, 0007), so the
-  calibration exists in the firmware; leaving it out of the reported value means host and
-  firmware may disagree on the same measurement.
+- For: exactly what [P2] does for every listed board; the field keeps its P2 meaning (raw ADC
+  word), so no deviation has to be listed for the encoding.
+- For: per-unit calibration (and per-band correction, if needed) can be expressed, because
+  the constants come from the radio at connect time, not from a table in the document.
+- For: raw readings are available to the host for calibration and debugging without extra
+  registers.
+- Against: the Appendix A formula assumes a 12-bit linear ADC with a square-law power
+  relation. The G7250 sensor chain is unknown (HIS-11); if it does not fit that form, the
+  constants only approximate the calibration.
+- Against: the host, not the radio, converts the standard fields. The safety core uses its
+  own calibrated values (0007), so host display and firmware limits can differ where the
+  formula does not fit exactly. The SWR register (option 3A) is the value the limits act on.
+- Against: a per-band constant set means the host must pick the constants for the current TX
+  frequency; a host with only per-board constant tables cannot.
 
 #### 2B. Engineering units in the standard fields (for example 0.1 W, 10 mV)
 
@@ -152,39 +160,26 @@ the constants for `V = x/4095 × c` and `W = (x/4095 × c1)² / c2`.
   different encoding. A host that applies the Appendix A formula would get nonsense. Not
   identical meaning (0005).
 
-#### 2C. Calibrated values, encoded so that the Appendix A formula is exact with fixed board-200 constants (chosen)
+#### 2C. Calibrated values, encoded so that the Appendix A formula is exact with fixed board-200 constants (proposed in draft, not chosen)
 
 The firmware applies the full calibration (per unit, per band, linearisation; HIS-11) and
 then encodes the result so that the standard Appendix A formula, with constants fixed for
-board type 200, gives the calibrated value:
+board type 200, gives the calibrated value. The draft proposed supply `x = supply in mV`
+with c = 4.095, and power `x = 1000 × √(P in W)` with c1 = 4.095, c2 = 1.
 
-- Supply: `x = supply in mV`. Then `V = x/4095 × c` with **c = 4.095**. Range 0–65.535 V;
-  13.8 V ±15 % [G7250-MAN] is 11,730–15,870.
-- Forward, reverse and exciter power: `x = 1000 × √(P in W)`, rounded. Then
-  `W = (x/4095 × c1)² / c2` with **c1 = 4.095, c2 = 1**. Range up to 4,294 W, far above
-  the 100 W PA [G7250-MAN]; 150 W is x = 12,247. Resolution 0.02 W per count at 100 W and
-  about 2 mW per count at 1 W.
-- These constants are a proposal of this decision; 0003 carries them, spec part B fixes
-  them.
+- For: the host sees the same calibrated values the safety core acts on.
+- For: constants fixed per board type, as in Appendix A.
+- Against: the word is no longer a raw ADC reading; a deviation from [P2] to be listed in the
+  annex "Differences from standard P2". A host that uses the word for something other than
+  the Appendix A formula would see a different curve than on other boards.
+- Against: raw readings for calibration and debugging would need extra G7250 registers.
 
-- For: the field keeps its P2 meaning: a 16-bit word that the host converts with the
-  Appendix A formula and the board's constants. A host with per-board constant tables only
-  needs one more entry.
-- For: per-unit and per-band calibration stays in the radio, and the host sees the same
-  values the safety core acts on.
-- For: the constants never change per unit, so they can be fixed in the spec and the
-  capability block, like Appendix A.
-- Against: the word is no longer a raw ADC reading. A host that uses the word for something
-  other than the Appendix A formula (for example a raw bar graph) would see a different
-  curve than on other boards. To be listed in the annex "Differences from standard P2".
-- Against: raw readings for calibration and debugging are not in the standard fields; they
-  need G7250 registers (see Consequences).
-
-#### 2D. Constants per unit in the capability block, raw counts in the fields
+#### 2D. Constants per unit in the capability block, raw counts in the fields (merged into 2A)
 
 - For: closer to raw P2 practice than 2C, and per-unit calibration possible.
-- Against: still no per-band correction; and the host, not the radio, applies calibration,
-  so the safety core and the host can still disagree.
+- Against: the host, not the radio, applies calibration, so the safety core and the host can
+  still disagree. The draft also listed "no per-band correction"; ON8ST's choice allows
+  per-band constants where the hardware needs them, so that point no longer applies.
 
 ### 3. Units in the G7250 register map
 
@@ -196,14 +191,16 @@ Every analogue telemetry register is a signed 32-bit integer: mV, mA, mW, m°C; 
 - For: one rule for all registers, no per-register constants for the host to learn. The
   32-bit data word [P2] holds ±2.1 × 10⁹, which covers every range above (23 A = 23,000 mA
   [G7250-MAN]).
-- For: values are calibrated, as in 2C, and are the values the safety core uses.
+- For: values are calibrated and are the values the safety core uses (0007).
 - Against: more bits than any sensor resolves; resolution must be stated separately (in the
   capability block).
 
 #### 3B. Raw ADC plus constants per register
 
-- Against: the same drawbacks as 2A, with more constants to transport, and our own map has
-  no compatibility reason to use raw values.
+- Against: the reason for raw words in the standard fields (2A) is the P2 field meaning.
+  G7250-only registers have no P2 meaning to keep (0005), so that reason does not apply.
+- Against: the registers that matter (SWR, limit and fault state) report what the safety
+  core acts on; a raw word plus host-side formula could differ from it.
 
 ### 4. How the host learns scales and which sensors exist
 
@@ -251,21 +248,31 @@ input bit (bytes 4, 5) changes [P2, p. 47]. Immediate sends are limited to one p
 | 4 [4] | 1 only if the hardware has a reference PLL that is locked; otherwise 0, and the capability block says "no reference PLL" | HIS-05 |
 | 4 [5], [6], [3], [7] | 0 ([5], [6] "no longer supported"; [3], [7] not defined) | — |
 | 5 | bit [0] = ADC0 overload; other bits 0 unless more ADCs exist | HIS-01, HIS-03 |
-| 6–7 | exciter forward power, encoding 2C, only if a separate exciter detector exists; else 0 | HIS-11 |
+| 6–7 | exciter forward power, raw ADC word (2A), only if a separate exciter detector exists; else 0 | HIS-11 |
 | 8–13, 16–21, 24–29, 43–48 | 0 (reserved/unused) | — |
-| 14–15 | PA forward power, encoding 2C, always filled; the "Alex not selected" note does not apply because the G7250 has no Alex (listed as a difference) | HIS-11 |
-| 22–23 | PA reverse power, encoding 2C, same | HIS-11 |
+| 14–15 | PA forward power, raw ADC word (2A), always filled; the "Alex not selected" note does not apply because the G7250 has no Alex (listed as a difference) | HIS-11 |
+| 22–23 | PA reverse power, raw ADC word (2A), same | HIS-11 |
 | 30 | [0] DDC FIFO overflow, [2] DUC FIFO underflow: filled from the firmware's own buffers; [1] mic overflow only if microphone data exists; [3] 0 (no speaker, 0017) | 0004, HIS-17 |
 | 31–32, 35–36 | DDC and DUC buffer depth in samples, from the firmware's own buffers | 0004 |
 | 33–34 | mic FIFO depth if microphone data exists; else 0 | HIS-17 |
 | 37–38 | 0 (0017) | — |
 | 39–40 | ADC0 max magnitude in the message period, scaled to 15 bits as [P2] describes, if the DDC chain can provide it; else 0 | HIS-01, HIS-18 |
 | 41–42 | 0 unless a second ADC exists | HIS-03 |
-| 49–50 | supply voltage at the power input, encoding 2C | HIS-11 |
+| 49–50 | supply voltage at the power input, raw ADC word (2A) | HIS-11 |
 | 51–59 | 0 (user-specific in [P2]; option 1B rejected) | — |
 
-Board-200 constants (proposed, carried in 0003): supply c = 4.095; power c1 = 4.095,
-c2 = 1. Which coupler position the forward and reverse values describe (transceiver side or
+The standard fields carry raw ADC words exactly as [P2] does; the encoding is not a
+deviation. The conversion constants (supply c; power c1, c2, in the Appendix A formulas) are
+those of this unit, from its own calibration, and per band if the hardware needs it
+(HIS-11). They are published in the capability block (0003); there are no fixed constants
+for board type 200. A host converts the fields with the Appendix A style formula and the
+unit's own constants.
+
+The safety core does not use these words through the host formula. It uses its own
+calibrated values internally for its limits (0007); the network encoding does not change
+that.
+
+Which coupler position the forward and reverse values describe (transceiver side or
 antenna side of the internal ATU) is stated in the capability block (HIS-08, HIS-11).
 
 ### G7250 telemetry registers (register map, 0005)
@@ -288,11 +295,17 @@ state; absent sensors are flagged absent in the capability block, not reported a
 | antenna actually selected | enumeration | event | HIS-06 |
 | sensor validity | bit field, one bit per sensor | event | HIS-11 |
 
+These registers stay in engineering units (3A), unlike the standard fields: they are
+G7250-only registers with no P2 meaning to keep (0005), and they report the calibrated values
+the safety core acts on. This does not conflict with 2A, which applies only to standard P2
+fields.
+
 The firmware computes SWR itself, because the safety core needs it (0011, 0007). The host
 may compute its own SWR from bytes 14–15 and 22–23; the register is the value the limits act
 on. Forward and reverse power are not duplicated in registers.
 
-Rates (proposed; to be confirmed against HIS-11 sensor rates and HIS-14/HIS-18 budget):
+Rates (accepted by ON8ST, 2026-11-19, as placeholders until HIS-11 sensor rates and the
+HIS-14/HIS-18 budget are known):
 
 - **event** registers: sent immediately on change, at most one packet per 1 ms.
 - **fast** registers: every 10 ms while transmitting; with the periodic snapshot otherwise.
@@ -301,39 +314,63 @@ Rates (proposed; to be confirmed against HIS-11 sensor rates and HIS-14/HIS-18 b
 
 ### What the host learns from the capability block (0003)
 
-For each standard status field: filled or always 0. The board-200 constants. The coupler
-position. For each telemetry register: present or absent, resolution, sensor update rate.
+For each standard status field: filled or always 0. The unit's conversion constants for
+supply, exciter, forward and reverse power (per band where needed). The coupler position. For each telemetry register: present or absent, resolution, sensor update rate.
 The telemetry rates in use.
 
 ## Consequences
 
 - Spec part B gets a High Priority status table (per byte: filled, 0, source) and a
   telemetry block in the register map, both derived from this decision.
-- The annex "Differences from standard P2" lists: power and supply words are calibrated
-  values encoded for the Appendix A formula (2C), not raw ADC words; bytes 14–15 and 22–23
-  are filled without Alex.
-- 0003 must carry the board-200 constants, the field list and the sensor list (4B).
+- The annex "Differences from standard P2" lists: bytes 14–15 and 22–23 are filled without
+  Alex; conversion constants come from the capability block, per unit (and per band where
+  needed), instead of from Appendix A per board type. The power and supply words themselves
+  are raw ADC words as in [P2] and are not a difference.
+- 0003 must carry the unit's conversion constants (per band where needed), the field list and
+  the sensor list (4B).
 - 0007 defines the fault codes, the limit bits and the disarm reasons used here.
-- Calibration (per unit, per band) lives in the firmware. Where calibration data comes from
-  and how it is stored and changed is part of HIS-11 and of the management channel (0008).
-  Raw sensor readings for calibration may be offered as extra G7250 registers or on the
-  management channel; decided there.
-- The testbench checks the 50 ms / 1 ms / on-change timing, the encoding against known input
-  values, and that event registers arrive before or with the next status packet after a
+- Calibration (per unit, per band) lives in the radio: the firmware uses it internally for
+  the safety-core limits (0007) and publishes the matching constants in the capability block
+  (0003). Where calibration data comes from and how it is stored and changed is part of
+  HIS-11 and of the management channel (0008).
+- Raw readings for the standard fields need nothing extra: the fields are raw. Calibration
+  access for the G7250 telemetry registers (raw readings behind the engineering-unit values,
+  writing calibration data) goes via the management channel (0008), not via extra register
+  map entries.
+- The testbench checks the 50 ms / 1 ms / on-change timing, that the published constants
+  convert known input values within the stated accuracy, and that event registers arrive before or with the next status packet after a
   change.
 - Status and register packets are not synchronised. Spec part B states that a host must not
   assume they describe the same instant.
 - If 1 ms status turns out too costly for the CH394Q or the processor (HIS-14, HIS-18),
   this decision is revisited (option 5B) and the change listed as a deviation.
-- A generic P2 host (RX only, 0015) receives the status packets but has no board-200
-  constants; it may show wrong power and supply values. Harmless, since it cannot transmit.
+- A generic P2 host (RX only, 0015) receives the status packets but does not read the
+  capability block, so it has no constants for this unit; it may show wrong power and supply
+  values. Harmless, since it cannot transmit.
 - Appendix C byte 96 ("Number of General Purpose ADCs") is set in 0003; with 51–58 at 0, the
   proposal is 0.
-- Additions for the HIS questions (to be added to `open-questions-his.md` by whoever owns
-  it): under HIS-11, where the coupler sits relative to the ATU, whether there is a separate
-  exciter detector, whether per-unit calibration data exists in the radio and where, and the
-  fastest rate at which each sensor can be read; under HIS-01, whether the ADC chain can give
-  a peak magnitude per period.
+- The HIS sub-questions raised here (under HIS-11: coupler position relative to the ATU,
+  separate exciter detector, per-unit calibration data in the radio and where, fastest read
+  rate per sensor; under HIS-01: peak magnitude per period) have been added to
+  `open-questions-his.md` by the coordinator.
+
+## Resolved (ON8ST, 2026-11-19)
+
+- Scales in the standard fields: raw ADC words plus the unit's constants (2A with 2D), not
+  the calibrated formula-compatible encoding (2C) the draft proposed.
+- Board-200 constants: no fixed constants for the board type; per-unit (and per-band where
+  needed) constants in the capability block (0003).
+- Register rates: accepted as proposed (event immediately on change, fast group every 10 ms
+  during TX, 1 s snapshot), as placeholders until the HIS answers.
+- Raw sensor readings for calibration: moot for the standard fields; for G7250 registers via
+  the management channel (0008).
+
+Still open (not answered by ON8ST; depends on the HIS):
+
+- Whether the G7250 sensor chain fits the Appendix A formula form well enough, and whether
+  per-band constants are needed (HIS-11).
+- Whether 1 ms status during TX is affordable, or option 5B applies (HIS-14, HIS-18).
+- Appendix C byte 96 ("Number of General Purpose ADCs"): proposed 0, set in 0003.
 
 ## Sources
 
@@ -347,6 +384,7 @@ The telemetry rates in use.
   (pp. 47–48).
 - [CH394] WCH CH394 manual 1, V1.2: SPI up to 62 MHz, 10/100 Mbit/s.
 - `analysis/ch394-network-budget.md`; design note §6 (M2).
+- ON8ST decision, 2026-11-19.
 - Decisions 0002, 0003, 0004, 0005, 0007, 0008, 0011, 0015, 0016, 0017.
 - Open questions HIS-01, HIS-03, HIS-05, HIS-06, HIS-08, HIS-10, HIS-11, HIS-12, HIS-13,
   HIS-14, HIS-17, HIS-18.

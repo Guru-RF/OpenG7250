@@ -1,6 +1,6 @@
 # 0004 — Streams and sample rates on G7250-P2
 
-- Status: proposed (provisional values pending HIS-01, HIS-02, HIS-14, HIS-17)
+- Status: accepted (ON8ST, 2026-11-19); values provisional until HIS-01, HIS-02, HIS-14, HIS-17
 - Date: 2026-11-19
 
 ## Context
@@ -118,6 +118,7 @@ overheads and the TX direction.
 | Microphone 48 ksps, 16-bit | 750.0 | 0.79 | 1.19 | 1.6 % |
 | Wideband, P2 defaults (32 × 512 samples every 20 ms) | 1600.0 | 13.16 | 14.00 | 23.4 % |
 | Wideband, reduced (1 packet every 100 ms) | 10.0 | 0.08 | 0.09 | 0.1 % |
+| Wideband, chosen (8 × 512 samples every 50 ms) | 160.0 | 1.32 | 1.40 | 2.3 % |
 | High Priority Status, TX (1 ms) | 1000.0 | 0.48 | 1.01 | 1.2 % |
 | High Priority Status, RX (50 ms) | 20.0 | 0.01 | 0.02 | < 0.1 % |
 
@@ -138,6 +139,7 @@ out; they are small next to the IQ streams.
 | S1: RX 192 + TX + status | 19.0 | 10.8 | 9.7 | 34 % |
 | S2: RX 384 + TX + status | 28.4 | 20.5 | 9.7 | 51 % |
 | S3: S2 + microphone | 29.2 | 21.7 | 9.7 | 52 % |
+| S3W: S3 + wideband as chosen (4096 samples, 20/s) | 30.5 | 23.1 | 9.7 | 54 % |
 | S4: S3 + wideband at P2 defaults | 42.3 | 35.7 | 9.7 | 76 % |
 | S5: RX 768 + TX + status | 47.0 | 40.0 | 9.7 | 84 % |
 | S6: RX 768, no TX | 37.3 | 39.0 | — | 66 % |
@@ -315,7 +317,7 @@ access to raw ADC samples in a block of 16 k samples (P2 defaults: 32 packets ×
 [P2, General byte 28]), which depends on the ADC and its connection (HIS-01) and on memory
 (HIS-18).
 
-#### 5A. Not offered in the first version; revisit after HIS-01 and HIS-18 (chosen)
+#### 5A. Not offered in the first version; revisit after HIS-01 and HIS-18
 
 - For: M1 (discovery, capability block, RX IQ) does not need it.
 - For: no SPI cost; keeps all headroom for RX IQ at 384 ksps with TX.
@@ -331,7 +333,7 @@ access to raw ADC samples in a block of 16 k samples (P2 defaults: 32 packets ×
 - Against: needs 32 KB of raw samples per frame in processor RAM (HIS-18), the same as the
   whole CH394Q buffer [CH394].
 
-#### 5C. Offer with reduced fixed parameters
+#### 5C. Offer with reduced fixed parameters (chosen, for milestone M2)
 
 For example one or two packets of 512 samples per frame and a frame every 100 ms, declared as
 fixed values in Appendix C bytes 45–50 [P2]. P2 already has a precedent: "For ANAN-10E this is
@@ -381,7 +383,8 @@ only [P2]), so a host cannot see from the data which rate it got.
 
 ## Decision
 
-Provisional values, pending HIS-01, HIS-02, HIS-14 and HIS-17.
+Accepted by ON8ST, 2026-11-19. The values remain provisional, pending HIS-01, HIS-02, HIS-14
+and HIS-17.
 
 1. **RX IQ.** One DDC, DDC0 on port 1035 (HIS-02). Sample rates 48, 96, 192 and 384 ksps
    (option 1B; maximum depends on HIS-01 and HIS-14). 24-bit I and Q, big-endian, 3-byte
@@ -392,14 +395,29 @@ Provisional values, pending HIS-01, HIS-02, HIS-14 and HIS-17.
    packets, as in [P2, DUC I&Q Data packet; NOTE2] (3A). TX itself still needs the arm (0015).
 3. **Microphone.** Offered as standard P2 microphone data (48 ksps, 16-bit, 64 samples per
    packet, out on 1026) only if HIS-17 shows that the controller's microphone reaches the main
-   unit; otherwise not offered (4B). No silent pacing-only stream.
-4. **Wideband.** Not offered in the first version (5A). If HIS-01 and HIS-18 show raw ADC
-   blocks are available, a later decision adds it with reduced fixed parameters (5C).
+   unit; otherwise not offered (4B). No silent microphone stream just for timing (4C rejected;
+   ON8ST, 2026-11-19).
+4. **Wideband.** Planned for milestone M2 with small fixed parameters (5C; ON8ST,
+   2026-11-19). Not offered in M1. Proposed fixed parameters for ADC0, out on port 1027:
+   **4096 samples per frame, 20 frames per second** (ON8ST, 2026-11-19): 512 samples per
+   packet, 16-bit samples, 8 packets per frame, one frame every 50 ms (General bytes 24–28
+   [P2]: 512, 16, 50 ms, 8). That is 160 packets/s, 1028 bytes each, 1.32 Mbit/s payload and
+   about 2.3 % SPI busy at 62 MHz (method of "Per stream": 160 × ((1028 + 3) × 139 ns + 3 µs)
+   = 23.4 ms per second). With RX 384, TX and microphone (S3W) the total is about 54 %, within
+   the 60 % target. The frequency resolution of a 4096-point FFT is the ADC rate / 4096
+   (HIS-01); at an ADC rate of 100 MSPS that would be about 24 kHz per bin. Earlier proposal
+   in the draft: 1 × 512 samples every 100 ms (0.15 % SPI), replaced by ON8ST's choice. The values are announced as fixed in the capability
+   block (0003) and, if 0003 uses the P2 full description, in Appendix C byte 42 = 1 and
+   bytes 43–50 with each parameter marked "fixed" [P2, Appendix C], as P2 already does for
+   ANAN-10E [P2, General byte 28]. Depends on HIS-01 (raw ADC access) and HIS-18 (memory and
+   processor load); if the HIS shows that raw ADC blocks cannot be delivered, this point is
+   revisited.
 5. **DDC audio.** Not offered (0017).
 6. **Design target.** Worst-case SPI load (RX at the maximum rate, TX, status at 1 ms, all
    offered streams) stays at or below 60 % of the SPI time at the actual SPI clock. The
-   maximum RX rate is set by this target once HIS-14 gives the clock: 384 ksps at about 50 MHz
-   or more, 192 ksps below that (see "Sensitivity").
+   maximum RX rate is set by this target once HIS-14 gives the clock: 384 ksps only if the SPI
+   clock is about 50 MHz or more, 192 ksps maximum below that (see "Sensitivity"; ON8ST,
+   2026-11-19).
 7. **Requests not offered** (option 6D):
    - DDC Specific packet with a DDC0 rate outside the offered set, or a sample size other than
      24 (or 0 = default): DDC0 does not run (it stops if running) until a valid DDC Specific
@@ -410,12 +428,24 @@ Provisional values, pending HIS-01, HIS-02, HIS-14 and HIS-17.
    - DUC Specific packet with a DUC0 rate other than 192 or bits other than 24: DUC I&Q is not
      accepted, and transmit is refused (the PA stays off) until a valid DUC Specific packet
      arrives.
-   - Wideband enable (General byte 23): ignored; no wideband packets are sent.
-   - In each case the reason is reported in a G7250 status register (0005).
+   - Wideband (General bytes 23–28): before M2, the enable is not followed and no wideband
+     packets are sent. From M2, an enable for ADC0 is followed only while bytes 24–28 are
+     0 (default) or equal to the fixed values of point 4; any other value means wideband
+     does not run until the request is valid. Enables for other ADCs are not followed.
+   - In each case the reason is reported in a G7250 status register (0005). Requests are
+     never clamped to an offered value (6A, 6B are rejected; ON8ST, 2026-11-19).
+   - **768 ksps and above are not offered**, not even receive-only (option 1C; ON8ST,
+     2026-11-19).
 8. **How the host learns what is offered:** the capability block (0003). If 0003 uses the P2
-   full description, the values above go into Appendix C bytes 39 (1), 42 (0), 51, 52–55 (48,
-   384), 59 (0, per 0017), 64 (0), 70 (1), 72 and 73 (per HIS-17), 79 (192), 80 (24), 81–82
-   (240) [P2]; the standard discovery reply byte 20 is 1 [P2].
+   full description, the values above go into Appendix C bytes 39 (1), 42 (0 in M1, 1 from
+   M2), 43–50 (from M2: the fixed wideband values of point 4), 51, 52–55 (48, 384), 59 (0, per
+   0017), 64 (0), 70 (1), 72 and 73 (per HIS-17), 79 (192), 80 (24), 81–82 (240) [P2]; the
+   standard discovery reply byte 20 is 1 [P2].
+9. **10 Mbit/s link** (ON8ST, 2026-11-19). On a 10 Mbit/s link the radio refuses the session:
+   it answers discovery, but starts no stream (no DDC0, DUC0, microphone or wideband), and
+   reports the reason ("link speed below 100 Mbit/s") in the status register (0005) and in
+   the capability block (0003). Reason: DUC0 alone is 9.7 Mbit/s on the wire ("Per stream"),
+   so TX cannot work, and a partial RX-only mode is not offered.
 
 ## Consequences
 
@@ -425,7 +455,15 @@ Provisional values, pending HIS-01, HIS-02, HIS-14 and HIS-17.
 - The G7250 register map (0005) gets a read-only stream status register: per stream running or
   not, and the reason when refused (for example "DDC0 rate not offered").
 - The capability block (0003) carries: number of DDCs, the offered DDC rates (minimum and
-  maximum), IQ format, DUC rate and bits, microphone yes/no, wideband yes/no, DDC audio no.
+  maximum), IQ format, DUC rate and bits, microphone yes/no, wideband yes/no (no in M1, yes
+  from M2) with its fixed parameters (512 samples per packet, 16 bits, 8 packets per frame, 50 ms), DDC
+  audio no, and the reason when a session is refused (10 Mbit/s link).
+- **Wideband in M2.** Milestone M2 gains wideband data at the fixed parameters of Decision
+  point 4; its exit criterion includes a host receiving a complete 4096-sample frame (8 packets of
+  1028 bytes) every 50 ms while DDC0 at the maximum rate and DUC0 run, with the SPI load
+  measured. The raw ADC block is 4096 × 16 bits = 8 KB of processor RAM (HIS-18), against
+  32 KB at P2 defaults (5B). If HIS-01 or HIS-18 shows that raw ADC blocks cannot be delivered, wideband is
+  revisited and M2 is re-planned.
 - **CH394Q buffer split.** With the default 2 KB per socket [CH394, 7.2.12–7.2.13], a socket
   holds one 1444-byte P2 packet (plus 8 bytes of header on receive). With no flow control in
   UDP mode [CH394, 12.2.4], a second DUC packet arriving before the first is read would be
@@ -437,7 +475,7 @@ Provisional values, pending HIS-01, HIS-02, HIS-14 and HIS-17.
   | 1 | 1024 | 2 KB | 1 KB |
   | 2 | 1025 (DDC Specific in, status out) | 2 KB | 1 KB |
   | 3 | 1026 (DUC Specific in, microphone out) | 1 KB | 1 KB |
-  | 4 | 1027 (High Priority in, wideband out) | 2 KB | 0 KB (1 KB+ if wideband is added) |
+  | 4 | 1027 (High Priority in, wideband out) | 2 KB | 0 KB in M1 (2 KB from M2, see below) |
   | 5 | 1029 (DUC I&Q in) | 6 KB (4 packets) | 0 KB |
   | 6 | 1035 (DDC0 I&Q out) | 0 KB | 8 KB (5 packets) |
   | 7 | register map (0005) | 2 KB | 2 KB |
@@ -445,10 +483,17 @@ Provisional values, pending HIS-01, HIS-02, HIS-14 and HIS-17.
   | | total | 16 KB | 16 KB |
 
   The 1 KB block granularity [CH394, 7.2.12] means each buffer holds a whole number of
-  kilobytes. In MACRAW mode (HIS-14) this table does not apply.
-- **Link speed.** TX needs a 100 Mbit/s link: at 10 Mbit/s, DUC0 alone is 9.7 Mbit/s on the
-  wire. The spec states what the radio does on a 10 Mbit/s link (refuse TX, limit RX to
-  48 ksps); to be decided in spec part B.
+  kilobytes. In MACRAW mode (HIS-14) this table does not apply. From M2, a 1028-byte
+  wideband packet does not fit in 1 KB, so socket 4 needs 2 KB of transmit buffer; the 2 KB
+  is taken from socket 6 (8 → 6 KB, 4 DDC0 packets) or socket 8 (3 → 1 KB), to be fixed in
+  spec part B. A wideband frame is 8 packets (8 KB); the processor keeps the frame in its own
+  RAM and hands packets to the CH394Q as buffer space frees, so the frame does not have to
+  fit in the socket buffer.
+- **Link speed.** On a 10 Mbit/s link the session is refused (Decision point 9): the radio
+  still answers discovery, so the host can find it and read why, but no stream starts. This
+  replaces the earlier suggestion to refuse only TX and limit RX to 48 ksps. Spec part B
+  states how the firmware reads the negotiated link speed from the CH394Q (HIS-14) and the
+  exact reason code (0005).
 - **M1 exit criterion** ("receives IQ at the supported rates", design note section 6) is
   tested at 48, 96, 192 and 384 ksps, with and without simultaneous TX IQ, against the
   reference model in g7250-testbench, and on the radio with an SPI load measurement that
@@ -458,8 +503,33 @@ Provisional values, pending HIS-01, HIS-02, HIS-14 and HIS-17.
   wideband enable or other formats is to be checked against its public source.
 - **Revisit** when the HIS answers: HIS-01 (rates the hardware can make; wideband), HIS-02
   (more DDCs; then also sockets), HIS-14 (SPI clock and socket or MACRAW mode; maximum rate),
-  HIS-17 (microphone), HIS-18 (processor load at 1600 + 800 packets/s). Status changes to
-  accepted once those are answered and ON8ST agrees.
+  HIS-17 (microphone), HIS-18 (processor load at 1600 + 800 packets/s; wideband memory). The
+  decision is accepted; the values change only through these HIS answers.
+
+## Resolved (ON8ST, 2026-11-19)
+
+- Design target of at most 60 % SPI busy in the worst case: accepted. 384 ksps is offered
+  only if the SPI clock is about 50 MHz or more; otherwise the maximum is 192 ksps.
+- Requests that are not offered: refused, with the reason reported in a G7250 register
+  (option 6D). No clamping (6A, 6B rejected).
+- 768 ksps: not offered, not even receive-only (option 1C rejected).
+- Microphone: no silent microphone stream just for timing (option 4C rejected).
+- Wideband: changed from "not in the first version" to planned for milestone M2 with small
+  fixed parameters (option 5C, under 0.2 % SPI), announced in the capability block (0003);
+  revisited if HIS-01 or HIS-18 shows it is impossible.
+- 10 Mbit/s link: the radio refuses the session; it answers discovery, starts no streams and
+  reports the reason in the status register and capability block (0003).
+
+### Still open
+
+These were not answered on 2026-11-19 and remain open:
+
+- A second receiver (HIS-02): if one exists, does DDC1 take the last CH394Q socket from the
+  management channel (0008), or does the firmware move to MACRAW mode (HIS-14)?
+- Sources: RFC 768, RFC 791 and IEEE 802.3 (per-packet overhead of 66 bytes) are still to be
+  added to `sources.md`.
+- DDC rate units: the DDC Specific bytes 18–19 rate field and Appendix C bytes 52–55
+  (ksps) [P2] are still to be checked against a public P2 host implementation.
 
 ## Sources
 
@@ -485,3 +555,4 @@ Provisional values, pending HIS-01, HIS-02, HIS-14 and HIS-17.
   0016, 0017.
 - Start brief, ON8ST, 2026-11-19 (one receiver).
 - ON8ST, own hardware inspection, 2026-11-19 (CH394Q).
+- ON8ST, decision of 2026-11-19 (acceptance; wideband in M2; 10 Mbit/s session refusal).
