@@ -65,6 +65,19 @@ the source has been found but not checked.
   is still to be checked before part C is written (0011).
 - Note: AetherSDR's TCI server announces protocol 2.1 [AETHER], the same version.
 
+## Datasheets
+
+### [CH394] WCH CH394 manual 1 (以太网协议栈芯片 CH394 手册 1), version 1.2
+
+- What: datasheet of the WCH CH394 Ethernet protocol-stack chip (10/100 MAC+PHY, built-in
+  TCP/IP, 8 sockets on CH394Q / 4 on CH394L, 32 KB RAM, SPI up to 62 MHz).
+- Where: wch.cn; copy read from atta.szlcsc.com,
+  `/upload/public/pdf/source/20251203/9EC0C6F644C6D345895781592F6A1E96.pdf`.
+- Version: 1.2. Chinese, 3 pages; mainly the CH394Q. The CH394L manual (CH394DS2) has not been
+  read.
+- Read: 2026-11-19.
+- Used for: `analysis/ch394-network-budget.md`.
+
 ## Host software
 
 ### [AETHER] AetherSDR README
@@ -114,6 +127,7 @@ Facts from these secondary sources (to be confirmed against [G7250-RDY] or a man
 | Construction | separate RF deck (main unit) and controller with 7" touch screen | [G7250-PUDX], [G7250-RIGPIX] |
 | Network | "remote baseband signal transmission over a network"; the type of connection (Ethernet, Wi-Fi) is not stated | [G7250-PUDX], [G7250-RIGPIX] |
 | Ethernet | present on the main unit; tested and documented in a video by the YouTube channel "Temporarily Offline" | ON8ST, 2026-11-19; video [G7250-TOFF] not yet identified |
+| Ethernet controller | WCH CH394 (variant not known) | ON8ST, own hardware inspection, 2026-11-19; to be confirmed by the HIS |
 | USB | present | [G7250-RIGPIX] |
 
 Note: neither written secondary source says that the main unit has an Ethernet port. ON8ST

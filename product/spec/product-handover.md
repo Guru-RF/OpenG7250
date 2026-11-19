@@ -35,7 +35,10 @@ management channel.
 
 ## Open questions for ON8ST
 
-None at the moment. Watch TAPR/OpenHPSDR-Firmware#6 for a reply on board type 200.
+1. Does the CH394 finding change the choice for P2 (0016)? P2 needs 8 sockets with one
+   receiver; a CH394Q has exactly 8, a CH394L 4. See `analysis/ch394-network-budget.md`.
+
+None otherwise. Watch TAPR/OpenHPSDR-Firmware#6 for a reply on board type 200.
 
 Level 1 is called G7250-P2 (ON8ST, 2026-11-19).
 
@@ -51,7 +54,9 @@ ANAN-G2, TCI server announcing protocol 2.1) come from its README, read 2026-11-
   armed TX (0015).
 - Where PTT and TX interlock sit.
 - Network hardware of the main unit: Ethernet is present (ON8ST, 2026-11-19, see
-  `sources.md` [G7250-TOFF]); link speed, PHY and Wi-Fi still open.
+  `sources.md` [G7250-TOFF]). ON8ST saw a WCH CH394 during hardware inspection: confirm,
+  and which variant (CH394Q 8 sockets / CH394L 4 sockets), which interface and clock to the
+  processor, socket or MACRAW mode. See `analysis/ch394-network-budget.md`. Wi-Fi still open.
 - Compute resources (DSP/FPGA/MCU), memory, network stack (TCP, WebSocket). These are
   needed for gate G6.
 
