@@ -96,43 +96,47 @@ the source has been found but not checked.
 
 ### [G7250] Public G7250 product information
 
-There is no free, public G7250 user manual yet. According to search results, Radioddity
-offers an "Extended Manual" as a digital guide to first-batch preorders; this has not been
-checked. Until a manufacturer document is available, the sources below are secondary.
-
-- **[G7250-RDY] Radioddity product page.** radioddity.com/products/xiegu-g7250. Not yet
-  read: the site answered HTTP 429 (too many requests) on 2026-11-19. To be read and to
-  replace the secondary sources below where they agree.
+- **[G7250-MAN] Xiegu G7250 Operation Manual, English, rev 0.1.** Primary source.
+  radioddity.s3.amazonaws.com/Xiegu_G7250_Operation_Manual_EN_rev0.1_20261008.pdf
+  (file dated 2026-10-08; back cover "Edition Jul 2026", XDT-B00; © WeiSheng Communication).
+  49 pages. Read 2026-11-19 (link from ON8ST). The manual states that specifications may
+  change with software upgrades.
+- **[G7250-RDY] Radioddity product page.** radioddity.com/products/xiegu-g7250. Not read:
+  HTTP 429 on 2026-11-19.
 - **[G7250-RIGPIX] RigPix database entry.** rigpix.com/xiegu/g7250.htm, last modified
-  2026-08-31. Read 2026-11-19. Many fields are still "?".
-- **[G7250-PUDX] PileupDX announcement.** pileupdx.com, "NEW Xiegu G7250 100W HF/50 MHz SDR
-  Transceiver", SM0MDG, 22 Jul 2026, updated 29 Jul 2026. Read 2026-11-19. States
-  "Specifications are subject to change" and does not say where the specifications come from.
-
+  2026-08-31. Read 2026-11-19. Secondary; many fields still "?".
+- **[G7250-PUDX] PileupDX announcement.** pileupdx.com, SM0MDG, 22 Jul 2026, updated 29 Jul
+  2026. Read 2026-11-19. Secondary; pre-release, "Specifications are subject to change".
 - **[G7250-TOFF] YouTube channel "Temporarily Offline".** A video in which the Ethernet
-  interface of the G7250 is tested and documented (ON8ST, 2026-11-19). Not yet identified:
-  a web search on 2026-11-19 did not find it. Link to be added.
+  interface is tested and documented (ON8ST, 2026-11-19). Not yet identified.
+- **"G7250 HDSDR Network Reception Tutorial".** Referred to by [G7250-MAN] (NETWORK
+  Settings). Not found or read.
 
-Facts from these secondary sources (to be confirmed against [G7250-RDY] or a manual):
+Facts. [G7250-MAN] wins where sources differ; differences are noted.
 
 | Fact | Value | Source |
 |------|-------|--------|
-| Frequency coverage | 0.5–30 MHz and 50–54 MHz | [G7250-PUDX], [G7250-RIGPIX] |
-| Modes | SSB, CW, AM, FM, digital | [G7250-PUDX], [G7250-RIGPIX] |
-| TX power | 100 W HF, 90 W on 50 MHz (±1 dB) | [G7250-PUDX], [G7250-RIGPIX] |
-| Receiver | direct RF sampling | [G7250-PUDX], [G7250-RIGPIX] |
-| Antenna connectors | two SO-239, 50 Ω | [G7250-RIGPIX] |
-| ATU | automatic, 20–150 Ω matching range; first tune ≤ 10 s, memory tune ≤ 0.1 s, settings per band | [G7250-PUDX] (range also [G7250-RIGPIX]) |
-| Supply | 9–15 V DC (Anderson Powerpole) | [G7250-PUDX], [G7250-RIGPIX] |
-| Construction | separate RF deck (main unit) and controller with 7" touch screen | [G7250-PUDX], [G7250-RIGPIX] |
-| Network | "remote baseband signal transmission over a network"; the type of connection (Ethernet, Wi-Fi) is not stated | [G7250-PUDX], [G7250-RIGPIX] |
-| Ethernet | present on the main unit; tested and documented in a video by the YouTube channel "Temporarily Offline" | ON8ST, 2026-11-19; video [G7250-TOFF] not yet identified |
+| Construction | main unit and controller (head) as separate units, joined by a dedicated cable on the CTRL interfaces (15-pin cable L2001) | [G7250-MAN] |
+| Receive range | 0.5–30 MHz and 50.00–54.00 MHz | [G7250-MAN] |
+| Transmit ranges | 1.8–2.0, 3.5–3.9, 7.0–7.2, 10.1–10.15, 14.0–14.35, 18.068–18.168, 21.0–21.45, 24.89–24.99, 28.0–29.7, 50.00–54.00 MHz (set per region) | [G7250-MAN] |
+| Modes | CW, AM, SSB, FM, WFM | [G7250-MAN] |
+| TX power | SSB/CW/NFM 100 W ±1 dB, AM 25 W ±1 dB (13.8 V, max). No separate 50 MHz value in the manual; [G7250-PUDX] and [G7250-RIGPIX] give 90 W on 50 MHz | [G7250-MAN] |
+| Receiver | RF direct sampling; MDS −138 dBm (CW, 500 Hz) | [G7250-MAN] |
+| Frequency stability | ±1.5 ppm 10 minutes after power-on; 1 ppm/hour at 25 °C | [G7250-MAN] |
+| Antennas | ANT1 and ANT2 on the main unit, 50 Ω, selectable (menu "ANT SELECT"). Connector type not stated; [G7250-RIGPIX] says SO-239 | [G7250-MAN] |
+| ATU | internal automatic tuner, 20–150 Ω, initial tuning ≤ 10 s, memory recall ≤ 0.1 s, tuning data stored per band | [G7250-MAN] |
+| External tuner | TUNER interface on the main unit: +13.8 V out, tuner return, tuner trigger | [G7250-MAN] |
+| Other main-unit interfaces | DC power, ground, ALC (RCA, ALC output), SEND (RCA, transmit control), CTRL, LAN | [G7250-MAN] |
+| Network | LAN wired network port on the main unit. Stock firmware: HDSDR on a PC can receive the digital baseband signal over the network and "perform demodulation and control" | [G7250-MAN] |
 | Ethernet controller | WCH CH394Q (8 sockets, SPI) | ON8ST, own hardware inspection, 2026-11-19; to be confirmed by the HIS |
-| USB | present | [G7250-RIGPIX] |
+| Controller interfaces | microphone (H-22, with PTT), SPK (external passive speaker 4–8 Ω), KEY (Morse key), USB (to PC, "control and audio transmission", CH342 driver), TF card slot | [G7250-MAN] |
+| Audio output | 2 W into 4 Ω (≤ 10 % THD), 4–16 Ω | [G7250-MAN] |
+| Bluetooth | two-way audio and control channel with a phone (device "XG-BT-G7250") | [G7250-MAN] |
+| Supply | 13.8 V DC ±15 %, negative ground; RX ≤ 1.2 A, TX ≤ 23 A. [G7250-PUDX] and [G7250-RIGPIX] give 9–15 V | [G7250-MAN] |
+| Operating temperature | 0 to +50 °C (storage/use warning: −10 to +50 °C) | [G7250-MAN] |
 
-Note: neither written secondary source says that the main unit has an Ethernet port. ON8ST
-confirmed it on 2026-11-19, citing the video [G7250-TOFF]. Link speed (100/1000 Mbit/s) and
-the network stack remain questions for the HIS.
+Not stated in [G7250-MAN]: the number of receivers, ADC type, sample rates, Ethernet speed.
+"One receiver" (0001) comes from the start brief and is still to be confirmed (HIS).
 
 ## Discussion with ON8ST
 
