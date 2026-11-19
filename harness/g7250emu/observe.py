@@ -34,7 +34,7 @@ from __future__ import annotations
 
 import re
 import sys
-from collections import Counter, defaultdict
+from collections import Counter, defaultdict, deque
 from dataclasses import dataclass, field
 
 
@@ -58,19 +58,25 @@ def strict_logging_commands(machine="machine", log_file=None):
         "sysbus LogAllPeripheralsAccess true",
     ]
     if log_file:
-        # `logFile` appends; the runner truncates the path first.
-        cmds.append('logFile @%s' % log_file)
+        # `logFile @path true` = flush after each write, so a live reader (the
+        # boot runner tailing the file) sees accesses as they happen. `logFile`
+        # appends; the runner truncates the path first.
+        cmds.append('logFile @%s true' % log_file)
     return cmds
 
 
 # Renode's per-access log line (LogAllPeripheralsAccess, verified format), e.g.:
 #   [22:47:41.3515]  [INFO] rcc: ReadUInt32 from 0x0 (ClockControl), returned 0x25
-#   [22:47:41.3546]  [INFO] rcc: WriteUInt32 to 0x0 (ClockControl), value 0x1
+#   [22:47:41.3546]  [INFO] i2c1: [cpu: 0x802B14E] ReadUInt32 from 0x18 (InterruptAndStatus), returned 0x1
 # The peripheral name is the `src:` token; the 0x.. is the *offset within the
-# peripheral*; the parens hold the *register* name; there is no PC in the line
-# (PC sampling for the hang detector comes from `cpu PC` polling, not the log).
+# peripheral*; the parens hold the *register* name. When the access is driven by
+# the CPU, Renode also prints the faulting/reading PC as a `[cpu: 0x..]` token
+# between the peripheral and the operation — captured here as the `pc` group, so
+# the hang detector can read the stuck PC straight from the log (robust; no need
+# to poll `cpu PC` over the flooded console).
 _ACCESS_RE = re.compile(
     r"\[(?P<level>\w+)\]\s+(?P<peri>[\w.\-]+):\s+"
+    r"(?:\[cpu:\s*(?P<pc>0x[0-9A-Fa-f]+)\]\s+)?"       # optional PC token
     r"(?P<op>Read|Write)\w*\s+(?:from|to)\s+"
     r"(?P<off>0x[0-9A-Fa-f]+)"
     r"(?:\s*\((?P<reg>[^)]*)\))?"
@@ -109,13 +115,22 @@ class ObserveReport:
     heatmap_peri: Counter = field(default_factory=Counter)       # peripheral -> count
     violations: list = field(default_factory=list)               # strict-mode hits
     faults: list = field(default_factory=list)
+    tail: deque = field(default_factory=lambda: deque(maxlen=TAIL_WINDOW))  # (key, pc)
 
     def is_clean(self):
         return not self.violations and not self.faults
 
 
+# how many trailing accesses the log-based hang classifier looks at
+TAIL_WINDOW = 8000
+
+
 def parse_log(lines):
-    """Parse Renode log lines into an ObserveReport (heatmap + strict violations)."""
+    """Parse Renode log lines into an ObserveReport (heatmap + strict violations).
+
+    Also keeps a rolling tail of the last TAIL_WINDOW (register-key, pc) pairs so
+    classify_tail() can decide, straight from the log, whether the boot is stuck
+    spinning on one register (poll-hang)."""
     rep = ObserveReport()
     for line in lines:
         # strict first: an unhandled-access WARNING also contains Read/Write, so
@@ -123,18 +138,53 @@ def parse_log(lines):
         u = _UNHANDLED_RE.search(line)
         if u:
             rep.violations.append(u.group("msg").strip())
-        elif _ACCESS_RE.search(line):
+        else:
             m = _ACCESS_RE.search(line)
-            rep.accesses += 1
-            peri = m.group("peri")
-            off = int(m.group("off"), 16)
-            reg = m.group("reg") or ""
-            key = "%s +0x%X%s" % (peri, off, (" (%s)" % reg) if reg else "")
-            rep.heatmap_peri[peri] += 1
-            rep.heatmap_reg[key] += 1
+            if m:
+                rep.accesses += 1
+                peri = m.group("peri")
+                off = int(m.group("off"), 16)
+                reg = m.group("reg") or ""
+                key = "%s +0x%X%s" % (peri, off, (" (%s)" % reg) if reg else "")
+                pc = int(m.group("pc"), 16) if m.group("pc") else None
+                rep.heatmap_peri[peri] += 1
+                rep.heatmap_reg[key] += 1
+                rep.tail.append((key, pc))
         if _FAULT_RE.search(line):
             rep.faults.append(line.strip())
     return rep
+
+
+def classify_tail(tail, pc_span=0x80, dominance=0.9, min_samples=500):
+    """Log-based hang verdict from a tail of (register-key, pc) pairs.
+
+    Returns a poll-hang HangVerdict naming the dominant register when one
+    register is >= `dominance` of the recent accesses and the PCs that touch it
+    sit inside `pc_span`; otherwise None (not stuck on one register). This is the
+    robust, monitor-independent path: the PC comes from the log's `[cpu: 0x..]`
+    token, so it works even when the console is flooded with access lines.
+    """
+    t = list(tail)
+    if len(t) < min_samples:
+        return None
+    c = Counter(k for k, _ in t)
+    key, n = c.most_common(1)[0]
+    frac = n / float(len(t))
+    if frac < dominance:
+        return None
+    # One register taking ~all of the recent MMIO is a never-ready poll,
+    # whatever the width of the poll routine. The PC span just annotates how
+    # tight the loop is (`pc_span` flags a one-liner vs a multi-instruction
+    # waiter); it does not gate the verdict.
+    pcs = [pc for k, pc in t if k == key and pc is not None]
+    lo, hi = (min(pcs), max(pcs)) if pcs else (0, 0)
+    span = hi - lo
+    shape = "tight" if (pcs and span <= pc_span) else "multi-instruction"
+    return HangVerdict(
+        "poll-hang", pc_lo=lo, pc_hi=hi,
+        detail="spinning on %s (%.1f%% of the last %d accesses, %s poll, PC span "
+               "0x%X) — a never-ready poll; feed that register / attach its device"
+               % (key, frac * 100, len(t), shape, span))
 
 
 # Coarse address->peripheral buckets for the Main (STM32H72x map; VERIFIED
@@ -259,13 +309,14 @@ def format_report(rep, hang=None, top=20):
 # --------------------------------------------------------------------------
 
 def _selftest():
-    # real Renode LogAllPeripheralsAccess format (verified against the platform)
+    # real Renode LogAllPeripheralsAccess format (verified against the platform),
+    # including the CPU-driven `[cpu: 0x..]` PC token the Main boot emits.
     log = [
-        "[12:00:00.0001]  [INFO] rcc: ReadUInt32 from 0x0 (ClockControl), returned 0x25",
-        "[12:00:00.0002]  [INFO] rcc: WriteUInt32 to 0x0 (ClockControl), value 0x1",
+        "[12:00:00.0001]  [INFO] rcc: [cpu: 0x8023C06] ReadUInt32 from 0x0 (ClockControl), returned 0x25",
+        "[12:00:00.0002]  [INFO] rcc: [cpu: 0x8023C08] WriteUInt32 to 0x0 (ClockControl), value 0x1",
         "[12:00:00.0003]  [INFO] pwr: ReadUInt32 from 0x0 (unknown), returned 0xF000C100",
         "[12:00:00.0004]  [WARNING] sysbus: Tried to read from a non-existing peripheral at 0x40006000",
-        "[12:00:00.0005]  [INFO] rcc: ReadUInt32 from 0x0 (ClockControl), returned 0x25",
+        "[12:00:00.0005]  [INFO] rcc: [cpu: 0x8023C46] ReadUInt32 from 0x0 (ClockControl), returned 0x25",
     ]
     rep = parse_log(log)
     assert rep.accesses == 4, rep.accesses
@@ -274,6 +325,19 @@ def _selftest():
     assert rep.heatmap_reg["rcc +0x0 (ClockControl)"] == 3, rep.heatmap_reg
     assert len(rep.violations) == 1, rep.violations
     assert not rep.is_clean()
+
+    # log-based poll-hang: an I2C1 ISR spin like the real Main boot produces
+    i2c_spin = ["[12:00:01.%04d]  [INFO] i2c1: [cpu: 0x%X] ReadUInt32 from 0x18 "
+                "(InterruptAndStatus), returned 0x1" % (i, 0x802B14E + (i % 3) * 0x5)
+                for i in range(2000)]
+    srep = parse_log(i2c_spin)
+    tv = classify_tail(srep.tail)
+    assert tv is not None and tv.kind == "poll-hang", tv
+    assert "i2c1 +0x18 (InterruptAndStatus)" in tv.detail, tv.detail
+    # a varied access tail is NOT a poll-hang
+    varied = ["[t]  [INFO] rcc: [cpu: 0x%X] ReadUInt32 from 0x%X (R), returned 0x0"
+              % (0x8000000 + i, i % 64) for i in range(2000)]
+    assert classify_tail(parse_log(varied).tail) is None
 
     # fault detection
     frep = parse_log(["[12:00:01] [ERROR] cpu: HardFault escalation, CPU halted"])

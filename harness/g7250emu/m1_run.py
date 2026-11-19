@@ -27,6 +27,7 @@ import os
 import subprocess
 import sys
 import time
+from collections import deque
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 REPO = os.path.abspath(os.path.join(HERE, "..", ".."))
@@ -44,12 +45,21 @@ LOAD_BASE = 0x08020000      # app vector table / load base
 INIT_MSP = 0x24050000       # initial stack pointer (top of 320 KiB AXI SRAM)
 RESET_PC = 0x08024554       # reset handler
 
+# Core clock (flow.md SystemClock_Config, VERIFIED: HCLK 275 MHz). The firmware
+# runs SysTick off the processor clock for its 1 ms HAL tick; Renode's NVIC only
+# advances SysTick when it is given that input frequency. Without it the HAL
+# tick never increments, so every HAL_Delay / I2C-wait timeout spins forever
+# (the AXP223 I2C wait is the first such spin). See docs/M1-status.md.
+CORE_HZ = 275000000
+
 
 def build_resc(image_path, log_path):
     """Renode script: load platform + image, enable observe logging, start."""
     lines = [
         'mach create "main"',
         'machine LoadPlatformDescription @%s' % REPL,
+        # give the NVIC the SysTick input clock so the 1 ms HAL tick advances
+        'nvic Frequency %d' % CORE_HZ,
     ]
     # Blocks absent from the H743 base (H72x-only) and blocks with no STM32
     # model in this build (DAC1, MDMA): tag them so a touch is named and logged
@@ -68,15 +78,33 @@ def build_resc(image_path, log_path):
     return "\n".join(lines) + "\n"
 
 
-def _ask(proc, cmd):
-    """Send a monitor command and return the first numeric/text reply line."""
-    proc.stdin.write(cmd + "\n")
-    proc.stdin.flush()
-    # Replies are interleaved with the banner; the caller filters.
-    return None
+def _feed_tail(tail, text):
+    """Parse newly-appended log text; append (register-key, pc) to the tail.
+    Returns how many access lines were seen."""
+    n = 0
+    for line in text.splitlines():
+        m = observe._ACCESS_RE.search(line)
+        if not m:
+            continue
+        peri = m.group("peri")
+        off = int(m.group("off"), 16)
+        reg = m.group("reg") or ""
+        key = "%s +0x%X%s" % (peri, off, (" (%s)" % reg) if reg else "")
+        pc = int(m.group("pc"), 16) if m.group("pc") else None
+        tail.append((key, pc))
+        n += 1
+    return n
 
 
-def run_boot(image_path, timeout=60.0, cadence=0.5, pc_span=0x80, hang_hold=3.0):
+def run_boot(image_path, timeout=60.0, cadence=0.5, pc_span=0x80, idle_hold=3.0):
+    """Boot the stock Main and classify the result by tailing the access log.
+
+    The verdict comes from the log file (observe.classify_tail), not from polling
+    the monitor: at boot the access log floods the console, so Renode's stdout is
+    sent to /dev/null and we read the flushed `logFile` instead. stdin stays open
+    (Renode quits on EOF). Stops at the first poll-hang, at an idle gap after real
+    init, or at the timeout.
+    """
     os.makedirs(OUT, exist_ok=True)
     log_path = os.path.join(OUT, "m1_renode.log")
     open(log_path, "w").close()  # truncate; Renode appends
@@ -88,35 +116,52 @@ def run_boot(image_path, timeout=60.0, cadence=0.5, pc_span=0x80, hang_hold=3.0)
         [RENODE, "--disable-xwt", "--console",
          "-e", "path add @%s" % REPO,
          "-e", "include @%s" % resc],
-        stdin=subprocess.PIPE, stdout=subprocess.PIPE,
-        stderr=subprocess.STDOUT, text=True, bufsize=1)
+        stdin=subprocess.PIPE,
+        stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+        text=True)
 
-    samples = []            # (wall_t, pc, executed)
+    tail = deque(maxlen=observe.TAIL_WINDOW)
     verdict = None
     t_start = time.time()
+    last_growth = t_start
+    offset = 0
     try:
-        while True:
-            dt = time.time() - t_start
-            if dt > timeout:
-                verdict = observe.HangVerdict("running", detail="timeout %.0fs reached" % timeout)
-                break
-            # sample PC + executed via the monitor; replies land on stdout and
-            # are matched by the reader below.
-            proc.stdin.write("cpu PC\n")
-            proc.stdin.write("cpu ExecutedInstructions\n")
-            proc.stdin.flush()
-            pc, ex = _read_sample(proc, deadline=time.time() + cadence)
-            if pc is not None and ex is not None:
-                samples.append((time.time() - t_start, pc, ex))
-                v = observe.detect_hang(samples, window_s=hang_hold, pc_span=pc_span)
-                if v.kind in ("poll-hang", "idle-hang"):
-                    verdict = v
-                    break
+        while time.time() - t_start < timeout:
             time.sleep(cadence)
+            # Re-open by PATH each cadence: Renode's `logFile` recreates the log
+            # on a fresh inode, so a handle opened before it started would read
+            # the stale empty inode forever. Binary + byte-offset so seeking into
+            # the growing file is well-defined.
+            try:
+                size = os.path.getsize(log_path)
+            except OSError:
+                size = 0
+            chunk = ""
+            if size > offset:
+                with open(log_path, "rb") as lf:
+                    lf.seek(offset)
+                    data = lf.read()
+                offset += len(data)
+                chunk = data.decode("utf-8", "replace")
+            new = _feed_tail(tail, chunk)
+            v = observe.classify_tail(tail, pc_span=pc_span)
+            if v is not None:
+                verdict = v
+                break
+            if new:
+                last_growth = time.time()
+            elif tail and (time.time() - last_growth) >= idle_hold:
+                verdict = observe.HangVerdict(
+                    "idle-hang",
+                    detail="no new MMIO for %.1fs after init — WFI / reached a wait "
+                           "(no IRQ source wired yet)" % (time.time() - last_growth))
+                break
+        if verdict is None:
+            verdict = observe.HangVerdict(
+                "running", detail="timeout %.0fs reached, still making varied accesses" % timeout)
     finally:
         try:
-            proc.stdin.write("pause\n")
-            proc.stdin.write("quit\n")
+            proc.stdin.write("pause\nquit\n")
             proc.stdin.flush()
         except Exception:
             pass
@@ -130,28 +175,7 @@ def run_boot(image_path, timeout=60.0, cadence=0.5, pc_span=0x80, hang_hold=3.0)
     report_path = os.path.join(OUT, "m1_observe_report.md")
     with open(report_path, "w") as f:
         f.write(report)
-    return report_path, verdict, len(samples)
-
-
-_INT_RE = __import__("re").compile(r"^\s*(0x[0-9A-Fa-f]+|\d+)\s*$")
-
-
-def _read_sample(proc, deadline):
-    """Read back one PC and one ExecutedInstructions value from stdout."""
-    pc = ex = None
-    while time.time() < deadline and (pc is None or ex is None):
-        line = proc.stdout.readline()
-        if not line:
-            break
-        m = _INT_RE.match(line)
-        if not m:
-            continue
-        val = int(m.group(1), 0)
-        if pc is None:
-            pc = val
-        elif ex is None:
-            ex = val
-    return pc, ex
+    return report_path, verdict, rep.accesses
 
 
 def main():
@@ -175,7 +199,7 @@ def main():
 
     print("M1 boot: image %s" % image)
     report, verdict, n = run_boot(image, timeout=args.timeout, cadence=args.cadence)
-    print("samples: %d   verdict: %s" % (n, verdict.kind if verdict else "?"))
+    print("MMIO accesses: %d   verdict: %s" % (n, verdict.kind if verdict else "?"))
     if verdict and verdict.detail:
         print("  %s" % verdict.detail)
     print("report: %s" % report)

@@ -49,3 +49,62 @@ when the image drives the buses. The two never import across that boundary.
 4. Attach CH394 to spi6 and confirm **A1.12** (default IP in the chip); target
    **60 s virtual time without a hang** for the M1 exit (A1.1–A1.3, A1.7–A1.10,
    A1.12 for Main solo).
+
+## First real boot (decrypted Main image supplied) — 2026-11-19
+
+Image wired via the local image-map (`local.config` + `images/manifest.yaml`
+hashes, both kept local/untracked). `python3 harness/g7250emu/m1_run.py`.
+
+**Result: the Main runs its full early init and then gets stuck crawling through
+the I2C1 device bring-up — every I2C byte burns a 100 ms HAL timeout because
+I2C1 has no slaves attached.**
+
+What runs (PC climbs 0x08023BD4 → 0x08041C52): FPU enable, FLASH ACR, RCC/PLL1-3
+config, FMC `0x30D2` tweak, VTOR, DWT, the full MPU region set, ADC, USART1,
+GPIO A..K, "System started", PH9 high — as `startup.md`/`flow.md` describe.
+**SysTick ticks** (the HAL tick at RAM `0x24005A74` advances; `m1_run` sets
+`nvic Frequency 275000000` so the 1 ms rate is correct).
+
+The bottleneck (identified by the OpenG7250 RE, static analysis): the loop at
+`0x0802B14E` is HAL `I2C_WaitOnTXISFlagUntilTimeout`. With no slave, Renode's
+I2C1 ISR stays `0x1` (TXE only) — never TXIS (bit1) or NACKF (bit4) — so the
+wait exits **only via its timeout** (AXP leg 100 ms). The boot does inch forward
+(tick advances, PC reaches the EEPROM/service-loop region), but each I2C byte
+costs 100 ms of virtual time, so the AXP/EEPROM/VersaClock/codec bring-up would
+take minutes of virtual time. `observe` flags the dominant `i2c1 +0x18
+(InterruptAndStatus)` poll. The first stalled transfer is `CR2=0x1012068` →
+SADD `0x68` → **7-bit 0x34 = AXP223 PMIC** (first device in the `flow.md` order).
+
+**Main I2C1 slave map + bring-up (public `main_unit/docs` + OpenG7250 RE,
+VERIFIED unless noted):**
+
+| 7-bit | device | driver | notes |
+| --- | --- | --- | --- |
+| 0x34 | AXP223 PMIC | `FUN_0804A8E8` | "Init PSU"; write seq 0x10=02,0x12=00,0x13=01,0x21=11,0x22=1E,0x23=3C,0x25=1E,0x28=1A,0x15=0B,(10 ms),0x10=6E,0x12=08; then a 256-byte dump read. Errors logged, init continues |
+| 0x50 | 24Cxx EEPROM | `FUN_0803C5E4` | settings block @0x0000 (0x1A8 B) valid iff bytes 0x000,0x1A3,0x1A4 == 'd' (0x64); reads Backup SRAM `0x38800000` first, then EEPROM; on mismatch logs "[ERR] EEPROM Settings data incorrect" and continues. Loader called with force-reset 1 → a blank EEPROM does NOT block |
+| 0x18 | TLV320AIC3204 codec | `FUN_0804A65C` | init/enable errors logged |
+| 0x68→0x6A | VersaClock 6 (5P49V6) | `FUN_0804ABBC` | 0x70-byte table from flash `0x0807F840` from reg 0; tries 0x68, after 100 ms 0x6A, logs, continues |
+
+Bus: I2C1 @0x40005400, init `FUN_080218B4`, TIMINGR `0x00D049FB` (~400 kHz),
+one handle `0x24004F38`. Init order in `main` `0x0802239C`: I2C-init → "System
+started" → PH9 → 1000 ms → AXP223 → 1000 ms → CRC → EEPROM (3 blocks) → network
+defaults → VersaClock 6 → AIC3204. **Every device's error path continues**, so
+functional-but-minimal slaves are enough to reach the main loop.
+
+### Next step (milestone item: I2C1 slave shims)
+
+Attach ACKing I2C1 slaves so transfers complete at full speed instead of each
+byte timing out. The device *logic* is done and host-tested
+(`models/devices/i2c_devices.py`: AXP223 0x34, EEPROM24C 0x50, AIC3204 0x18, VC6
+0x68/0x6A); this is the Renode transport glue — wrap them as `II2CPeripheral`
+slaves on `i2c1`. Minimum to boot: each ACKs its address and returns plausible
+bytes (AXP a 256-byte dump; EEPROM the 424 B NVPARAM block with the three 'd'
+markers, or rely on force-reset 1; VC6 accepts the table write; codec accepts
+writes). A faster-to-build alternative is a missing-slave NACKF+STOPF behaviour
+(real-HW AUTOEND), which lets each wait fail immediately and the firmware fall
+back to defaults. Then re-run and chase the next never-ready register from the
+heatmap toward the main loop.
+
+Tooling note: `observe.classify_tail` currently flags this as a flat poll-hang;
+it should be refined to recognise slow-but-forward progress (HAL tick advancing
+/ new I2C target addresses appearing) vs a truly dead spin.
