@@ -1,7 +1,7 @@
 # Annex — Changes needed in AetherSDR
 
-- Version: rc4 draft, 2026-11-19
-- Status: rc4 draft, for review by ON8ST. Informative annex to `spec/network-interface.md`
+- Version: rc4, 2026-11-19
+- Status: rc4, for review by ON8ST. Informative annex to `spec/network-interface.md`
   (0001, spec section 13; 0013, 0014, 0016).
 - © 2026 ON8ST, CC BY 4.0 (see `LICENSE.md`, decision 0018).
 
@@ -388,14 +388,19 @@ These parts of the ANAN P2 code already match the G7250 and need no change, only
   and the DDC-specific and DUC-specific packets for the session the run bit starts, so
   AetherSDR need not resend them. At every session end, a takeover included, the radio
   returns the TX settings of Table A3-4 to their session-start values (A3.6a; 0022 §64); after
-  a stop, a watchdog standby or a link loss it keeps the RX-side settings (the RX fields of the
-  General packet, the DDC-specific packet and the receive state of High Priority) for the same
-  IP address and port, and a High Priority packet with run = 1 from that host restarts the
-  session with them (B5.4; 0022 §78). After a session end AetherSDR must therefore resend,
+  a stop, a watchdog standby or a link loss it keeps the RX-side settings (every General packet
+  field except byte 38 bit [0] and byte 58 bit [0], the DDC-specific packet and the receive
+  state of High Priority) for the same IP address and port, and a High Priority packet with
+  run = 1 from that host restarts the session with them, with no 0→1 edge of the run bit
+  needed (B5.4; A2.3; 0022 §78). After a session end AetherSDR must therefore resend,
   before it arms again (for example after a restart with the run bit only): the General
   packet, because an arm needs a General packet of the new session with the watchdog bit
   (B10.2 item 3), and with PA enable; and the DUC-specific packet, for CW select, break-in,
-  hang delay, RF delay, keyer and DUC rate (part C C8.5a item 3). A resend of the DDC-specific
+  hang delay, RF delay, keyer and DUC rate (part C C8.5a item 3). After every session end,
+  with or without a takeover, it must also write `TX_MODE_CLASS`, every P2 `LIMIT_<name>` it
+  sets for its user interface or for a TCI session value (part C C5.10.1 item 6) and
+  `KEYED_TIMEOUT` if it uses it, before it arms, because the radio resets them at every
+  session end (A3.6; B5.4; 0022 §78; part C C8.5a item 3; 0021 §45 item 1). A resend of the DDC-specific
   packet is not needed when AetherSDR restarts from the same IP address and port after a stop,
   a watchdog standby or a link loss; after a takeover, a reset, a firmware update, a level
   change or an address change it is (part C C7.2.1, C8.5a item 3; 0022 §78 item 4). The capability record arrives once, unasked, at the session start
@@ -551,7 +556,9 @@ These parts of the ANAN P2 code already match the G7250 and need no change, only
     on level 1 are then: on the TCI side, applied by AetherSDR, the keyed-liveness rule of
     Table C8-1, the `KEYER` key-down cap and the CW text liveness; on the P2 side, applied by
     the radio, the watchdog, the keyed timeout, the DUC underrun check (keep DUC I&Q running
-    during key-up, B10.5) and the maximum TX time. The CWX cap does not act.
+    during key-up, B10.5) and the maximum TX time. The CWX cap does not act. Keep DUC-specific
+    byte 5 bit [1] clear while doing this: with it set, the radio's keyer forms the RF and
+    drops the DUC I&Q (B10.5b; 0022 §85).
   - **Arm trigger** (C5.5.7; 0021 §30): arm only on an explicit arm action in AetherSDR's own
     user interface or a valid `G7250_TX_ARM`; never on a TCI, CAT or rigctl TX request, and
     never on a key in the user interface (Q-O3).
@@ -647,15 +654,27 @@ These parts of the ANAN P2 code already match the G7250 and need no change, only
   identification I-4) reject a TCI arm with `LEVEL_NOT_ACTIVE`, not `NOT_RUNNING` (C5.5.3).
   When `G7250_TX_POLICY:holder` is set while a non-holder keys, unkey it (`unkey` 1); refuse
   `holder` while disarmed with `NOT_ARMED` (C5.5.8). Send `G7250_FEATURES` with the tokens of
-  Table C5-1 only (C5.4). Ignore an arm value of `G7250_TX_ARM` and CW text outside `CW`
-  (C5.2, C4). Count AetherSDR's own user interface as an arm holder for `G7250_LIMIT` and
+  Table C5-1 only (C5.4). Ignore an arm value of `G7250_TX_ARM` from a client that has not opted in, and CW text
+  outside `CW` (C5.2, C4). Count AetherSDR's own user interface as an arm holder for `G7250_LIMIT` and
   `G7250_KEYED_TIMEOUT` (C5.10, C5.10.1 item 3), and write no P2 `KEYED_TIMEOUT` below
   200 ms, twice its 100 ms keep-alive (C5.10). Report `G7250_PROFILE` `active` false at every
   end of its P2 session (C5.3). After a session end resend the General packet (for the arm and
   PA enable) and the DUC-specific packet, and the DDC-specific packet as well after a
   takeover, reset, update, level or address change (G-08b; C7.2.1, C8.5a item 3; B5.4).
+  Before it arms after every session end, also without a takeover, write `TX_MODE_CLASS`, the P2
+  `LIMIT_<name>` registers as part C C5.10.1 item 6 sets them and `KEYED_TIMEOUT` if used
+  (C8.5a item 3; 0021 §45 item 1).
   Discovery byte 21 is now fixed at 1 with scale 122 880 000 Hz, AetherSDR's encoding (G-11;
   0022 §81).
+- **Added by rc4 of part C (0021 §45).** Bound buffered TX audio to `TX_STREAM_AUDIO_BUFFERING`
+  plus one block, accept blocks of `length` 0, and discard blocks whose `channels`,
+  `sample_rate` or `receiver` differs from the client's settings (C6.3.5). Refuse a missing
+  part of a command as C4 states and list `iq_384` and `mic` where they apply (C4.1, C5.4).
+  Report an ownership loss inferred from 200 ms of silence or a sequence restart as
+  `LINK_DOWN` and stream reason `link`, not `TAKEOVER`, and wait for a user restart (C7.2.1).
+  Answer several reasons for one TX request in the order `BUSY`, `NOT_ARMED`, `KEYED`,
+  `BAD_VALUE`, `NOT_KEYABLE` (C5.12). Send `G7250_TX_STATE` `keyed` per CW element, with
+  `source` and `mine` kept in the gaps (C5.5.3).
 - **Other keying interfaces** (0021 §37). AetherSDR also has remote keying paths besides TCI
   (CAT, rigctl and its own TCI extensions `aethersdr_ext`, as the rc3 review reports; not
   surveyed in §2). Each of them SHOULD be bound by a keyed-liveness rule equivalent to part C

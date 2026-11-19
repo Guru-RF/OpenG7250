@@ -1,13 +1,14 @@
 # G7250 network interface specification
 
-- Version: rc4 draft, 2026-11-19; changes in `spec/CHANGELOG.md`
-- Status: release candidate rc4 draft, for review by ON8ST. Brings the text in line with decisions
+- Version: rc4, 2026-11-19; changes in `spec/CHANGELOG.md`
+- Status: release candidate rc4, for review by ON8ST. Brings the text in line with decisions
   0003, 0004, 0006, 0007 and 0008, all accepted by ON8ST on 2026-11-19, and applies the
   detail choices of 0020 (proposed, for ON8ST review at rc1), the points of 0021 that concern
   parts A and B, and the review fixes of 0022 (proposed, for ON8ST review at rc1), including
   §22–§32 from a second review of the transmit side, §33–§51 from the final review of rc1,
   §52–§61 from the review of the rc2 draft, §62–§73 from the review of rc2, §74–§77 from the
-  review of the rc3 draft and §78–§83 from the review of rc3. Focus: milestone M1 (discovery, capability block, RX IQ on G7250-P2); sections for M2–M5 are complete except for
+  review of the rc3 draft, §78–§83 from the review of rc3 and §84–§86 from the review of
+  the rc4 draft. Focus: milestone M1 (discovery, capability block, RX IQ on G7250-P2); sections for M2–M5 are complete except for
   values that depend on the hardware.
 - © 2026 ON8ST, CC BY 4.0 (see `LICENSE.md`).
 - Structure: decision 0001, "(2) Network-interface spec", as revised by 0016, split into parts
@@ -89,7 +90,8 @@ Table A1-1 — Management message header (0020 §27)
   request id, its command (bytes 12–13) and the SHA-256 hash [FIPS180-4] of its payload
   (bytes 18 … 17 + *N*) all equal those of the stored reply's request; a request with the
   same id but another command or payload is a new request, is executed and replaces the
-  stored reply (0022 §83 item 3). The G7250 keeps the last reply per
+  stored reply (0022 §83 item 3). A repeat answered from the stored reply does not refresh
+  the write session (A1.10; 0022 §86 item 7). The G7250 keeps the last reply per
   host for 5 s, for up to 4 hosts (IP address and port), evicting the least recently used;
   after expiry a repeated authenticated request fails with status 33, because its challenge
   is spent (0022 §11).
@@ -329,6 +331,14 @@ a reply while the radio still transmits; the reply waits for RF gone, normally `
 well below the 500 ms retransmission time of A1.4 (0022 §61). `UPDATE_ACTIVATE` and
 `ROLLBACK` are refused while armed or keyed (A1.8), so for them step 1 does not apply.
 
+**One commanded reset at a time** (0022 §86 item 5). From the acceptance of a commanded reset
+until the reset, or until its refusal with status 59, the G7250 MUST run no second one. A
+further commanded reset request in that time, from any host, is not executed: a `RESTART`
+(a repeat of the accepted request included) is answered with status 1, because the reset it
+asks for is under way; a `FACTORY_RESET`, `UPDATE_ACTIVATE` or `ROLLBACK` is answered with
+status 35 (busy), so that the host knows that its own command did not run and nothing of
+Table A1-4 is reset by it. Status 35 takes the place it has in the precedence of Table A1-3.
+
 **RF not gone** (0022 §59). If RF is not gone within `t_reset_wait`, which can happen only
 where the hardware measures forward power (`P_rf_off`; HIS-11), the G7250 MUST NOT reset. It
 logs the event, enters the fault state with `RF_NOT_KEYED` (class 2, Table A3-2 "RF while not
@@ -392,7 +402,9 @@ A1.10 **Security on a LAN** (0008, Security):
   authenticated request from the holder whose HMAC verifies refreshes the 60 s idle timer;
   reads (`GET_STATS`, `IDENTIFY` and the other unauthenticated commands), `GET_CHALLENGE`,
   any unauthenticated request and any request that fails authentication MUST NOT refresh it,
-  from the holder or from any other host (0022 §75).
+  from the holder or from any other host (0022 §75). A repeated authenticated request that is
+  answered from the stored reply (A1.4) is not executed and MUST NOT refresh it either: only
+  the first execution of the request counts (0022 §86 item 7).
 - **`RESTART` is exempt from the write session** (0022 §83 item 5). An authenticated
   `RESTART` whose HMAC verifies MUST be accepted from any host, also while another host
   holds the write session; it neither needs, opens nor refreshes a write session. The reset
@@ -466,7 +478,8 @@ while a level-1 session runs. The G7250 MUST handle it in this order (0022 §3):
    also while the old owner is not armed: `TX_ARM_STATE` then reads disarmed with drop reason
    4 `TAKEOVER` ([23:16]), a new token is issued, and the three copies and the repeated notice
    below are sent as while armed, so that an unarmed host learns that it lost the radio
-   (exception to the rule for drop events while not armed, A3.2; 0022 §79). Then the TX-side state of A3.6 applies: PA off,
+   (exception to the rule for drop events while not armed, A3.2; 0022 §79), to a host that
+   used the register map ("Notice only to register-map hosts" below; 0022 §86 item 1). Then the TX-side state of A3.6 applies: PA off,
    SEND and TUNER released, ATU tuning aborted, DUC FIFO emptied (0022 §32), session limits
    back to the persistent values (A3.4), `TX_MODE_CLASS` = 0, `KEYED_TIMEOUT` = 500 ms,
    hardware-timer value "no General packet yet" (B5.6), and the TX settings of A3.6a back to
@@ -504,6 +517,18 @@ non-zero, else its source port (B8.1; [P2] General packet bytes 31–32). They a
 answers: they do not count against the `NOT_OWNER` limit of B8.5, and `NOT_OWNER` answers do
 not count against them. A memory-mapped write from the old owner within the 5 s therefore gets
 its `NOT_OWNER` answer at its source port (B8.5) and, within its own limit, the notice.
+
+**Notice only to register-map hosts** (0022 §86 item 1). The three copies of step 1 and the
+repeated notice MUST be sent only to an old owner that used the G7250 register map: one that,
+from its session's source IP address and port, sent at least one memory-mapped packet to port
+7250 in the session or before its run bit since the last session end (a `CAP_REQUEST`
+included), or whose session had non-zero General bytes 31–32 (B8.1). A memory-mapped packet
+from the old owner within the 5 s also makes it such a host, from that packet on. To any other
+old owner no notice is sent: a standard [P2] host does not know the register map and would
+receive an unknown packet on its C&C socket; it learns the loss from its streams stopping
+(host guidance below). An armed old owner has always used the register map (the arm is a
+register write, B10.2), so the rule concerns only an unarmed one. The rest of step 1 applies
+to every old owner: `TX_ARM_STATE` reads drop reason 4 `TAKEOVER` and a new token is issued.
 
 Host guidance (0022 §29, §48):
 
@@ -587,7 +612,12 @@ TX request at a moment when every key condition holds:
   KEY input, and only while the owner has selected hardware CW with DUC-specific byte 5 bit
   [1] in this session, under the owner's arm (B10.9). No controller request is a requester on
   level 1 (A3.7). On TCI the TX policy decides (C5.5.8);
-- not keyed by another source, and no ATU tune cycle running (A3.9b);
+- not keyed by another source, and no ATU tune cycle running (A3.9b). On level 1 with
+  break-in set (DUC-specific byte 5 bit [7]), the first source keeps the transmission: a PTT
+  edge while a CW transmission of KEY or CWX is keyed (its hang delay included) and a KEY or
+  CWX element while a PTT transmission is keyed are refused, not latched. With break-in clear,
+  KEY and CWX are not sources of their own: their elements form RF only inside the owner's
+  PTT transmission, and there they are not another source (B10.5b; 0022 §85);
 - relays settled (A3.9a item 2): every RF-path relay of A3.9 except the T/R relay and the RX
   attenuator during TX, which move as part of the key sequence of A3.9a item 4 and settle
   before RF (0022 §51).
@@ -606,7 +636,13 @@ condition above. If a condition fails at an element, that element does not key, 
 stops, and keying needs a new request edge (a new paddle or KEY closure, a new `KEYER`
 key-down or new CW text); the stopped request is not latched. For RF-path purposes (A3.9,
 A3.9a, A3.9c and the start of an ATU tune cycle, A3.9b) "keyed" means the continuous
-transmission of A3.4d, the CW hang delay included.
+transmission of A3.4d, the CW hang delay included. On level 1 with break-in clear an element
+is not a key of its own: it forms RF only while the owner's PTT transmission is keyed, needs
+the conditions of A3.1a that the PTT transmission met at its key, and is under the limits
+acting on that transmission; the transmission, and "keyed" for RF-path purposes, is the PTT
+transmission (B10.5b; 0022 §85). For the check "RF while not keyed" (Table A3-2) "keyed" has
+a narrower meaning: RF commanded, an element on with its ramps, so that check runs in every
+gap between elements (A3.9a item 6; 0022 §84).
 
 A3.1b **RF-path state for the TX frequency** (level-independent; 0022 §33).
 
@@ -672,7 +708,8 @@ effects of the event itself (a session end, a fault entry, a stop). Three except
 
 1. after any reset [23:16] reads 5 `RESET` (event 5);
 2. a takeover (event 4) sets [23:16] to 4 `TAKEOVER` and sends the three copies and the
-   repeated notice of A2.4 to the old owner, armed or not (0022 §79);
+   repeated notice of A2.4 to the old owner, armed or not, if it used the register map
+   (A2.4; 0022 §79, §86 item 1);
 3. the token: a new token is issued at every session end, armed or not (A3.6), and pushed at
    the start of the next session (B10.2 item 1). A drop event while not armed that does not
    end the session (`TX_ARM` = 0, a C-3 change, a fault entry) issues none (0022 §79). So a processor watchdog reset reads drop reason 5 `RESET`; the fault it causes at start-up
@@ -739,7 +776,7 @@ Table A3-2 — TX limits (0007, Decision 4; open thresholds carry their HIS id; 
 | Maximum continuous TX time | firmware timer, any TX source; "continuous" as A3.4d (0022 §51) | 5 min built-in (0007, Resolved 3); may be set stricter, never looser; to be checked against the thermal rating (HIS-12) | `UNKEY` (arm kept) | not before the limit, unkeyed by the limit + 10 ms (0020 §16) | next TX request |
 | ATU tune time | firmware timer | initial tuning ≤ 10 s [G7250-MAN] plus margin TBD (HIS-08) | `UNKEY`, tune reported failed; the tune cycle ends unkeyed (A3.9b) | not before the limit, unkeyed by the limit + 10 ms (0020 §16) | next tune command |
 | Sensor plausibility | all of the above | sensor missing, stuck or out of range (HIS-11) | `FAULT` | ≤ 10 ms after the firmware detects the condition; detection time TBD (HIS-11) | A3.5 |
-| RF while not keyed | forward power (HIS-11) | above a threshold TBD (HIS-11), not above `P_rf_off` (A3.9a item 1a; 0022 §68), while not keyed and after the blanking time `t_blank` since the last unkey (A3.9a item 6; TBD HIS-11, HIS-12; 0022 §23) | `FAULT` | ≤ 10 ms (design value; detector response TBD HIS-11) | A3.5 |
+| RF while not keyed | forward power (HIS-11) | above a threshold TBD (HIS-11), not above `P_rf_off` (A3.9a item 1a; 0022 §68), while no RF is commanded and after the blanking time `t_blank` since the end of the last RF-commanded interval: for this check "keyed" means RF commanded, with CW an element on, its ramps included, and `t_blank` runs from the end of each element, so the check runs in every gap between elements, in the hang delay and inside a PTT transmission with break-in clear (A3.9a item 6; TBD HIS-11, HIS-12; 0022 §23, §84) | `FAULT` | ≤ 10 ms (design value; detector response TBD HIS-11) | A3.5 |
 
 The reaction time (0022 §80) runs from the first measurement beyond the threshold that the
 safety core has (a detector or sensor sample, the filtered temperature, the 100 ms window
@@ -838,17 +875,33 @@ A3.4d **Continuous TX** (0022 §51). For the maximum continuous TX time a transm
 continuous from the key (A3.1a) until an unkey after which the T/R path returns to receive
 (A3.9a item 4). With CW break-in, gaps between elements shorter than the hang delay ([P2]
 DUC-specific bytes 11–12) do not end it, for every CW source (KEY, CWX, TCI `KEYER`, CW text);
-with a hang delay of 0 every element is a transmission of its own. The CWX and `KEYER` key-down
+with a hang delay of 0 every element is a transmission of its own. On level 1 with break-in
+clear (DUC-specific byte 5 bit [7] = 0) the transmission is the owner's PTT transmission, from
+the PTT key to the PTT unkey, whatever the elements of KEY or CWX inside it; the hang delay is
+not used (B10.5b; 0022 §85). The CWX and `KEYER` key-down
 cap (B10.5a; part C C8.2) measures instead how long one key bit or key-down is held.
 
 The same continuous transmission, the hang delay included, is what "keyed" means for RF-path
 purposes: changes while keyed (A3.9), the relay sequence (A3.9a), the TX mode class (A3.9c)
 and the start of an ATU tune cycle (A3.9b) (0022 §74). Each element within it is still a key
-under every condition of A3.1a. In a gap between elements:
+under every condition of A3.1a; with break-in clear it needs the conditions of the PTT
+transmission instead (A3.1a, keyer elements; 0022 §85). For the check "RF while not keyed"
+alone, "keyed" means RF commanded, an element on with its ramps; that check runs in every gap
+between elements (A3.9a item 6; 0022 §84).
+
+**When a change arrives** (0022 §86 item 8). A change requested through a P2 state field that
+the host resends (High Priority, DUC-specific and General packet fields) arrives with the
+first packet whose value of the field differs from the value in force; later packets with
+the same value are the same change. A deferred change still pending from before the gap
+(for example a field changed while an element was on, A3.9) does not end the hang delay by
+itself; it is applied when the hang delay ends, or with a change that arrives in the gap. A
+command (a register write) arrives when it is received. With break-in set, in a gap between
+elements:
 
 - a change that needs another TX RF-path state (a DUC0 frequency, A3.9), an RF-path relay
   change requested by the owner (A3.9) or a TX mode class change (A3.9c) ends the hang delay
-  (`TX_STATE` unkey reason 6, or 10 for the mode class); the radio waits for RF gone (A3.9a
+  (`TX_STATE` unkey reason 6, or 4 with limit id `LIMIT_TX_FREQ` when the DUC0 frequency
+  leaves the transmit ranges, or 10 for the mode class; 0022 §86 item 2); the radio waits for RF gone (A3.9a
   items 1, 1a), releases SEND, returns the T/R relay and the RX attenuator during TX to their
   RX position, and only then moves relays or applies the change;
 - PA enable cleared (General byte 58 bit [0], B10.10) ends the hang delay in the same way
@@ -859,6 +912,10 @@ under every condition of A3.1a. In a gap between elements:
   Priority packet from the owner within `KEYED_TIMEOUT` ends the hang delay (`TX_STATE`
   unkey reason 2), with RF gone, SEND released and the T/R return as above
   (0022 §83 item 1).
+
+With break-in clear, a gap between elements inside the PTT transmission is keyed time like
+any other: changes follow A3.9 as while keyed, and nothing ends the transmission but the
+events that end a PTT transmission (0022 §85).
 
 The hang delay in force is at most 2000 ms; a larger value in DUC-specific bytes 11–12 is
 clamped to 2000 ms (Table B10-1; 0022 §83 item 1).
@@ -933,7 +990,7 @@ byte 58, DUC specific packet)
 | PA enable | General byte 58 bit [0] | 0: PA disabled; no TX request keys (B10.10) until the new owner sets it |
 | CW select (hardware CW from KEY) | DUC-specific byte 5 bit [1] | 0: KEY keys nothing (A3.1a) |
 | Keyer options (reverse keys, iambic, sidetone, mode B, strict spacing) | DUC-specific byte 5 bits [2]–[6] | 0 |
-| Break-in | DUC-specific byte 5 bit [7] | 0 |
+| Break-in | DUC-specific byte 5 bit [7] | 0: KEY and CWX form RF only inside a PTT transmission of the owner (B10.5b; 0022 §85) |
 | EER | DUC-specific byte 5 bit [0] | 0: no EER refusal stands |
 | Sidetone level and frequency | DUC-specific bytes 6–8 | 0 (HIS-17) |
 | Keyer speed and weight | DUC-specific bytes 9–10 | 0: CWX forms no element and does not key until a speed is set (Table B10-1) |
@@ -982,8 +1039,8 @@ A3.9 **Changes while keyed** (level-independent; 0022 §1, §2).
 - **RF-path relays** (antenna, ATU in/out and its L/C network, TX and RX filters,
   preamplifier, attenuator, T/R relay, RX attenuator during TX) MUST NOT change while keyed,
   whatever the source; with CW break-in, keyed includes the hang delay (A3.4d). An owner's
-  change that arrives in a gap between elements ends the hang delay instead of waiting for
-  it, and is applied after the sequence of A3.9a item 4 (`TX_STATE` unkey reason 6; 0022
+  change that arrives in a gap between elements ("arrives" as defined in A3.4d; 0022 §86
+  item 8) ends the hang delay instead of waiting for it, and is applied after the sequence of A3.9a item 4 (`TX_STATE` unkey reason 6; 0022
   §74); a register write that does so is answered once the change is applied; a controller
   button press stays ignored, as while keyed. A change requested through a P2 state field
   that the host resends (High Priority and DUC-specific packets) is deferred: the latest
@@ -1007,7 +1064,8 @@ relay of A3.9.
 1. **RF gone.** After an unkey, no relay MUST move until RF is gone: forward power below a
    threshold `P_rf_off`, or a fixed guard time `t_rf_off` after the unkey, whichever the
    hardware design uses; values TBD (HIS-07, HIS-12). With CW break-in the unkey is the end of
-   the hang delay (A3.4d): RF stopping between elements lets no relay move (0022 §74).
+   the hang delay (A3.4d): RF stopping between elements lets no relay move (0022 §74); with
+   break-in clear it is the end of the PTT transmission (B10.5b; 0022 §85).
 
    **1a. Bound on every wait for RF gone** (0022 §68). Every wait for RF gone, whatever caused
    the unkey (a normal unkey, a session end, a takeover, a fault entry, an address or level
@@ -1032,7 +1090,9 @@ relay of A3.9.
    from an earlier packet or frame that are still moving or settling when the edge arrives;
    the switch to the TX state at the key (A3.1b); and an edge right after an unkey, while RF
    is going (item 1) or the deferred changes and the return to receive are being applied
-   (item 4), in which case the deferred changes are applied and then the TX state of A3.1b.
+   (item 4), in which case the deferred changes that concern the TX RF-path state are applied
+   and then the TX state of A3.1b, while deferred changes of the receive frequency alone stay
+   deferred to the next unkey (item 3a; 0022 §86 item 3).
    The wait is bounded by `t_rf_off` + `t_settle` from the edge, TBD (HIS-07, HIS-12). A
    further change of the TX RF-path state requested during the wait (a DUC0 frequency that
    needs another state, an Alex word, a step attenuator, an antenna or ATU change), or
@@ -1049,7 +1109,10 @@ relay of A3.9.
    from the last relay command (item 2). Deferred changes of the receive frequency alone stay
    deferred to the next unkey. So with split or cross-band (A3.1b) the wait never contains
    two settle times and stays within the bound of item 3. Whether a relay may be commanded
-   again before it has settled: HIS-07.
+   again before it has settled: HIS-07. Where a relay cannot be commanded again before it
+   has settled, the radio MUST wait until that relay has settled, then command it to the TX
+   state, and key one `t_settle` after the last relay command; if the bound of item 3 is
+   reached first, the request is refused and not latched (A3.1a) (0022 §86 item 4).
 4. **T/R relay and RX attenuator during TX.** At a key: T/R relay and the RX attenuator
    during TX (DUC-specific byte 59 [P2], B10.6) to their TX position, settle (item 2), SEND,
    RF delay (DUC-specific byte 13), RF. At an unkey: RF off, RF gone (item 1), SEND released,
@@ -1060,15 +1123,28 @@ relay of A3.9.
    returned, so that an external amplifier does not switch at every element (0022 §73 item
    9). A drop event, standby, fault entry or session end during the hang delay ends it at
    once. So does, in a gap between elements, a change that needs another TX RF-path state, an
-   RF-path relay change of the owner or a TX mode class change (`TX_STATE` unkey reason 6 or
-   10), and PA enable cleared (reason 7): RF gone (item 1), SEND released, both back to their
+   RF-path relay change of the owner or a TX mode class change (`TX_STATE` unkey reason 6, or
+   4 with `LIMIT_TX_FREQ` for a range exit, or 10; 0022 §86 item 2), and PA enable cleared
+   (reason 7): RF gone (item 1), SEND released, both back to their
    RX position, and only then the relays move or the change is applied. A receive-frequency
-   change alone stays deferred until the hang delay ends (A3.4d; 0022 §74). Whether the T/R
-   switch is a relay: HIS-07.
+   change alone stays deferred until the hang delay ends (A3.4d; 0022 §74). With break-in
+   clear (B10.5b) the T/R relay, the RX attenuator during TX and SEND follow the owner's PTT
+   transmission: to their TX position at the PTT key and back at the PTT unkey, as above;
+   between the elements of KEY or CWX inside it only RF stops, and the hang delay is not used
+   (0022 §85). Whether the T/R switch is a relay: HIS-07.
 5. **Session end.** The relay set of A3.6 is applied only after the unkey and RF gone.
-6. **Blanking.** The check "RF while not keyed" (Table A3-2) MUST run only while not keyed
-   and after a blanking time `t_blank` since the last unkey; `t_blank` is at least the time
-   of item 1; TBD (HIS-11, HIS-12).
+6. **Blanking** (0022 §23, §84). The check "RF while not keyed" (Table A3-2) MUST run
+   whenever no RF is commanded, after a blanking time `t_blank` from the end of the last
+   RF-commanded interval; `t_blank` is at least the time of item 1; TBD (HIS-11, HIS-12). For
+   this check alone, "keyed" means RF commanded: with PTT and DUC I&Q, the whole PTT
+   transmission (zero samples during an underflow included, B10.5); with CW from any source
+   (KEY, CWX, TCI `KEYER` and CW text), each element from the start of its leading ramp to the
+   end of its trailing ramp (DUC-specific byte 17); in an ATU tune cycle, the tune carrier.
+   `t_blank` runs from the end of each element, so with CW the check runs in every gap between
+   elements longer than `t_blank`: during the hang delay with break-in, and inside a PTT
+   transmission with break-in clear (B10.5b), although the transmission stays keyed for
+   RF-path purposes (A3.4d). RF in a gap after `t_blank` is therefore a fault even while SEND
+   and the T/R relay stay in their TX position.
 
 A3.9b **ATU tune cycle** (level-independent; 0022 §22). `ATU_TUNE` (B10.9) and
 `G7250_ATU_TUNE` (part C C5.7) start a tune cycle:
@@ -1256,7 +1332,7 @@ rolls over after 0xFFFFFFFF ([P2] DDC packet, Memory mapped registers from hardw
 whenever a stop is received (B5.4), and at a takeover (A2.4) ([P2] DDC packet, "Sequence
 Number"; 0022 §3), and at a session start by a host other than the last owner, which for
 that host is as a takeover. At every other session end (watchdog standby, link loss, an
-address or level change, a firmware update without a reset) the counters keep their value,
+address or level change) the counters keep their value (0022 §86 item 10),
 and a restart by the same host (B5.4) continues them, so that the host does not read a
 restart at 0 as a takeover (A2.4, host guidance) (0022 §83 item 4).
 Exception, as [P2] specifies: the wideband counter restarts at 0 for every frame, so the 8
@@ -1445,7 +1521,11 @@ B4.4 **When the record is sent** (0003 §2):
    `CAP_REQUEST` answer never suppresses it and it uses up no `CAP_REQUEST` allowance, so a
    host that reads the record before its run bit (B5.1 step 2) still gets the unasked record at
    its session start (0022 §49; §73 item 8). A General packet while no session runs (set-up
-   phase) gets no record.
+   phase) gets no record. At a restart by the same host (B5.4 item 1) the General packet
+   fields carried over from its ended session count as a General packet of the set-up phase:
+   the unasked record is sent at the session start, to the register destination carried
+   over (General bytes 31–32, item 3), within the 1 s limit above, so that a host whose
+   keepalive is the High Priority packet alone gets the record again (0022 §86 item 6).
 3. **Destination.** To the source IP address and UDP port of the request when the requesting
    host is not the owner (has no session); otherwise to the owner's memory-mapped port set in
    General packet bytes 31–32, or to the owner's source port (A2.2) if those bytes are zero
@@ -1654,7 +1734,8 @@ C&C settings and then a High Priority packet with the run bit set. The G7250 sup
    (A2.4 step 4). A High Priority packet with run = 1 from that host restarts the session
    with them (A2.3; no 0→1 edge of the host's run bit is needed), and DDC0 streams as before
    if it was enabled. Packets of that host kept in the set-up phase since the session end
-   (B5.1a) apply on top, in the order received.
+   (B5.1a) apply on top, in the order received. The carried-over General fields count as a
+   General packet of the set-up phase for the unasked record (B4.4 item 2; 0022 §86 item 6).
 2. **Not carried over.** The TX settings of Table A3-4 are reset at every session end (A3.6a);
    `TX_MODE_CLASS`, `KEYED_TIMEOUT` and the session limits return as in A3.6; General byte 38
    bit [0] counts as "no General packet yet" (B5.6), so an arm is rejected with
@@ -2203,7 +2284,9 @@ design note §6; 0007, header). This section applies from M4.
 B10.1 **Every TX request needs the arm.** TX requests are: High Priority byte 4 bit [1] (PTT),
 byte 5 bits [1] and [2] with bit [0] set (CWX dot and dash, B10.5a; Annex X2, C19), a KEY
 closure in hardware CW while the owner has selected it (DUC-specific byte 5 bit [1]), and
-internal ATU tuning (`ATU_TUNE`); these are the allowed requesters of A3.1a. None of them keys
+internal ATU tuning (`ATU_TUNE`); these are the allowed requesters of A3.1a. CWX and KEY key
+by themselves only with break-in set (DUC-specific byte 5 bit [7]); with break-in clear they
+form RF only inside the owner's PTT transmission (B10.5b; 0022 §85). None of them keys
 the radio unless TX is armed (0015; 0007 sub-decision 1 rule 4). A controller request is not a
 TX request on level 1 and never keys (A3.7; 0007, Resolved 6; 0022 §65). High Priority byte 4 bits [2]–[7] never key (0007 rule 4). Every TX request follows
 the key rule of A3.1a: a 0→1 edge at a moment when every key condition holds; a refused
@@ -2274,8 +2357,10 @@ B10.5 **Keyed timeout and TX IQ underrun** (0007, Decision 2):
   failed (`ATU_STATE` = 4) (0022 §14).
 - Whenever the TX source is PTT (DUC I&Q), whatever the TX mode class, a DUC FIFO underflow
   ([P2] High Priority status byte 30 bit [2]) lasting longer than the underrun time MUST
-  unkey, arm kept, `TX_STATE` unkey reason 3 (0007 Decision 2; 0022 §25). Exact rule (0022
-  §57):
+  unkey, arm kept, `TX_STATE` unkey reason 3 (0007 Decision 2; 0022 §25). The one exception
+  is a PTT transmission whose RF the keyer forms from KEY or CWX, with CW selected
+  (DUC-specific byte 5 bit [1]) and break-in clear: it sends no DUC I&Q, so the check is
+  waived (B10.5b; 0022 §85). Exact rule (0022 §57):
   - **Start.** The underflow starts at the key (A3.1a) if the DUC FIFO is empty then, and
     otherwise at the moment the FIFO runs empty while keyed. Every sample that enters the FIFO
     ends the underflow; the next one starts when the FIFO runs empty again.
@@ -2293,7 +2378,8 @@ B10.5 **Keyed timeout and TX IQ underrun** (0007, Decision 2):
     (0020 §16; 0022 §51).
 
   A host that sends CW as I&Q keeps the I&Q stream running during key-up. CWX and KEY use no
-  DUC I&Q and have no underrun check. Annex X1, D8; Annex X2, C20.
+  DUC I&Q and have no underrun check, also inside a PTT transmission with break-in clear
+  (B10.5b). Annex X1, D8; Annex X2, C20.
 - What the keyed timeout catches (0022 §25): a host whose High Priority packets stop. It does
   not catch a host whose I/O thread keeps sending a cached PTT or CWX bit while its TX logic
   has hung; for that case the backstops are the underrun check (PTT), the CWX cap (B10.5a)
@@ -2316,11 +2402,16 @@ are, as iambic mode A or B. With iambic clear the keyer works as a straight key:
 is key-down for as long as bit [1] or bit [2] is held, with no element timing and no weight,
 under the 1 s cap below and the ramp of byte 17. A keyer speed of 0 (Table B10-1) keeps CWX
 from keying in both modes. The TX request is asserted while bit [0] and at least one
-of bits [1], [2] are 1; its 0→1 edge is the key edge of A3.1a. Every element the keyer forms
+of bits [1], [2] are 1; with break-in set its 0→1 edge is the key edge of A3.1a, and with
+break-in clear the elements form RF only inside the owner's PTT transmission (B10.5b; 0022
+§85). Every element the keyer forms
 is a key under every condition of A3.1a; if a condition fails at an element, the keyer stops
 and keying needs both bits at 0 and then a new 0→1 edge, not latched (A3.1a, keyer elements;
 0022 §74). The hang delay between elements counts as keyed for RF-path purposes (A3.4d). With
-bit [0] clear, bits [1] and [2] are ignored. Either paddle bit held at 1 continuously for more than 1 s MUST unkey
+bit [0] clear, bits [1] and [2] are ignored. Known limit (0022 §86 item 9): iambic (bit [3])
+is one bit for the hardware keyer from KEY and for CWX, so a host cannot use KEY as an iambic
+paddle and CWX as a straight key, or the reverse, at the same time; the straight-key reading
+for CWX is a deviation, Annex X1 D33. Either paddle bit held at 1 continuously for more than 1 s MUST unkey
 (`UNKEY`, arm kept, `TX_STATE` unkey reason 9), whichever bit it is and also while the keyer is
 between elements; the keyer stops, and keying again needs both bits at 0 and then a new 0→1
 edge (A3.1a). Tolerance as B10.5: not before 1000 ms, unkeyed by 1010 ms. The same cap applies
@@ -2333,6 +2424,58 @@ longer than 1 s has the string cut at 1 s. A host SHOULD release the paddle bits
 characters, as a paddle does, or send long key-down or long strings by a means without this
 cap: DUC I&Q with PTT (B10.5) or, on TCI, CW text (part C C8.2).
 
+B10.5b **Break-in and CW with PTT** (0022 §85; Annex X2, C22). [P2] lists DUC-specific byte 5
+bit [7] "Break_in" among the CW options without saying what it changes, and says nothing on
+CW together with PTT ([P2] DUC specific packet byte 5; High Priority packet bytes 4, 5). The
+G7250 reads the bit as follows, for KEY (hardware CW, B10.9) and for CWX (B10.5a):
+
+1. **Break-in set.** KEY and CWX key by themselves (B10.5a, B10.9): each element is a key
+   under A3.1a, and the hang delay of bytes 11–12 holds SEND and the T/R relay between
+   elements (A3.4d, A3.9a item 4). PTT and CW never share a transmission; the first source
+   keeps it. A PTT 0→1 edge while a CW transmission is keyed, its hang delay included, is
+   refused; a KEY closure or CWX paddle edge while a PTT transmission is keyed is refused for
+   that element and the keyer stops. Neither is latched, and neither ends the transmission in
+   progress (A3.1a).
+2. **Break-in clear.** KEY and CWX MUST form RF only inside the owner's PTT transmission
+   (High Priority byte 4 bit [1]; A3.1a):
+   1. The transmission is the PTT transmission. It keys at the PTT 0→1 edge under every
+      condition of A3.1a and ends at the PTT release or any other unkey. The T/R relay, the RX
+      attenuator during TX and SEND follow the PTT, not the elements (A3.9a item 4); the hang
+      delay is not used; `TX_STATE` shows TX source 1 (PTT). The keyed timeout (B10.5), the
+      maximum continuous TX time and every limit apply to it (A3.4d).
+   2. Inside it, each element of KEY (with CW selected, byte 5 bit [1], B10.9) or of CWX
+      (B10.5a) forms RF at the keyer speed, weight and ramp in force. An element is not a key
+      of its own: it needs the conditions of A3.1a that the PTT transmission met at its key,
+      and a condition that fails ends the PTT transmission by its own rule (A3.9, A3.9c,
+      B10.10, Table A3-2). An element needs a KEY closure or paddle 0→1 edge after the PTT
+      key; a closure or paddle bit already held at the PTT key forms no RF until it is
+      released and closed again (not latched, A3.1a). When the PTT transmission ends, the
+      element in progress ends with its trailing ramp and the keyer stops.
+   3. With CW selected (byte 5 bit [1] set) the keyer alone forms the RF of the PTT
+      transmission. DUC I&Q is not transmitted: the DUC FIFO is emptied at the key, DUC I&Q
+      received while keyed is dropped and counted (`GET_STATS`), and the underrun check of
+      B10.5 is waived. The DUC gets the keyer's CW waveform, zero between elements, and the
+      PEP estimate of A3.4c is computed on it. With CW not selected (bit [1] clear) KEY keys
+      nothing (B10.9), the PTT transmission sends DUC I&Q as usual, and a CWX paddle edge in
+      it is refused as from another source and forms no RF, not latched; CWX therefore needs
+      CW selected when break-in is clear.
+   4. The CWX key-down cap of B10.5a applies: a paddle bit held for more than 1 s ends the
+      PTT transmission (`TX_STATE` unkey reason 9), arm kept; keying again needs a new PTT
+      0→1 edge (A3.1a).
+   5. Without the owner's PTT, a KEY closure or CWX paddle edge forms no RF and keys
+      nothing; it is not latched, so a PTT edge later does not send it. KEY closures are
+      reported as always (High Priority status byte 4 bits [1]–[2], B10.9).
+   6. The refusals that A3.1a names for PTT with DUC I&Q (a DUC-specific refusal or EER
+      standing, B10.6) apply to the PTT transmission also with CW selected.
+3. **Change while keyed.** A change of bit [7] or bit [1] in a DUC-specific packet while
+   keyed, the hang delay included, MUST be deferred (A3.9): the latest value is applied right after the
+   unkey, before any new key, as for the other state fields of A3.9. So a transmission never
+   changes between the two readings.
+
+Reason (0022 §85): a host that keys the transmitter with its PTT (MOX) and has CW selected
+expects the radio's keyer to form the RF while the PTT is held; break-in is the CW option that
+lets the key alone switch the transmitter. Either reading keeps one transmission at a time.
+
 B10.6 **DUC-specific packet.** Accepted on port 1026 ([P2] DUC specific packet).
 
 Table B10-1 — DUC-specific packet ([P2] DUC specific packet)
@@ -2342,11 +2485,11 @@ Table B10-1 — DUC-specific packet ([P2] DUC specific packet)
 | 4 | Number of DACs | ignored ("Presently unused" in [P2]) | [P2] byte 4 |
 | 5 [1] | CW | honoured: selects hardware CW from KEY | [P2] byte 5; 0007 Decision 6 |
 | 5 [2]–[6] | Reverse keys, iambic, sidetone, mode B, strict spacing | honoured for the hardware keyer from KEY; for CWX (B10.5a) iambic [3], mode B [5] and strict spacing [6] apply, reverse keys [2] does not; sidetone TBD (no speaker on the main unit, HIS-17) | [P2] byte 5; 0007 Decision 6; 0022 §82 |
-| 5 [7] | Break-in | honoured | [P2] byte 5; 0007 Decision 6 |
+| 5 [7] | Break-in | honoured: set, KEY and CWX key by themselves, with the hang delay of bytes 11–12, and PTT and CW never share a transmission; clear, KEY and CWX form RF only inside the owner's PTT transmission, which T/R relay and SEND follow, with no hang delay and, with CW selected, no DUC I&Q and no underrun check; a change while keyed is deferred to the unkey (B10.5b) | [P2] byte 5; 0007 Decision 6; 0022 §85 |
 | 5 [0] | EER | set: refused (EER not offered): DUC I&Q not accepted and transmit refused until cleared; `STREAM_STATUS` reason 12 | [P2] byte 5, DUC I&Q NOTE; 0004 point 7; 0020 §22 |
 | 6–8 | Sidetone level, frequency | TBD (HIS-17) | [P2] bytes 6–8 |
 | 9, 10 | Keyer speed, weight | honoured; speed 0 (also the value after a session end, A3.6a): the keyer forms no element and CWX does not key, the request is not latched (A3.1a) | [P2] bytes 9–10; 0007 Decision 6; 0022 §64 |
-| 11–12 | Hang delay, ms | honoured up to 2000 ms; a larger value is clamped to 2000 ms, logged (A1.7) and counted (`GET_STATS`); the keyed timeout ends a hang delay (B10.5) | [P2] bytes 11–12; 0007 Decision 6; 0022 §83 item 1 |
+| 11–12 | Hang delay, ms | used with break-in set only (B10.5b); honoured up to 2000 ms; a larger value is clamped to 2000 ms, logged (A1.7) and counted (`GET_STATS`); the keyed timeout ends a hang delay (B10.5) | [P2] bytes 11–12; 0007 Decision 6; 0022 §83 item 1 |
 | 13 | RF delay, ms | honoured; SEND asserted before RF | [P2] byte 13; 0007 Decision 6 |
 | 14–15 | DUC0 sampling rate | 192 honoured; any other value refused: DUC I&Q not accepted and transmit refused (PA off) until a valid packet; 0 read as 192 | [P2] bytes 14–15; 0004 points 2, 7; 0020 §18 |
 | 16 | DUC0 bits | 24 honoured; 0 read as 24; any other value refused, as bytes 14–15 | [P2] byte 16; 0004 points 2, 7; 0020 §18 |
@@ -2384,9 +2527,9 @@ B10.9 **Other TX paths** (0007, Decision 6; A3.7):
 | Path | Rule |
 |------|------|
 | Controller mic PTT | reported in status byte 4 bit [0] if it reaches the main unit (HIS-17); never keys by itself |
-| KEY (Morse) | reported as dot/dash, status byte 4 bits [1]–[2]; the one local requester of A3.1a: keys hardware CW only when armed, CW selected by the owner in this session (DUC-specific byte 5 bit [1]; cleared at every session end and takeover, A3.6a) and all limits pass; delays per DUC-specific bytes 5, 11–13 (HIS-17); a closure that cannot key is not latched (A3.1a; 0022 §65); every element of the hardware keyer is a key under every condition of A3.1a, and a failed condition stops the keyer until a new closure (0022 §74); the hang delay counts as keyed for RF-path purposes (A3.4d) |
-| Host CWX | High Priority byte 5: bit [0] selects host CW, bits [1] and [2] are the keyer's paddles; a TX request under the arm; a paddle bit held for more than 1 s unkeys (B10.5a; 0022 §36) |
-| SEND output | asserted only while armed and keyed, before RF (RF delay), and with CW break-in during the hang delay between elements (no RF then, A3.9a item 4); released after RF gone at the end of the transmission; released, ending any hang delay, on every drop event, on standby and in fault (HIS-09; 0022 §73 item 9); released after RF gone, ending the hang delay, when a change that needs another TX RF-path state, an owner's RF-path relay change or a TX mode class change arrives in a gap, or PA enable is cleared, before any relay moves or the change is applied (A3.9a item 4; 0022 §74) |
+| KEY (Morse) | reported as dot/dash, status byte 4 bits [1]–[2]; the one local requester of A3.1a: keys hardware CW only when armed, CW selected by the owner in this session (DUC-specific byte 5 bit [1]; cleared at every session end and takeover, A3.6a) and all limits pass; delays per DUC-specific bytes 5, 11–13 (HIS-17); a closure that cannot key is not latched (A3.1a; 0022 §65); every element of the hardware keyer is a key under every condition of A3.1a, and a failed condition stops the keyer until a new closure (0022 §74); the hang delay counts as keyed for RF-path purposes (A3.4d); with break-in set KEY keys by itself and a closure during a PTT transmission is refused, with break-in clear KEY forms RF only inside the owner's PTT transmission and keys nothing without it (B10.5b; 0022 §85) |
+| Host CWX | High Priority byte 5: bit [0] selects host CW, bits [1] and [2] are the keyer's paddles; a TX request under the arm; a paddle bit held for more than 1 s unkeys (B10.5a; 0022 §36); with break-in clear, RF only inside the owner's PTT transmission and with CW selected (B10.5b; 0022 §85) |
+| SEND output | asserted only while armed and keyed, before RF (RF delay), and with CW break-in during the hang delay between elements (no RF then, A3.9a item 4); released after RF gone at the end of the transmission; released, ending any hang delay, on every drop event, on standby and in fault (HIS-09; 0022 §73 item 9); released after RF gone, ending the hang delay, when a change that needs another TX RF-path state, an owner's RF-path relay change or a TX mode class change arrives in a gap, or PA enable is cleared, before any relay moves or the change is applied (A3.9a item 4; 0022 §74); with break-in clear, asserted and released with the owner's PTT transmission, not with the elements of KEY or CWX inside it (B10.5b; 0022 §85) |
 | TUNER trigger | under the arm, as ATU tuning (HIS-09) |
 | Internal ATU tuning | a tune cycle (A3.9b): needs arm, owner, frequency in a range, limits, own profile and time limit; started by `ATU_TUNE` from unkeyed only (HIS-08); tune power the lower of the profile's (TBD HIS-08, HIS-12) and the forward-power bound in force (A3.4 rule 5; 0022 §53), set before RF and before any ATU relay moves; `ATU_TUNE` while not armed is rejected with `NOT_ARMED`, while keyed by another source with `KEYED`, neither latched; a PTT or CWX edge during the tune neither keys nor ends it, and a new 0→1 TX request is needed after it; the cycle ends unkeyed; the keyed timeout applies; a start within 2 s after the previous cycle is a no-op; with another key condition failing, `NOT_KEYABLE`; a start during the CW hang delay gets `KEYED` (A3.4d); `ATU_TUNE` = 0 from the owner is always accepted and is a no-op when no cycle runs (0022 §74, §77 item 5); the cycle first switches the RF path to the TX state for the TX frequency and settles; after every cycle the RF path returns to the state for the receive frequency, a cycle that did not end tuned storing nothing (A3.9b items 1, 2, 7) (0022 §14, §22, §38, §39, §66) |
 | P2 TUNE bit (High Priority 1396–1397 bit [0]) | information only; does not start the internal ATU |
@@ -2617,10 +2760,10 @@ open in the sections concerned.
 | D2 | Memory-mapped register port defined | Default port "xxxx", undefined ([P2] General bytes 29–32) | Default port 7250, one port for both directions; destination default (bytes 31–32 = 0) is the owner's source port; carries the G7250 register map | 0005, 0003, 0020 | B2.3, B8.1 |
 | D3 | TX needs an explicit token arm | High Priority byte 4 bit [1] enables transmit ([P2]) | No TX request (PTT, CWX, KEY, ATU) keys unless armed by token handshake; keying only on an edge after confirmation; arm dropped by the events of Table A3-1 | 0015, 0007 | B10.1, B10.2, A3.2 |
 | D4 | Hardware timer forced on while armed | Host may clear General byte 38 bit [0] ([P2]) | Clear honoured only while not armed; arming requires the bit set | 0015, 0007 | B5.6 |
-| D5 | Takeover drops the arm | Second host's C&C takes over ([P2] Discovery reply byte 4 NOTE) | Takeover always allowed, but unkeys and drops the arm first; the old owner gets the `TAKEOVER` notice, also while unarmed; new owner starts unarmed, with mode class, session limits and the TX settings of PA enable and the DUC-specific packet reset; RUN and RX settings kept | 0007, 0022 §3, §64, §79 | B5.7, A2.4, A3.6a |
+| D5 | Takeover drops the arm | Second host's C&C takes over ([P2] Discovery reply byte 4 NOTE) | Takeover always allowed, but unkeys and drops the arm first; the old owner gets the `TAKEOVER` notice, also while unarmed, if it used the register map (no notice to a standard host); new owner starts unarmed, with mode class, session limits and the TX settings of PA enable and the DUC-specific packet reset; RUN and RX settings kept | 0007, 0022 §3, §64, §79, §86 item 1 | B5.7, A2.4, A3.6a |
 | D6 | Owner is IP address and UDP port | "different Host" not defined ([P2]) | A C&C packet from the owner's IP on another source port is a takeover; host must use one source port per session | 0007 | B5.5, A2.2; X2 C7 |
 | D7 | Keyed timeout | Only the 1 s watchdog ([P2] "Detailed operation") | While keyed, High Priority at least every 100 ms; none within `KEYED_TIMEOUT` (500 ms) unkeys, arm kept | 0007 | B10.5 |
-| D8 | TX IQ underrun unkeys | No such rule ([P2]) | DUC underflow longer than the underrun time (at least key latency + 1.25 ms, at most `KEYED_TIMEOUT`; exact value TBD, HIS-18) unkeys whenever the TX source is PTT, in every mode class; the underflow is timed from the key if the FIFO is empty then | 0007, 0022 §25, §57 | B10.5 |
+| D8 | TX IQ underrun unkeys | No such rule ([P2]) | DUC underflow longer than the underrun time (at least key latency + 1.25 ms, at most `KEYED_TIMEOUT`; exact value TBD, HIS-18) unkeys whenever the TX source is PTT, in every mode class, except a PTT transmission whose RF the keyer forms with CW selected and break-in clear; the underflow is timed from the key if the FIFO is empty then | 0007, 0022 §25, §57, §85 | B10.5, B10.5b |
 | D9 | TX mode class required | No such field ([P2]) | Arm refused without `TX_MODE_CLASS` | 0007 | B10.3 |
 | D10 | Safety core overrides PTT | Bit [1] enables transmit ([P2]) | Limits may reduce drive or unkey while PTT is set; 5 min maximum continuous TX; no key outside the TX ranges; keying only on a 0→1 edge when every condition holds, refused requests not latched; a retune while keyed that needs an RF-path change (ATU memory recall included), a `TX_MODE_CLASS` change or PA enable cleared while keyed, unkeys; RF-path fields are deferred while keyed and relays move only after RF is gone; `ATU_TUNE` while keyed is refused; at a key the RF path is first switched to the state for the TX frequency (A3.1b); without a PEP detector, power is bounded on a PEP estimate from the crest factor of the DUC samples | 0007, 0011, 0022 §1, §2, §14, §22–§24, §26, §28, §33, §62 | A3.1a, A3.1b, A3.4, A3.4c, A3.9–A3.9c, B10.4, B10.10 |
 | D11 | Memory-mapped packets are not C&C | "any C&C packet" feeds the watchdog; not stated for memory-mapped packets ([P2]) | No memory-mapped packet feeds the watchdog or takes over; a `CAP_REQUEST`-only packet does not start a session; its answer goes to the request's source when the host is not the owner | 0003, 0007 | B4.4, B4.5, B5.6; X2 C6 |
@@ -2645,6 +2788,7 @@ open in the sections concerned.
 | D30 | PA disabled blocks all RF | General byte 58 bit [0] enables the PA ([P2] General packet byte 58); [P2] does not say that transmit stops without it | While bit [0] is 0 no TX request keys and there is no exciter-only output; clearing it while keyed unkeys, arm kept; cleared at every session end and takeover | 0020 §22, 0022 §14, §64, §73 item 15 | B7, B10.10, A3.1a, A3.6a |
 | D31 | CW keyer elements under the key rule; hang delay counts as keyed | DUC-specific bytes 11–12 give the CW hang delay ([P2] DUC specific packet); [P2] says nothing on relays or settings during it | Every keyer element (CWX, KEY, TCI `KEYER` and CW text) is a key under every condition of A3.1a, and a failed condition stops the keyer until a new edge; during the hang delay the radio counts as keyed for RF-path changes: a TX RF-path, relay or mode class change or PA enable cleared in a gap ends the hang delay, and relays move only after RF gone, SEND release and the T/R return; the hang delay is clamped to 2000 ms and the keyed timeout ends it | 0022 §74, §83 item 1 | A3.1a, A3.4d, A3.9, A3.9a, B10.5, B10.5a, B10.6, B10.9 |
 | D32 | Restart with the run bit keeps RX settings only | The session "can be re-started … by sending a High Priority Packet with the RUN bit set, if the same network session is still active" ([P2] "Detailed operation"); nothing on settings being reset | After a stop, watchdog standby or link loss, a High Priority packet with run = 1 from the last owner restarts the session with its RX-side settings; its TX settings (Table A3-4), mode class, keyed timeout and session limits are reset, and an arm needs a General packet of the new session or its set-up phase; after a reset, update, level or address change, and for another host, nothing carries over | 0022 §78 | A2.3, B5.4, A3.6, A3.6a |
+| D33 | CWX with iambic clear is a straight key | High Priority byte 5 bit [0] CWX: "A set bit will send a dot or dash at the speed selected by the DUC Specific packet" ([P2] High Priority packet byte 5, p. 34) | With iambic clear (DUC-specific byte 5 bit [3]) a dot or dash bit is key-down for as long as it is held, with no element timing and no weight, under the 1 s cap; with iambic set, elements at the keyer speed. Known limit: bit [3] is shared by the hardware keyer from KEY and by CWX, so iambic KEY and straight-key CWX (or the reverse) cannot be used at the same time | 0022 §82, §86 item 9 | B10.5a |
 
 Not deviations, but G7250 choices within [P2]: board type 200 (0002); short discovery reply
 only, bytes 14–19 and 24–59 zero (0003); one DDC (0004; HIS-02); a contiguous subset of the
@@ -2679,11 +2823,15 @@ only if HIS-17 allows (0004); raw ADC words in the status fields (0006); P2 Set 
 | C19 | High Priority packet byte 5 (p. 34): bit [0] CWX, which selects CW from the host; bits [1] and [2] dot and dash, sent at the keyer speed; DUC-specific byte 5 keyer bits (reverse, iambic, mode B, strict spacing) without saying whether they apply to CWX | Bits [1] and [2] are the paddle inputs of the radio's keyer (DUC-specific bytes 9–10); the TX request is asserted while bit [0] and bit [1] or [2] are set; iambic, mode B and strict spacing apply to CWX, reverse keys does not; with iambic clear a dot or dash bit is key-down for as long as it is held, under the 1 s cap (0022 §36, §82; B10.5a) |
 | C20 | High Priority Status byte 30 bit [2] "DUC FIFO underflow"; nothing on what the DUC sends meanwhile or when an underflow begins | While the DUC FIFO is empty the DUC gets zero samples; an underflow begins at the key if the FIFO is empty then, else when it runs empty while keyed (0022 §57; B10.5); while unkeyed the FIFO keeps at most the latest 25 ms of the owner's I&Q (0022 §63; B10.7) |
 | C21 | "Detailed operation": the session is restarted either by a High Priority packet with the RUN bit set "if the same network session is still active", or by a Discovery exchange followed by re-initiation of all C&C settings and a High Priority packet with RUN set; "same network session" is not defined | The same network session is still active for the last owner (same source IP address and UDP port) after a stop, a watchdog standby or a link loss, and not after a reset, a firmware update, a level change or a change of the radio's address; no 0→1 edge of the host's run bit is needed. What the G7250 resets at the restart is a deviation, Annex X1 D32 (0022 §78; A2.3, B5.4) |
+| C22 | DUC-specific byte 5 bit [7] "Break_in" among the CW options; no meaning stated, and nothing on CW together with PTT ([P2] DUC specific packet byte 5; High Priority packet bytes 4, 5) | Break-in set: KEY and CWX key by themselves with the hang delay, and PTT and CW never share a transmission (the first source keeps it). Break-in clear: KEY and CWX form RF only inside the owner's PTT transmission; T/R relay and SEND follow the PTT; with CW selected the keyer alone forms the RF, DUC I&Q is not sent and the underrun check is waived; without PTT they key nothing, not latched (0022 §85; B10.5b) |
 
 ## Annex X3 — Conformance tests
 
 To be implemented in g7250-testbench, first against the reference model, then on the radio
 (0001 item 5; design note §5 principle 6). Test ids are stable; descriptions are one line.
+Unless a test says otherwise, a test in which KEY or CWX keys runs with break-in set
+(DUC-specific byte 5 bit [7] = 1; B10.5b; 0022 §85), and a test of the takeover notice has an
+old owner that used the register map (A2.4; 0022 §86 item 1).
 
 ### Management channel, ownership, safety (A1–A3)
 
@@ -2737,6 +2885,8 @@ To be implemented in g7250-testbench, first against the reference model, then on
 | T-A1-46 | After `UPDATE_ABORT`, and after `UPDATE_VERIFY` without `UPDATE_ACTIVATE`, with only `UPDATE_STATUS` for 10 min, the radio restarts into the running image, logs it, and RX works afterwards (reference model; A1.8). |
 | T-A1-47 | A request whose header declares 18 + *N* (+ 32) above 1000 bytes gets status 19 and is not executed, also when the datagram arrives truncated; a datagram longer than 1000 bytes whose *N* declares less gets status 17 (A1.4). |
 | T-A1-48 | While host A holds the write session, an authenticated `RESTART` from host B whose HMAC verifies is accepted and resets the radio, and the write session is gone afterwards; a `FACTORY_RESET` or `SET_CONFIG` from B in the same state gets status 35 (A1.10). |
+| T-A1-49 | With forward power decaying slowly after the unkey (reference model), a `RESTART` while keyed is accepted; during its wait for RF gone a second `RESTART` from another host gets status 1 and a `FACTORY_RESET` gets status 35; exactly one reset follows (reset counter + 1, `GET_STATS`), and the secret and the configuration of Table A1-4 are unchanged (A1.9, one commanded reset at a time). |
+| T-A1-50 | Host A opens the write session with an authenticated `SET_CONFIG` at *t* = 0 and repeats the same request (same id, command and payload) at *t* = 4 s, answered from the stored reply; a write from host B gets status 35 before *t* = 60 s and is accepted after the 60 s idle time counted from *t* = 0, not from the repeat (A1.4, A1.10). |
 | T-A2-01 | Identification and record `level` report the active level and the owner (IP and port). |
 | T-A2-02 | A level change drops the arm with `LEVEL_CHANGE` (after G6). |
 | T-A2-03 | While level 2 is active, P2 C&C starts no session and no takeover (after G6). |
@@ -2753,6 +2903,7 @@ To be implemented in g7250-testbench, first against the reference model, then on
 | T-A2-14 | Host A sets PA enable, CW select, break-in, hang delay 500 ms, RF delay 20 ms, keyer speed 20 wpm and EER; host B takes over with a High Priority packet only: `TX_STATE` bit 4 shows PA disabled, KEY keys nothing, CWX forms no element, no EER refusal stands, and DUC rate and bits read 192 and 24; the same holds after A clears run and starts again with a run bit only (A3.6a). |
 | T-A2-15 | At a takeover the new owner's first stream packet and the effects of the takeover packet do not wait for the second and third `TX_ARM_STATE` copy to the old owner (A2.4 step 1). |
 | T-A2-16 | Host B takes over from host A while A is not armed: A receives the final `TX_ARM_STATE` three times, reading disarmed with drop reason 4 `TAKEOVER`, and the repeated notice for 5 s; the token in force afterwards differs from the one before (A2.4 step 1, A3.2). |
+| T-A2-17 | Host A sends no memory-mapped packet and General bytes 31–32 = 0, unarmed, and is taken over by host B: A receives no register packet, also not for its DUC I&Q within the 5 s, while `TX_ARM_STATE` read by B shows drop reason 4 `TAKEOVER` and a new token; a register write from A within the 5 s gets its `NOT_OWNER` answer and from then on the repeated notice; a host A that sent a `CAP_REQUEST` before its run bit receives the three copies (A2.4, notice only to register-map hosts). |
 | T-A3-01 | Each drop event of Table A3-1 unkeys, disarms, issues a new token and reports its reason (one test per row). |
 | T-A3-02 | Each limit row of Table A3-2 gives its action and recovery, and the action takes effect within the maximum time from threshold to action of its row, measured from the injected sensor or detector sample beyond the threshold, also under full packet load (one test per row, reference model; A3.10). |
 | T-A3-03 | A `LIMIT_<name>` write looser than the persistent value (C-3) is rejected with `LOOSER_LIMIT`, a stricter one accepted; writing 0 and the session end return to the persistent value; the answer carries the limit in force. |
@@ -2805,6 +2956,9 @@ To be implemented in g7250-testbench, first against the reference model, then on
 | T-A3-50 | `ATU_TUNE` = 0 from the owner is accepted while the tune cycle keys (the cycle ends unkeyed), while unarmed and while no cycle runs (no-op, nothing changes) (A3.9b item 1). |
 | T-A3-51 | With break-in and a hang delay of 5000 ms written, the hang delay in force is 2000 ms, the clamp is logged and counted; with High Priority packets stopping during the hang delay, the hang delay ends between `KEYED_TIMEOUT` and `KEYED_TIMEOUT` + 10 ms after the last packet, with `TX_STATE` unkey reason 2, SEND released after RF gone and the T/R relay returned (A3.4d, B10.5). |
 | T-A3-52 | With DDC0 at 7.1 MHz and DUC0 at 14.2 MHz, a PTT 0→1 edge arriving while the RF path returns to the 7 MHz state after an unkey keys after one `t_settle` from the switch to the 14 MHz state, never later than `t_rf_off` + `t_settle` after the edge; a DDC0-only change deferred meanwhile is applied at the next unkey (reference model; A3.9a item 3a). |
+| T-A3-53 | With `t_blank` below the gap between elements (reference model): with break-in and a hang delay of 500 ms, and with break-in clear inside a PTT transmission, RF above the "RF while not keyed" threshold injected in a gap after `t_blank` from the end of the last element's trailing ramp enters the fault state with `RF_NOT_KEYED`, although SEND and the T/R relay are in their TX position; RF that decays within `t_blank` after each element gives no fault (Table A3-2, A3.9a item 6). |
+| T-A3-54 | With DDC0 changed while keyed (receive frequency only) and a PTT 0→1 edge right after the unkey, the edge keys after the TX-side deferred changes and the TX state, and DDC0 stays deferred to the next unkey; in a reference model whose relays cannot be commanded again before they settle, an edge during the return to the receive state keys once the relay has settled, been commanded to the TX state and settled again, within the bound of A3.9a item 3, and is refused when that bound is shorter (A3.9a items 3, 3a). |
+| T-A3-55 | With break-in and a hang delay of 500 ms: High Priority packets in a gap that repeat the Alex word in force do not end the hang delay; an Alex word change received while an element is on is deferred, does not end the hang delay in the following gap and is applied when it ends; a different Alex word received in a gap ends it with unkey reason 6; a DUC0 frequency outside the transmit ranges received in a gap ends it with unkey reason 4 and limit id `LIMIT_TX_FREQ` (A3.4d). |
 
 ### Discovery (B3)
 
@@ -2888,6 +3042,7 @@ To be implemented in g7250-testbench, first against the reference model, then on
 | T-B5-16 | After a session end by an address change, a level change and a reset, a run bit alone from the same host gives `STREAM_STATUS` reason 1 for DDC0, PA disabled and the DUC settings of Table A3-4; after it resends the General, DDC-specific and DUC-specific packets, DDC0 streams and an arm is accepted (B5.4 item 3). |
 | T-B5-17 | Host A streams DDC0 at 192 ksps on 7.1 MHz with PA enable and CW select set; its C&C is cut for 1.5 s (watchdog standby), after which it continues its High Priority keepalive with run = 1 unchanged: the first packet restarts the session without a run 0→1 edge, DDC0 resumes at 192 ksps on 7.1 MHz with sequence numbers continuing from before the standby, PA enable and CW select read cleared (Table A3-4), and an arm is rejected with `WATCHDOG_DISABLED` until A sends a General packet with byte 38 bit [0] set, then accepted (A2.3, B5.4, B2.7). The same after a link loss and return to 100 Mbit/s; after a stop and run the counters start at 0. |
 | T-B5-18 | After host A's session ends by a watchdog standby, a run bit alone from host B gives DDC0 `STREAM_STATUS` reason 1 and counters starting at 0; A's RX settings are not used for B (B5.4 item 3, B2.7). |
+| T-B5-19 | Host A with General bytes 31–32 = 50000 stops (run = 0) and restarts with a High Priority packet with run = 1 only: the unasked capability record arrives at port 50000 at the session start, unless an unasked record went there less than 1 s before (B4.4 item 2, B5.4). |
 
 ### Streams (B6)
 
@@ -2999,6 +3154,9 @@ To be implemented in g7250-testbench, first against the reference model, then on
 | T-B10-31 | `ATU_TUNE` = 1 repeated 100 ms after a cycle ended is a no-op answered with `ATU_STATE`; 2 s after the end a new cycle starts. |
 | T-B10-32 | With TX source PTT and no DUC I&Q at the key, the radio unkeys with `TX_STATE` reason 3 between the underrun time and the underrun time + 10 ms after the key; a host that sends its first DUC I&Q packet 1.25 ms after the PTT edge is not cut; while the FIFO is empty the DUC gets zero samples (reference model); the underrun time is at least `t_rf_off` + `t_settle` + 1.25 ms and at most `KEYED_TIMEOUT` (B10.5). |
 | T-B10-33 | With CWX selected and keyer speed 20 wpm: with iambic set, both bits held give alternating dots and dashes, mode B adds the opposite element after a squeeze release, and reverse keys set changes nothing; with iambic clear, a dot bit held for 300 ms gives one key-down of 300 ms without element timing, and held for more than 1 s unkeys with reason 9; with keyer speed 0 CWX does not key in either mode (B10.5a). |
+| T-B10-34 | Break-in clear, CW selected, armed: a PTT 0→1 edge keys (T/R relay, SEND, `TX_STATE` TX source 1) with no RF until a KEY closure or CWX paddle edge; the elements form RF, SEND and the T/R relay stay in TX between them; no DUC I&Q for 1 s gives no underrun unkey and DUC I&Q sent meanwhile is not transmitted and is counted; a KEY closure already held at the PTT edge forms no RF until it is closed again; at the PTT release the element ends with its trailing ramp, then SEND is released after RF gone and the T/R relay returns (B10.5b). |
+| T-B10-35 | Break-in clear, armed, no PTT: KEY closures and CWX paddle edges form no RF, key nothing and are reported in status byte 4; a PTT 0→1 edge after them sends no element; with CW not selected, a CWX paddle edge inside a PTT transmission forms no RF, is not latched, and the DUC I&Q is transmitted (B10.5b). |
+| T-B10-36 | Break-in set, armed: inside a PTT transmission a KEY closure or CWX paddle edge forms no RF, the keyer stops, and the PTT transmission continues; during the hang delay of a CWX transmission a PTT 0→1 edge is refused and, still held after the hang delay, does not key until a new 0→1 edge; a change of byte 5 bit [7] or bit [1] while keyed applies only after the unkey (B10.5b). |
 
 ### Error handling (B11)
 

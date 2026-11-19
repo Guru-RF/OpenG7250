@@ -2085,6 +2085,139 @@ Status: proposed.
 
 (L5, the glossary, is handled with part C.)
 
+## 84. "RF while not keyed" in CW gaps (rc4 draft review M1)
+
+Status: proposed.
+
+**Problem.** §74 made the CW hang delay count as keyed for RF-path purposes. The check "RF
+while not keyed" (Table A3-2) ran "while not keyed and after `t_blank` since the last unkey",
+so with break-in it never ran between elements: RF that stays on in a gap (a stuck keyer
+path, a DUC that does not ramp down) would not be seen until the hang delay ended, up to
+2000 ms (§83 item 1), with SEND and the T/R relay in TX.
+
+**Rule.** For that check alone, "keyed" means RF commanded: with PTT and DUC I&Q the whole PTT
+transmission; with CW from any source each element from the start of its leading ramp to the
+end of its trailing ramp ([P2] DUC specific packet byte 17, CW ramp period); in an ATU tune
+cycle the tune carrier. `t_blank` runs from the end of each RF-commanded interval, so the
+check runs in every gap between elements longer than `t_blank`, in the hang delay and inside
+a PTT transmission with break-in clear (§85). For RF-path purposes keyed stays as §74.
+Applied in A3.1a (keyer elements), Table A3-2 last row, A3.4d, A3.9a item 6; T-A3-53.
+
+**Alternatives.**
+
+- Keep the check off during the hang delay. For: one meaning of "keyed". Against: RF in a gap
+  goes unseen for up to 2 s, the case the check exists for.
+- A separate gap check with its own threshold. For: could be tuned to the keyer. Against: a
+  second threshold to find in HIS-11 for the same physical condition.
+
+**Reason.** The check is about RF that the firmware did not command; between elements no RF
+is commanded, whatever SEND and the relays do.
+
+## 85. Break-in clear and CW with PTT (rc4 draft review M2)
+
+Status: proposed.
+
+**Problem.** [P2] lists DUC-specific byte 5 bit [7] "Break_in" among the CW options with no
+stated meaning ([P2] DUC specific packet byte 5), and says nothing on CW together with PTT
+([P2] High Priority packet bytes 4, 5). Table B10-1 said "honoured" without a behaviour, and
+break-in is 0 after every session end (§64), so what KEY and CWX do then was undefined, as was
+a PTT edge during a CW transmission or a CW element during a PTT transmission.
+
+**Rule.**
+
+1. Break-in set: KEY and CWX key by themselves, as before (B10.5a, B10.9), with the hang
+   delay. PTT and CW never share a transmission; the first source keeps it: a PTT edge while
+   a CW transmission is keyed (hang delay included) is refused, and a KEY or CWX element while
+   a PTT transmission is keyed is refused for the element and the keyer stops; neither is
+   latched nor ends the transmission in progress (A3.1a, "not keyed by another source").
+2. Break-in clear: KEY and CWX form RF only inside the owner's PTT transmission. The
+   transmission is the PTT transmission: it keys at the PTT edge under A3.1a, T/R relay, RX
+   attenuator during TX and SEND follow the PTT, the hang delay is not used, `TX_STATE` shows
+   TX source 1. An element is not a key of its own; it needs the A3.1a conditions that the PTT
+   transmission met, and a failed condition ends the PTT transmission by its own rule. An
+   element needs a closure or paddle edge after the PTT key (not latched). With CW selected
+   (bit [1]) the keyer alone forms the RF: DUC I&Q is not transmitted (dropped and counted)
+   and the underrun check is waived; with CW not selected, CWX forms no RF in a PTT
+   transmission and KEY keys nothing. The CWX 1 s cap ends the PTT transmission (reason 9).
+   Without PTT, KEY and CWX key nothing and nothing is latched.
+3. A change of bit [7] or bit [1] while keyed is deferred to the unkey, as other state
+   fields (A3.9).
+
+Applied in A3.1a, A3.4d, Table A3-4, A3.9a items 1 and 4, B10.1, B10.5, B10.5a, new B10.5b,
+Table B10-1 byte 5 [7] and bytes 11–12, B10.9 KEY, Host CWX and SEND rows, Annex X1 D8,
+Annex X2 C22; T-B10-34 to T-B10-36; the conformance-test note of Annex X3 (tests of KEY and
+CWX keying run with break-in set unless stated).
+
+**Alternatives.**
+
+- Break-in clear has no effect (KEY and CWX always key by themselves). For: no change to
+  earlier text. Against: the bit would be "honoured" in name only, and a host that keys with
+  PTT and CW selected would get two competing transmissions.
+- Precedence instead of refusal with break-in set (a PTT edge ends a CW transmission, or a
+  CW element ends a PTT transmission). For: the operator's newest action wins. Against: a
+  takeover of the key by another source in the middle of a transmission is an unkey plus a
+  new key without an edge of its own source, which A3.1a avoids; refusal is simpler to test.
+- With break-in clear and CW selected, transmit DUC I&Q and keyer RF together. Against: two
+  RF sources summed in the DUC; the PEP estimate and the mode class lose their meaning.
+
+**Reason.** A host that keys the transmitter with PTT (MOX) and has CW selected expects the
+radio's keyer to form the RF while the PTT is held; break-in is the CW option that lets the
+key alone switch the transmitter. One transmission at a time keeps A3.1a and the relay rules
+unchanged.
+
+## 86. rc4 draft review small fixes (review LOW)
+
+Status: proposed.
+
+1. **Takeover notice only to register-map hosts (L1).** The three copies and the repeated
+   notice of A2.4 go only to an old owner that used the register map: it sent a
+   memory-mapped packet to port 7250 in its session or before its run bit since the last
+   session end, or its session had non-zero General bytes 31–32; a memory-mapped packet from
+   it within the 5 s makes it one from then on. Other old owners get no notice; `TX_ARM_STATE`
+   and the token change as before. A2.4, A3.2 exception 2, Annex X1 D5, Annex X3 note;
+   T-A2-17. Alternative: notice to every old owner (§79). Against: a standard [P2] host gets
+   an unknown packet on its C&C socket, which it may log as an error or misread; an armed
+   host has always used the register map, so nothing changes for it.
+2. **Range exit in a gap (L2).** A3.4d and A3.9a item 4 name unkey reason 4 with limit id
+   `LIMIT_TX_FREQ` for a DUC0 frequency outside the ranges in a gap, as A3.9 does while
+   keyed; reason 6 for an RF-path change, 10 for the mode class. T-A3-55.
+3. **Receive-only deferred changes at an edge after an unkey (L3).** A3.9a item 3 now applies
+   only the deferred changes that concern the TX RF-path state; receive-only deferred changes
+   stay deferred, as item 3a says. T-A3-54.
+4. **Relay that cannot be re-commanded before it settles (L4).** A3.9a item 3a: the radio
+   waits until the relay has settled, then commands it to the TX state and keys one
+   `t_settle` later; if the item 3 bound is reached first, the request is refused, not
+   latched. HIS-07 says which case holds. T-A3-54. Alternative: extend the bound. Against:
+   the underrun bound of §57 depends on it.
+5. **One commanded reset at a time (L5).** From the acceptance of a commanded reset until the
+   reset or its refusal with status 59, a further `RESTART` (from any host, a repeat
+   included) gets status 1 and any other commanded reset (`FACTORY_RESET`, `UPDATE_ACTIVATE`,
+   `ROLLBACK`) status 35, not executed; only the first runs. A1.9; T-A1-49. Alternative:
+   status 1 for all. Against: a `FACTORY_RESET` host would believe its reset ran, while the
+   secret and configuration (Table A1-4) stay. Alternative: status 35 for all. Against: a
+   second `RESTART` gets the reset it asked for.
+6. **Unasked record at a run-bit restart (L6).** The General fields carried over at a restart
+   by the same host (B5.4 item 1) count as a General packet of the set-up phase, so the
+   unasked record goes out at the session start, to the carried-over register destination,
+   within the 1 s limit. B4.4 item 2, B5.4; T-B5-19. Alternative: wait for a General packet
+   of the new session. Against: a host whose keepalive is the High Priority packet alone
+   (`annex-aethersdr.md` §2.2) would not get it.
+7. **Stored reply and the write session (L7).** A repeated authenticated request answered
+   from the stored reply (A1.4) does not refresh the write-session timer; only the first
+   execution counts. A1.4, A1.10; T-A1-50. Against refreshing: a host that retransmits would
+   keep the lock longer than its last write warrants.
+8. **When a state-field change arrives (L8).** A change through a resent state field arrives
+   with the first packet whose value differs from the value in force; repeats are the same
+   change. A deferred change pending from before a gap does not end the hang delay by
+   itself; it is applied at the end of the hang delay or with a change that arrives in the
+   gap. A3.4d, A3.9; T-A3-55.
+9. **CWX as a straight key (L9).** Annex X1 gets D33: with iambic clear a CWX bit is key-down
+   while held (§82), a deviation from [P2] High Priority packet byte 5, p. 34 ("A set bit
+   will send a dot or dash at the speed selected by the DUC Specific packet"). Known limit:
+   bit [3] is shared by KEY and CWX. B10.5a.
+10. **B2.7 (L10).** "A firmware update without a reset" is dropped from the session ends that
+    keep the counters: a firmware update ends in a reset (A1.8), which resets them.
+
 ---
 
 ## Consequences
@@ -2152,6 +2285,14 @@ Status: proposed.
   changed `dsp_clock_hz` text. HIS-04 keeps only the internal DSP clock; HIS-07 gets whether a
   relay may be commanded again before it has settled (§83 item 2); HIS-11 and HIS-12 get the
   detector and sensor response times that add to the reaction times of §80.
+- §84–§86 (review of the rc4 draft) are applied in `spec/network-interface.md` rc4 (A1.4, A1.9,
+  A1.10, A2.4, A3.1a, A3.2, Table A3-2, A3.4d, Table A3-4, A3.9, A3.9a items 1, 3, 3a, 4, 6,
+  B2.7, B4.4, B5.4, B10.1, B10.5, B10.5a, B10.5b, Table B10-1, B10.9, Annex X1 D5, D8, D33,
+  Annex X2 C22, Annex X3 note, T-A1-49, T-A1-50, T-A2-17, T-A3-53 to T-A3-55, T-B5-19,
+  T-B10-34 to T-B10-36). Table B8-2 is unchanged, so `spec/register-map.yaml` needs no
+  regeneration for them. HIS-07 gets whether a relay can be commanded again before it
+  settles (§86 item 4, as §83 item 2); HIS-11 the gap length below which `t_blank` hides RF
+  between CW elements (§84). Part C follows §84 and §85 where TCI has CW with PTT.
 - `open-questions-his.md`: HIS-07 (filter plan, which frequencies share an RF-path state),
   HIS-11 (PEP detector, temperature filter), HIS-12 (`P_swr`, `P_temp`, hysteresis) are
   extended by the coordinator; this file does not edit it.

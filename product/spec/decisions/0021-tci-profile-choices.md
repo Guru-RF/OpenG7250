@@ -1,6 +1,6 @@
 # 0021 — Choices in the G7250 TCI profile (spec part C)
 
-- Status: proposed (for ON8ST review at rc1; §27–§42 proposed for the rc3 draft; §43 proposed for rc3; §44 proposed for the rc4 draft), 2026-11-19
+- Status: proposed (for ON8ST review at rc1; §27–§42 proposed for the rc3 draft; §43 proposed for rc3; §44 proposed for the rc4 draft; §45 proposed for rc4), 2026-11-19
 - Date: 2026-11-19
 - Builds on: 0003 (discovery reply byte 4), 0004 (rates, SPI target), 0007 (watchdog and
   safety), 0008 (management channel, socket budget, LAN security), 0011 (two levels), 0012
@@ -1315,6 +1315,102 @@ play safely (block length), and choose the side that stops a transmission or ref
 where a rule would otherwise let a client key without the state it needs to see (0011 point
 3; 0015).
 
+## 45. Part C rc4: review fixes of the rc4 draft (rc4 draft review H1, M1, M2, L1–L10)
+
+Status: proposed.
+
+**Problem.** The review of the part C rc4 draft found that after a P2 session end without a
+takeover (a stop, a watchdog standby, a link loss) AetherSDR was not required to write the
+TX-side P2 registers again, although part B resets them at every session end (0022 §78); no
+bound on buffered TX audio and no rule for a TX audio header that differs from the client's
+settings; a feature test that expected every missing part of a command to be ignored without
+a reply; and ten smaller gaps. In parallel part B defines CW break-in clear and RF in element
+gaps (0022); part C refers to part B for those and does not restate them.
+
+**Chosen rule.**
+
+1. **TX-side P2 state after every session end (H1).** After every end of its P2 session, with
+   or without a takeover, AetherSDR MUST write `TX_MODE_CLASS`, every P2 `LIMIT_<name>` as
+   C5.10.1 item 6 sets it and `KEYED_TIMEOUT` if it uses it, before it arms (part C C5.10.1
+   item 6, C7.2.1, C8.5a item 3; annex G-08b, G-13; T-C8-28). C5.10.1 item 6 states that the
+   value is written at every change of either input and at every session start. Alternative:
+   rely on the restart keeping them. Against: part B keeps only the RX-side settings and returns
+   `TX_MODE_CLASS`, `KEYED_TIMEOUT` and the session limits at every session end (B5.4 restart
+   item 2; A3.6; 0022 §78), so a TCI session limit would silently stop acting on P2.
+2. **TX audio buffer bound and header mismatch (M1).** Buffered TX audio of the keying client
+   is bounded to `TX_STREAM_AUDIO_BUFFERING` plus one block of the TX_CHRONO length; frames
+   beyond are dropped, and the block still counts as an application frame and feeds the TX
+   audio underrun. A block whose `channels`, `sample_rate` or `receiver` differs from the
+   client's settings is discarded and feeds neither timer. A block of `length` 0 is accepted
+   and feeds both timers (part C C6.3.5, C-C30; T-C6-10). Alternatives: (a) unbounded buffer.
+   Against: audio could lag the client without limit, and a later unkey would still find
+   seconds of audio queued. (b) Discard the whole block at the bound and not count it. Against:
+   a client that sends slightly fast would be unkeyed by the underrun although it is alive.
+   (c) Refuse `length` 0. Against: [TCI] §3.4 calls a zero-sample block "preferable" for no
+   signal, and C8.2.1 and T-C8-03 rely on it.
+3. **Missing parts of a command (M2).** "Ignored without a reply" holds only for whole
+   commands; a missing part of a command is refused as its C4 row states: `RX_CHANNEL_ENABLE`
+   ch 1 `true` answered with `false`, `AGC_MODE` `fast` ignored, an unsupported
+   `AUDIO_SAMPLERATE` or `IQ_SAMPLERATE` answered with the rate in force, a microphone `TRX`
+   answered with `TRX:0,false;` (part C C4, C4.1; T-C5-61). No alternative weighed: the
+   command rows already state these refusals, except the `AUDIO_SAMPLERATE` reply, which is
+   given the form [TCI] §4.3 gives `IQ_SAMPLERATE`.
+4. **Restart after a server stop (L1).** C2.9a points to C4 `START`: on level 2 the automatic
+   start where its conditions hold, otherwise a client `START` (part C C2.9a; T-C2-21).
+   Wording; follows §43 item 9.
+5. **Inferred ownership loss (L2).** A loss that AetherSDR only infers (200 ms without DDC0
+   and status, or a sequence restart) is reported as an outage, drop reason `LINK_DOWN` and
+   stream reason `link`, not `TAKEOVER`; recovery needs a restart by the user, and AetherSDR
+   does not set the run bit again by itself (part C C7.2.1; T-C7-12, T-C7-15). Alternatives:
+   (a) report `TAKEOVER`. Against: the client would be told of a takeover that may be a cable
+   fault. (b) Let AetherSDR retry run = 1 within a few seconds. Against: if another host owns
+   the radio, a run = 1 is a takeover, the ping-pong that 0022 §3 point 6 forbids; the safe
+   side is the user restart, which after an outage still finds the RX-side settings kept
+   (B5.4).
+6. **Policy unkey in C7.7 (L3).** The unkey of §44 item 5 is listed among the server-side
+   unkeys of C7.7; its reason stays `unkey` 1, defined as "the policy has withdrawn the
+   non-holder's TX request, which counts as released" (part C C5.5.8, C7.7; T-C5-56).
+   Alternative: a new reason number. Against: the number is part B `TX_STATE` [23:16], owned by
+   part B, which has no policy cause on P2.
+7. **Annex wording (L4).** The annex G-13 rc4 bullet ignores an arm value only "from a client
+   that has not opted in" (§44 item 20). Wording only.
+8. **Session and RX-side settings (L5).** The glossary "Session" needs no 0→1 edge of the
+   host's run bit (A2.3; B5.4), and the RX-side settings kept are every General packet field
+   except byte 38 bit [0] and byte 58 bit [0], the DDC-specific packet and the receive state of
+   High Priority, as B5.4 lists them (part C C8.5a item 3; annex G-08b; glossary). Follows part
+   B.
+9. **Application frame (L6).** The glossary counts only binary messages with one block that
+   C2.2 and C6.3.5 accept (§44 item 13). Wording only.
+10. **Tokens for optional parts (L7).** `AGC_MODE` is SHOULD, so `fast` is a MAY part of a
+    SHOULD command; C4.1 speaks of every optional part of a command. New tokens `iq_384`
+    (`IQ_SAMPLERATE` 384000 where 0004 point 6 allows it) and `mic` (the microphone sources of
+    `TRX`, HIS-17) (part C C4, C4.1, C5.4, Table C5-1; T-C5-61). Alternative: let a client
+    discover them from the reply with the value in force. Against: §44 item 6 requires a token
+    for every optional part, and the refusal comes only after the client has tried.
+11. **T-C7-24 and the reject order of a TX request (L8).** The test keys with
+    `TRX:0,true,tci;` and a running `AUDIO_START`, so that no microphone path is needed; where
+    several reasons apply to one TX request, the order is `BUSY`, `NOT_ARMED`, `KEYED`,
+    `BAD_VALUE`, `NOT_KEYABLE` (part C C5.12; T-C7-24). Alternative: `NOT_KEYABLE` before
+    `BAD_VALUE`. Against: a malformed request is wrong whatever the radio's state, and C5.7 already
+    puts the request's own faults before the key conditions for `G7250_ATU_TUNE`.
+12. **Row-3 restatement after `AUDIO_START` (L9).** A `TRX:0,true,tci;` from a client keyed in
+    row 3 that has since started `AUDIO_START` is a restatement of the row-3 request: the row
+    is fixed at the key (§44 item 7), the transmission stays a microphone one (part C C8.2.3;
+    T-C8-29). Alternative: a source change, refused. Against: the client sends the same command
+    that keyed it, and a refusal would not restart the generic window, so a live client would
+    be unkeyed after 1 s.
+13. **`G7250_TX_STATE` per CW element (L10).** `keyed` follows each element and toggles per
+    element; in a gap `source` keeps the transmission's source and `mine` stays `true` for the
+    keying client until the transmission ends (part C C5.5.3; T-C5-63). Alternative: hold
+    `keyed` `true` over the gaps, as `TRX`. Against: `keyed` means "PA actually keyed"; `TRX`
+    already gives the transmission view (C7.4.1). Whether RF may be present in a gap is part B's
+    break-in rule (0022), cited, not restated.
+14. **Labels.** Part C, the annex and the glossary carry "rc4, 2026-11-19".
+
+**Reason.** Follow part B where it resets or keeps state (0022 §78), bound what the server
+holds for a client, and choose the side that tells a client the truth (outage, not takeover)
+and never retakes the radio by itself (0022 §3 point 6; 0011 point 3).
+
 ## Consequences
 
 - Part C draft 2 applies these choices and cites them as "0021 §n".
@@ -1348,6 +1444,10 @@ where a rule would otherwise let a client key without the state it needs to see 
   C5.12, C6.3.5, C7.2.1, C7.5, C7.6.1, C8.2, C8.2.3, C8.5a, C9, Annexes C-B, C-C, C-D);
   `spec/annex-aethersdr.md` (§3.1, G-02, G-08a, G-08b, G-11, G-13, §3.3, §6) and the glossary
   get the consequences. Part B and Table B8-3 are not changed by §44.
+- Part C rc4 applies §45 (C2.9a, C4, C4.1, C5.4, Table C5-1, C5.5.3, C5.5.8, C5.10.1, C5.12,
+  C6.3.5, C7.2.1, C7.7, C8.2.3, C8.5a, C9, C-C30); `spec/annex-aethersdr.md` (G-08b, G-13) and
+  the glossary ("Session", "Application frame") get the consequences. Part B is not changed by
+  §45; CW break-in clear and RF in element gaps are part B rules (0022), cited by reference.
 
 ## Sources
 
@@ -1370,4 +1470,7 @@ where a rule would otherwise let a client key without the state it needs to see 
 - [TCI] also §3.2 ("Working in CW mode"), §3.4 (TX_CHRONO and the TX audio answer), §4.3
   TX_ENABLE (§44). `spec/network-interface.md` rc4 draft: A1.5 (I-3, I-4), A1.8, A3.1b, Table
   A3-2, B5.4, B3.8, B10.2 item 3, B10.5 (§44).
+- [TCI] also §3.4 (zero-sample block), §4.2 AGC_MODE, RX_CHANNEL_ENABLE, TRX, §4.3
+  IQ_SAMPLERATE, AUDIO_SAMPLERATE, TX_STREAM_AUDIO_BUFFERING (§45). `spec/network-interface.md`
+  rc4 draft: A2.3, A3.6, B5.4 (restart items 1–3) (§45).
 - Decisions 0003, 0004, 0007, 0008, 0011, 0012, 0013, 0014, 0015, 0017, 0019, 0022.

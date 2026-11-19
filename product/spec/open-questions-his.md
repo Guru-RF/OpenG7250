@@ -134,6 +134,8 @@ Priority: **M1** = needed for milestone M1 (discovery, capability block, RX-IQ);
   can be set at or below `P_rf_off` with `t_blank` < `t_reset_wait`.
 - Added by 0022 §80: detector and sensor response times, which add to the reaction times
   in Table A3-2.
+- Added by 0022 §84: the shortest CW element gap in which the "RF while not keyed" check
+  can still run, given `t_blank`.
 
 ### HIS-12 — Power control and limits (M4)
 
