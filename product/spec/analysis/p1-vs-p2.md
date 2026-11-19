@@ -8,7 +8,7 @@
 ## Sources
 
 All protocol statements below come from these public documents. They were read on
-2026-11-19 from the TAPR repositories on GitHub. The keys are to be moved into `sources.md`.
+2026-11-19 from the TAPR repositories on GitHub. The keys are also listed in `sources.md`.
 
 | Key | Document | Location |
 |-----|----------|----------|

@@ -50,16 +50,19 @@ ANAN-G2, TCI server announcing protocol 2.1) come from its README, read 2026-11-
 - Antenna and filter switching, including a safe RX default state for a host that has not
   armed TX (0015).
 - Where PTT and TX interlock sit.
+- Network hardware of the main unit: is there an Ethernet port (and/or Wi-Fi)? Public
+  sources only mention "remote baseband signal transmission over a network" (`sources.md`).
 - Compute resources (DSP/FPGA/MCU), memory, network stack (TCP, WebSocket). These are
   needed for gate G6.
 
 ## Next step
 
-1. (Done: 0013.)
-2. Create `sources.md`, collecting and checking the public sources: P2 documentation (already
-   read, see `analysis/p1-vs-p2.md`), P1 and HL2 documentation for reference, the TCI spec (version and terms of use), and the G7250 product
-   specifications and manual.
-3. Write `design-note.md` (both levels, milestones M1–M7 and G6, out-of-scope list as
-   amended by 0010–0012).
-4. Write spec part B (level 1 on P2, starting with M1: discovery, capability block, RX-IQ), with
-   sources cited.
+1. (Done: 0013, `sources.md`.) Still open in `sources.md`: read the Radioddity product page
+   (HTTP 429 on 2026-11-19), read the TCI 2.1 PDF and check its terms, find a manufacturer
+   manual.
+2. Create `open-questions-his.md` from the list above.
+3. Write `design-note.md` (both levels on G7250-P2, milestones M1–M7 and G6, out-of-scope list
+   as amended by 0010–0012 and 0016).
+4. Decisions 0003 (capability block) and 0007 (watchdog and safety).
+5. Write spec part B (level 1 on P2, starting with M1: discovery, capability block, RX-IQ),
+   with sources cited.
