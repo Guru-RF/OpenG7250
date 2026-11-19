@@ -24,7 +24,7 @@ HIS_IDS = set(re.findall(r"### (HIS-\d\d)", (ROOT / "open-questions-his.md").rea
 REGMAP = ROOT / "spec" / "register-map.yaml"
 
 RE_NORM = re.compile(r"\b(MUST|SHOULD|MAY|REQUIRED|SHALL)\b")
-RE_CITE = re.compile(r"\[[A-Z][A-Za-z0-9.\-]+\]|\b00[0-9]{2}\b|\b[ABC]\d{1,2}(\.\d+)?\b|\bHIS-\d\d\b|RFC ?\d{3,4}")
+RE_CITE = re.compile(r"§ ?\d|\[[A-Z][A-Za-z0-9.\-]+\]|\b00[0-9]{2}\b|\b[ABC]\d{1,2}(\.\d+)?\b|\bHIS-\d\d\b|RFC ?\d{3,4}")
 RE_DEC = re.compile(r"(?<![\d.x])(00[0-9]{2})(?![\d.x])")
 RE_HIS = re.compile(r"\bHIS-(\d\d)\b")
 RE_TEST = re.compile(r"\b(T-[A-Z0-9]+(?:-[A-Z0-9]+)*-\d{2,3})\b")

@@ -74,7 +74,7 @@ the source has been found but not checked.
   implementing TCI, and the README invites it; the MIT notice must be kept with any copied
   portions of the document. To be confirmed before part C is published.
 - Relevant for G7250: identification by `DEVICE:` and `PROTOCOL:<program>,<version>;`
-  (example `PROTOCOL:ExpertSDR3,2.1;`); `TRX_COUNT` (renamed from `CHANNEL_COUNT` in 2.1),
+  (example `PROTOCOL:ExpertSDR3,2.1;`); `TRX_COUNT`, `CHANNELS_COUNT` (renamed from `CHANNEL_COUNT`; the document's version table and its section 2.2 disagree on whether that was in 2.0 or 2.1),
   `VFO_LIMITS`, `MODULATIONS_LIST`, `READY` after initialization; `TRX`, `TUNE`, `DRIVE`,
   `TUNE_DRIVE`, `TX_ENABLE`; `IQ_START`, `IQ_SAMPLERATE`, `AUDIO_SAMPLERATE`; `HW_SENSORS`,
   `RX_SENSORS`. The document does not state a default TCP port.
