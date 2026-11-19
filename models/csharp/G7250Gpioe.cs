@@ -30,7 +30,7 @@ namespace Antmicro.Renode.Peripherals.GPIOPort
         {
             pins = new GPIO[16];
             for(int i = 0; i < 16; i++) pins[i] = new GPIO();
-            drdy = machine.ObtainManagedThread(() => { pins[10].Set(true); pins[10].Set(false); }, 1000);
+            drdy = machine.ObtainManagedThread(() => { pins[10].Set(true); pins[10].Set(false); }, 200);
             drdy.Start();
             Reset();
         }

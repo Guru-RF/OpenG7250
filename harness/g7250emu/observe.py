@@ -177,6 +177,10 @@ def classify_tail(tail, pc_span=0x80, dominance=0.9, min_samples=500):
     frac = n / float(len(t))
     if frac < dominance:
         return None
+    # interrupt-controller reads (EXTI/NVIC pending) dominating the tail is
+    # interrupt SERVICING (e.g. a DRDY sample IRQ), not a never-ready poll.
+    if key.split()[0] in ("exti", "nvic"):
+        return None
     # One register taking ~all of the recent MMIO is a never-ready poll,
     # whatever the width of the poll routine. The PC span just annotates how
     # tight the loop is (`pc_span` flags a one-liner vs a multi-instruction

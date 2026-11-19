@@ -22,6 +22,8 @@ REPL = os.path.join(REPO, "platforms", "g7250_main.repl")
 REPL_I2C1_MOCK = os.path.join(REPO, "platforms", "g7250_main_i2c1_mock.repl")
 REPL_I2C1_FUNC = os.path.join(REPO, "platforms", "g7250_main_i2c1_func.repl")
 REPL_SPI6_CH394 = os.path.join(REPO, "platforms", "g7250_main_spi6_ch394.repl")
+REPL_FPGA = os.path.join(REPO, "platforms", "g7250_main_fpga.repl")
+CS_GPIOE = os.path.join(REPO, "models", "csharp", "G7250Gpioe.cs")
 CS_SLAVES = os.path.join(REPO, "models", "csharp", "G7250Slaves.cs")
 OUT = os.path.join(REPO, ".private", "m1")
 
@@ -37,7 +39,7 @@ RESET_PC = 0x08024554       # reset handler
 CORE_HZ = 275000000         # HCLK (flow.md); SysTick input clock for the HAL tick
 
 
-def build_resc(image_path, log_path):
+def build_resc(image_path, log_path, fpga=False):
     lines = [
         'mach create "main"',
         'machine LoadPlatformDescription @%s' % REPL,
@@ -53,6 +55,14 @@ def build_resc(image_path, log_path):
         # give the NVIC the SysTick input clock so the 1 ms HAL tick advances
         'nvic Frequency %d' % CORE_HZ,
     ]
+    if fpga:
+        # fused GPIOE+FPGA port (M3/D2): compile it, drop the base gpioPortE,
+        # and swap in the port that answers the bit-banged FPGA bus internally.
+        lines += [
+            'i @%s' % CS_GPIOE,
+            'sysbus Unregister sysbus.gpioPortE',
+            'machine LoadPlatformDescription @%s' % REPL_FPGA,
+        ]
     # H72x-only + unmodelled (DAC1/MDMA) blocks: tag so a touch is named/logged
     lines += platform_extras.all_tag_commands()
     lines += observe.strict_logging_commands("machine", log_file=log_path)
@@ -66,11 +76,11 @@ def build_resc(image_path, log_path):
     return "\n".join(lines) + "\n"
 
 
-def run_boot(image_path, timeout=60.0, cadence=0.5):
+def run_boot(image_path, timeout=60.0, cadence=0.5, fpga=False):
     os.makedirs(OUT, exist_ok=True)
     log_path = os.path.join(OUT, "m1_renode.log")
     report_path = os.path.join(OUT, "m1_observe_report.md")
-    verdict, n = bootcore.execute(build_resc(image_path, log_path), log_path,
+    verdict, n = bootcore.execute(build_resc(image_path, log_path, fpga=fpga), log_path,
                                   report_path, timeout=timeout, cadence=cadence)
     return report_path, verdict, n
 
@@ -79,6 +89,7 @@ def main():
     ap = argparse.ArgumentParser(description="M1 stock Main boot runner")
     ap.add_argument("--timeout", type=float, default=60.0)
     ap.add_argument("--cadence", type=float, default=0.5)
+    ap.add_argument("--fpga", action="store_true", help="use the fused GPIOE+FPGA port (M3/D2; slower)")
     args = ap.parse_args()
 
     if not os.path.isfile(bootcore.RENODE):
@@ -95,7 +106,7 @@ def main():
         sys.exit(2)
 
     print("M1 boot: image %s" % image)
-    report, verdict, n = run_boot(image, timeout=args.timeout, cadence=args.cadence)
+    report, verdict, n = run_boot(image, timeout=args.timeout, cadence=args.cadence, fpga=args.fpga)
     print("MMIO accesses: %d   verdict: %s" % (n, verdict.kind if verdict else "?"))
     if verdict and verdict.detail:
         print("  %s" % verdict.detail)
