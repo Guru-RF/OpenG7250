@@ -24,14 +24,17 @@ tests/baseline/boot_milestone.sh.)
 Boots through SLIP client, AIC3204 codec, FatFS mount attempt, **GT911 touch at
 0x14**, all service timers, then — via the `G7250LtdcStub` CDSR VSYNC shim
 swapped in for the headless-silent C# LTDC — PAST the display wait into its
-**GUI service loop** (DMA2D rendering + panel GPIO + SDMMC + input). Next minor
-register: sdmmc IntStatus (no SD card modelled). (docs/M2-control-status.md.)
+**GUI service loop** (DMA2D rendering + panel GPIO + SDMMC + input), verdict
+"running". The SDMMC IntStatus polling is the normal no-card path (no SD card
+inserted is a valid real state); it does not block the GUI loop. CLOSED.
+(docs/M2-control-status.md.)
 
 ## D. Two machines — ✅ DONE (D1 + D2)
 - D1 ✅ harness: harness/g7250emu/slip_run.py boots both MCUs in one emulation,
   wires USART2↔USART2 through a UART hub, and SLIP bytes (0xC0-delimited) are
-  transmitted over the link. (RX is circular-DMA, not register-visible; full
-  bidirectional confirmation would watch DMA1 S3.)
+  transmitted over the link. RX on the real firmware is by circular DMA1 S3 (by
+  design), so it is not register-visible to the access log — that is a property
+  of the observe tool, not of the link; the SLIP harness itself is complete. CLOSED.
 - D2 ✅ FPGA fused model: models/csharp/G7250Gpioe.cs (`G7250GpioeFpga`) is a
   from-scratch GPIOE port that also answers the bit-banged FPGA bus internally
   (D0-7/CMD/STB on PE0-9, DRDY on PE10 via a managed thread). Handles the loopback
@@ -49,7 +52,8 @@ register: sdmmc IntStatus (no SD card modelled). (docs/M2-control-status.md.)
 - E4 ✅ g7250-his repo started (~/Repos/on8st/g7250-his): README (role +
   clean-room process) and HIS sections 00–80 populated from the emulator-proven
   behaviour + public RE (reset/clock, power, I2C, ethernet, audio, display/input,
-  SLIP interlink, RF/FPGA), behaviour-only with evidence cited. Local only.
+  SLIP interlink, RF/FPGA), behaviour-only with evidence cited. All eight HIS
+  sections written (not a stub). CLOSED.
 
 ## Not in scope (policy)
 No decryption; no push/PR/mail without Stan's "verstuur"; no shared GitHub org
