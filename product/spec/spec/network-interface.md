@@ -1171,9 +1171,11 @@ relay of A3.9.
    this check alone, "keyed" means RF commanded:
    - **PTT with DUC I&Q.** RF is commanded by the samples fed to the DUC (A3.4c: the host's
      DUC I&Q after the drive scaling, and the zero samples fed during an underflow, B10.5).
-     Inside the PTT transmission RF is commanded from the key up to the last sample with I or
-     Q non-zero; a run of samples with I = Q = 0, counted from the key or from the last
-     non-zero sample, is no RF commanded once it is longer than `t_blank` (0022 §88 item 1).
+     Inside the PTT transmission RF is commanded from the PTT key (B10.5b) up to the last
+     sample with I or Q non-zero, and ends there; the check runs from `t_blank` after that
+     sample (or after the PTT key if no non-zero sample has been fed yet) until the next
+     non-zero sample. `t_blank` is counted once: there is no second blanking time after a
+     zero run has reached `t_blank` (0022 §88 item 1).
      The firmware feeds every DUC sample (A3.4c), so the radio needs nothing from the host to
      find the gaps. This covers CW that a host forms itself and sends as DUC I&Q with PTT,
      zero between elements (on level 1 TCI CW through AetherSDR, part C C8.2.5, and any P2
