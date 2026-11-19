@@ -7,8 +7,8 @@ on 2026-11-19, as recorded in `decisions/`.
 
 - The g7250-spec branch `docs/initial-structure` has been subtree-merged into
   `product/spec/` in the main repo (merge commit a29155b, local, not pushed).
-- Neither main document has been written yet: `design-note.md` and `spec/` do not exist.
-  `sources.md` and `open-questions-his.md` exist (2026-11-19).
+- `design-note.md` exists as draft 1 (2026-11-19), for review by ON8ST. `spec/` does not
+  exist yet. `sources.md` and `open-questions-his.md` exist.
 - Level 1 is G7250-P2: openHPSDR Protocol 2, board type 200 (0016, 0002). The P2, P1, HL2
   and AetherSDR sources and the CH394 datasheet have been read; the TCI 2.1 PDF has not.
 - Analyses: `analysis/p1-vs-p2.md`, `analysis/ch394-network-budget.md`.
@@ -54,8 +54,7 @@ In `open-questions-his.md` (HIS-01 to HIS-19).
    (HTTP 429 on 2026-11-19), read the TCI 2.1 PDF and check its terms, find a manufacturer
    manual.
 2. (Done: `open-questions-his.md`.)
-3. Write `design-note.md` (both levels on G7250-P2, milestones M1–M7 and G6, out-of-scope list
-   as amended by 0010–0012 and 0016).
+3. (Done: `design-note.md` draft 1; review by ON8ST.)
 4. Decisions 0003 (capability block) and 0007 (watchdog and safety).
 5. Write spec part B (level 1 on P2, starting with M1: discovery, capability block, RX-IQ),
    with sources cited.

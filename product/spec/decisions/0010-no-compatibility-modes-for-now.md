@@ -2,6 +2,8 @@
 
 - Status: accepted (ON8ST, 2026-11-19)
 - Date: 2026-11-19
+- Note after 0016 (2026-11-19): level 1 is now G7250-P2 with board type 200 (0002); read
+  "G7250-P2" for "G7250-P1" below.
 
 ## Context
 
