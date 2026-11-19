@@ -1,6 +1,3 @@
-// [M3 SCAFFOLD — not yet wired: replaces gpioPortE and handles the FPGA
-//  loopback/version, but stalls the boot just after PH9 because the STM32H7
-//  GPIO-port semantics are not yet an exact match. See g7250-his HIS 80.]
 // Fused GPIOE + RF-FPGA model for the Main (clean-room, M3). Replaces the stock
 // GPIOE port with a port that ALSO answers the FPGA's 8-bit bit-banged bus
 // internally (HIS 80): D0-7=PE0-7, CMD=PE8, STB=PE9, DRDY=PE10. Because the port
@@ -85,15 +82,10 @@ namespace Antmicro.Renode.Peripherals.GPIOPort
             bool cmdPin = ((odr >> 8) & 1u) != 0;
             if(stb && !stbPrev) // STB rising edge
             {
-                if(cmdPin) { cmd = (int)(odr & 0xFF); readIdx = 0; } // latch command
-                else if(IsOutput(0)) // write strobe (data pins are outputs)
-                {
-                    if(cmd == 0x00) { testReg = (byte)(odr & 0xFF); fpgaOut = testReg; }
-                }
-                else // read strobe (data pins are inputs)
-                {
-                    fpgaOut = NextReadByte();
-                }
+                bool outp = IsOutput(0);
+                if(cmdPin) { cmd = (int)(odr & 0xFF); readIdx = 0; }         // latch command
+                else if(outp) { if(cmd == 0x00) { testReg = (byte)(odr & 0xFF); fpgaOut = testReg; } } // write
+                else { fpgaOut = NextReadByte(); }                           // read strobe
             }
             stbPrev = stb; cmdPrev = cmdPin;
         }
@@ -128,11 +120,11 @@ namespace Antmicro.Renode.Peripherals.GPIOPort
                 case 0x04: otyper = value; break;
                 case 0x08: ospeedr = value; break;
                 case 0x0C: pupdr = value; break;
-                case 0x14: odr = value; ProcessBus(); DriveExti(); break;
-                case 0x18: // BSRR: low 16 set, high 16 reset
-                    odr |= (value & 0xFFFF);
+                case 0x14: odr = value; ProcessBus(); break;
+                case 0x18: // BSRR: high 16 reset, low 16 set — SET wins on STM32
                     odr &= ~(value >> 16);
-                    ProcessBus(); DriveExti(); break;
+                    odr |= (value & 0xFFFF);
+                    ProcessBus(); break;
                 case 0x1C: lckr = value; break;
                 case 0x20: afrl = value; break;
                 case 0x24: afrh = value; break;
