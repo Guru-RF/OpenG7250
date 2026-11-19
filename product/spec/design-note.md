@@ -1,9 +1,9 @@
 # G7250 network firmware — design note
 
-- Version: draft 3 (rc1), 2026-11-19
+- Version: draft 4 (spec rc4), 2026-11-19
 - Status: draft for review by ON8ST
 - Structure: as agreed in 0001, amended by decisions 0002–0022 (0020–0022 proposed, for
-  review at rc1).
+  review at rc4).
 - © 2026 ON8ST. Licensed under CC BY 4.0 (see `LICENSE.md`, decision 0018).
 - The normative interface is in `spec/network-interface.md` (not yet written). This note
   describes the product; it does not define the protocol.
@@ -140,6 +140,30 @@ discarded. Limits have three tiers (built-in, persistent via management, session
 only tighten the limit in force. Above S1 the SWR fold-back caps power at a fixed value until
 unkey. Every fault code has a class; a class 2 fault can only be cleared by a reset.
 
+### 4.2a Added up to spec rc4
+
+From the later review rounds (0022 §33–§88, 0021 §27–§47, proposed):
+
+- **Keying.** The radio keys only on a new request edge when every condition holds; a refused
+  request is never latched. At every key the RF path (filters, band relays, ATU, antenna) is
+  set for the TX frequency, split included, and settled before RF. Relays move only after RF is
+  gone; every wait for RF gone is bounded and ends in a fault if RF stays.
+- **CW.** Every keyer element is a key; during the hang delay (at most 2 s) the transmission
+  counts as keyed for RF-path purposes. With break-in clear, the keyer forms RF only inside the
+  owner's PTT transmission. The "RF while not keyed" check runs in every element gap, also for
+  CW sent as DUC I&Q, because the radio treats a run of zero samples as no RF commanded.
+- **Power.** Without a PEP detector the radio estimates PEP from the DUC samples it feeds itself,
+  for every limit in force; AM is limited on its carrier.
+- **Sessions.** Packets a host sends before its run bit count for its session (set-up phase). A
+  host that keeps sending its run bit after a short outage gets its session and RX settings
+  back; TX settings are always reset. A takeover is an ordered procedure and the old owner is
+  told. P2 is accepted only from the radio's own subnet.
+- **Wire format.** Discovery byte 21 is always "phase word", on a virtual 122.88 MHz clock,
+  which matches existing P2 hosts.
+- **TCI.** Every TX source has a liveness rule; the TX source is fixed while keyed;
+  `TX_ENABLE` is a permission. On level 1 AetherSDR never arms on a TX request, puts the
+  effective TX frequency in DUC0, and rewrites its TCI session limits after every P2 session end.
+
 ### 4.3 Ports and the TCI side
 
 G7250-P2 uses the standard P2 ports plus UDP 7250 for the register map and UDP 7251 for the
@@ -206,5 +230,5 @@ AetherSDR work runs alongside: the G7250 backend receives from M1 and transmits 
   Radioddity product page, the HDSDR network tutorial and the Temporarily Offline video
   (`sources.md`).
 - **Decisions.** 0001–0019 are accepted; 0020–0022 (rc1 details, TCI profile choices, review
-  fixes) are proposed for review at rc1. What remains are hardware values from the HIS
+  fixes) are proposed for review at rc4. What remains are hardware values from the HIS
   (limits, clocks, filter plan, sensor details).
