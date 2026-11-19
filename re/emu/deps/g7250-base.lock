@@ -1,0 +1,8 @@
+# Pinned snapshot of g7250-base consumed as DATA (docs + CSV: register maps,
+# button tables, CI-V tables, memory maps). A bump is a deliberate change with
+# a regression run. See spec §13.2.
+repo:   fventuri/g7250-base (fork: on8st/g7250-base)
+commit: 18c91642fdd15a0c8d0b07e1428d7d4481dd3f7e
+ref:    re/round5
+date:   2026-11-18
+note:   RE knowledge is used here only as data; no stock code is copied.

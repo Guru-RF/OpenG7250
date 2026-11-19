@@ -1,0 +1,100 @@
+// g7250_main.repl — G7250 Main unit (STM32H72x-derived), M1 scaffolding.
+//
+// Clean-room: every value below is traced to the g7250-base RE docs or to ST's
+// public reference manual RM0468 (H72x/H73x), used as DATA. No stock firmware
+// code. Confidence tags mirror the RE docs (VERIFIED/HIGH/HYPOTHESIS).
+//
+// Starts from Renode's own STM32H7 base and overrides the Main-specific facts.
+// H72x differences vs the H743 base that still need modelling for M1 are marked
+// TODO(M1). The image itself is loaded by the harness from the local image-map
+// (never from here); this file only models the reset state the bootloader
+// leaves behind (app vector table at 0x08020000).
+
+using "platforms/cpus/stm32h7.repl"
+
+// --- MCU identity -----------------------------------------------------------
+// STM32H725xG or H735xG, 1 MiB flash (docs: MEDIUM -> HYPOTHESIS; crypto unused
+// so H725/H735 is irrelevant to us). DEV_ID 0x483 expected (HYPOTHESIS,
+// hardware_test_plan T3.1). cortex-m7 + 16 MPU regions come from the base.
+
+// --- Memory map (main_unit/docs/memory_map.md, VERIFIED) --------------------
+// AXI SRAM is 320 KiB on the H72x default TCM/AXI split, NOT the 512 KiB of the
+// H743 base. Override it. Nothing above 0x24050000 exists or is referenced.
+axiSram:
+    size: 0x50000            // 320 KiB @ 0x24000000 (VERIFIED)
+
+// Application image region: 0x08020000..0x0808EA20, vector table @0x08020000
+// (SCB->VTOR), bootloader 0x08000000..0x0801FFFF absent from the image (HIGH).
+// Initial MSP 0x24050000, reset 0x08024554 (VERIFIED). flashBank1 (1 MiB
+// @0x08000000) from the base already covers the app + bootloader regions.
+
+// Backup SRAM 4 KiB @0x38800000 already in the base (backupSram). The app only
+// copies 424 B of settings from it; BKPRAMEN is never enabled (HIGH).
+
+// --- Clock tree (main_unit/docs/flow.md, VERIFIED) --------------------------
+// HSE 25 MHz; PLL1 550/275/275; HCLK 275; PCLK 137.5; PLL2 100 (ADC);
+// I2S_CKIN 12.288 MHz external. SMPS 2.5 V + LDO, VOS0 without overdrive.
+// TODO(M1): model RCC ready/lock flags and PWR SMPS/VOS0 so the boot polling
+// loops pass in strict mode (this is the first polling-loop work of M1).
+
+// --- PWR ready flags (H72x) ---------------------------------------------------
+// Override the inherited H7 PWR Python stub so it also answers offset 0x08. The
+// base stub (stm32h7.repl) returns the ready values for CR1 0x00, CSR1 0x04
+// (ACTVOSRDY), CR3 0x0C (USB33RDY) and D3CR 0x18 (VOSRDY), but leaves 0x08 at 0.
+// The H72x Main boot polls PWR+0x08 for a ready bit (PC 0x0802C2A0) and spins
+// forever on 0 (docs/M1-status.md). We return a ready value there so the boot
+// proceeds. HYPOTHESIS: 0x08 is a supply/voltage "ready"-type register on the
+// H72x PWR map; the exact bit is not pinned, so we return all-ones (a ready
+// poll only tests one bit). Revisit if a later read of 0x08 needs real fields.
+pwr:
+    script: '''
+if request.Offset == 0x00:
+    request.Value = 0xF000C100
+elif request.Offset == 0x04:
+    request.Value = 0x6000
+elif request.Offset == 0x08:
+    request.Value = 0xFFFFFFFF
+elif request.Offset == 0x0C:
+    request.Value = 0x4000000
+elif request.Offset == 0x18:
+    request.Value = 0x2000
+else:
+    request.Value = 0
+'''
+
+// --- SPI controllers absent from the H743 base (only spi4 is in the base) ---
+// The Main uses SPI1/SPI2 (sinks), SPI3/I2S3 (audio), and SPI6 (CH394). H7 base
+// addresses from RM0468 (SPI1 0x40013000 APB2, SPI2 0x40003800 APB1, SPI3
+// 0x40003C00 APB1, SPI6 0x58001400 APB4/D3). Registered without an rcc alias
+// (the base's RegistrationPeripheralAlias enum only carries SPI4); clock-gating
+// awareness is not needed for M1 boot. Verified to register on Renode.
+// TODO(M1): attach the CH394 SPI slave to spi6 (models/devices/ch394.py) and
+// the SPI sinks to spi1/spi2 (models/devices/spi_sink.py) once the image drives
+// them; add NVIC/DMA wiring if the firmware uses interrupt/DMA transfers.
+spi1: SPI.STM32H7_SPI @ sysbus 0x40013000
+spi2: SPI.STM32H7_SPI @ sysbus 0x40003800
+spi3: SPI.STM32H7_SPI @ sysbus 0x40003C00
+spi6: SPI.STM32H7_SPI @ sysbus 0x58001400
+
+// --- Peripherals present on Main (M1 inventory, spec §14 M1) ----------------
+// From the base we already get: RCC, PWR, FLASH, GPIO A..K, EXTI/SYSCFG, NVIC,
+// DWT, USART1/2, I2C1, SPI, TIM, ADC, DAC, IWDG, CRC, RTC.
+// TODO(M1) device models to add in models/devices/ and wire here:
+//   - CH394 on SPI6: register-file logic + A1.12 check done in
+//     models/devices/ch394.py (host-testable); wire as an SPI6 slave once the
+//     image drives SPI6 frames. INT on PC13 (VERIFIED). See models/README.md.
+//   - FPGA: GPIOE bit-bang, NOT a sysbus peripheral — the base GPIOE absorbs
+//     the M1 init wiggles; the fused model (M0 finding R3) lands in M3 when the
+//     48 kHz sample stream matters. See models/README.md.
+//   - I2C1 devices: EEPROM24C, AXP223 PMIC, VC6, AIC3204 codec (I2C1 slaves)
+//   - SPI1/SPI2 sinks; I2S3; TIM5/6/7/17; DAC1; ADC1 + bias-trim plant
+//   - PowerModel (PH5/PH9). The hang detector + strict mode + MMIO heatmap are
+//     harness-side in harness/g7250emu/observe.py (driven by m1_run.py), not
+//     peripherals.
+// TODO(M1) H72x-only blocks absent from the H743 base: TIM23/24, UART9/USART10
+//   (at least length-correct vector table + Tag regions).
+
+// --- Faults (main_unit/docs/startup.md, VERIFIED) ---------------------------
+// Default handler 0x080245A4 (loop). HardFault dumps registers on USART1 and
+// stops. Modelled at firmware level; the emulator just needs USART1 to accept
+// the dump without blocking.
