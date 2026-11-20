@@ -32,7 +32,7 @@ RESET_PC = 0x080235AC       # reset handler (Thumb 0x080235AD, bit0 cleared)
 CORE_HZ = 240000000         # HCLK (control docs: timer clock 240 MHz, SDCLK 240/2)
 
 
-def build_resc(image_path, log_path):
+def build_resc(image_path, log_path, usart2_tx=None):
     lines = [
         'mach create "control"',
         'machine LoadPlatformDescription @%s' % REPL,
@@ -50,16 +50,36 @@ def build_resc(image_path, log_path):
         'cpu VectorTableOffset 0x%08X' % LOAD_BASE,
         'cpu SP 0x%08X' % INIT_MSP,
         'cpu PC 0x%08X' % RESET_PC,
-        'start',
     ]
+    if usart2_tx:
+        # Control alone = a silent Main on the CTRL link; capture what the
+        # Control transmits on USART2 (its SLIP client) as raw bytes.
+        lines.append('sysbus.usart2 CreateFileBackend @%s true' % usart2_tx)
+    lines.append('start')
     return "\n".join(lines) + "\n"
 
 
-def run_boot(image_path, timeout=60.0, cadence=0.5):
+def slip_summary(raw):
+    """Split raw USART2 bytes into SLIP frames; return [(type, length)]."""
+    out = []
+    for f in raw.split(b"\xc0"):
+        if not f:
+            continue
+        d, i = bytearray(), 0
+        while i < len(f):
+            if f[i] == 0xDB and i + 1 < len(f):
+                d.append(0xC0 if f[i + 1] == 0xDC else 0xDB); i += 2
+            else:
+                d.append(f[i]); i += 1
+        out.append((d[0], len(d)))
+    return out
+
+
+def run_boot(image_path, timeout=60.0, cadence=0.5, usart2_tx=None):
     os.makedirs(OUT, exist_ok=True)
     log_path = os.path.join(OUT, "control_renode.log")
     report_path = os.path.join(OUT, "control_observe_report.md")
-    verdict, n = bootcore.execute(build_resc(image_path, log_path), log_path,
+    verdict, n = bootcore.execute(build_resc(image_path, log_path, usart2_tx), log_path,
                                   report_path, timeout=timeout, cadence=cadence)
     return report_path, verdict, n
 
@@ -68,6 +88,9 @@ def main():
     ap = argparse.ArgumentParser(description="Control stock boot runner")
     ap.add_argument("--timeout", type=float, default=60.0)
     ap.add_argument("--cadence", type=float, default=0.5)
+    ap.add_argument("--usart2-tx", action="store_true",
+                    help="capture the Control's USART2 TX (silent-Main test) "
+                         "to .private/control/usart2_tx.bin and summarise its SLIP frames")
     args = ap.parse_args()
 
     if not os.path.isfile(bootcore.RENODE):
@@ -78,12 +101,16 @@ def main():
         image = imagemap.resolve("control")
     except Exception as e:
         print("Control boot: no runnable Control image yet.\n  %s\n" % e)
-        print("Set image_map in local.config and fill images/manifest.yaml "
-              "image_sha256 for 'control'. See SECURITY.md.")
+        print("Set image_map and image_sha256.control in local.config. "
+              "See SECURITY.md.")
         sys.exit(2)
 
     print("Control boot: image %s" % image)
-    report, verdict, n = run_boot(image, timeout=args.timeout, cadence=args.cadence)
+    tx_path = os.path.join(OUT, "usart2_tx.bin") if args.usart2_tx else None
+    if tx_path and os.path.exists(tx_path):
+        os.remove(tx_path)
+    report, verdict, n = run_boot(image, timeout=args.timeout, cadence=args.cadence,
+                                  usart2_tx=tx_path)
     print("MMIO accesses: %d   verdict: %s" % (n, verdict.kind if verdict else "?"))
     if verdict and verdict.detail:
         print("  %s" % verdict.detail)
@@ -91,6 +118,12 @@ def main():
     open(os.path.join(OUT, "control_console.txt"), "w").write(
         bootcore.console_from_log(os.path.join(OUT, "control_renode.log")))
     print("report: %s   console: %s/control_console.txt" % (report, OUT))
+    if tx_path:
+        raw = open(tx_path, "rb").read() if os.path.exists(tx_path) else b""
+        frames = slip_summary(raw)
+        print("USART2 TX: %d bytes, %d SLIP frames: %s" % (
+            len(raw), len(frames),
+            ", ".join("0x%02X/%dB" % f for f in frames[:12]) or "none"))
 
 
 if __name__ == "__main__":
