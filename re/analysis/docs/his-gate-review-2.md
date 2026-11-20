@@ -445,3 +445,39 @@ A1 list MEDIUM in 00 conventions; A2 name the safety-constraint exception in 00;
 
 After R1–R15 are applied, a short re-check of the diff (not a full third
 read) is enough to clear.
+
+---
+
+## Changes for review 2
+
+Applied by the openg7250-emu session on `his/integrate`. The review was read
+against `da50bd6`; commit `5f7679c` (HIS-17/18/19 additions) came in between and
+is covered by the same changes. Review brought in as `81a8623` (cherry-pick of
+`c22cbba`).
+
+| # | Commit | Where | Change |
+| --- | --- | --- | --- |
+| R1 | c3c40a3 | new `his/85-rf-control.md` | Main RF control with a safe-state table: T/R lines PF4/PF6/PC7/PH11 (RX levels VERIFIED, roles HYPOTHESIS); SPI1 chain A (PA11 latch, PA10 OE, bit 7 T/R or PA enable) and chain B (PH12, PH10), OE active low (from the power-off path); ATU latches PD13/PG2/PG5; SPI2 BU2506FV-type DAC on PB13/PB15, LD PB12, RESET PB14, channel map, bias 2/7/8 at 0; DAC1 PA4; PTT PH6, key PH3/PH4; ADC1 pins; PD12 keep low. No trim targets, curves, fan law or conversion constants. |
+| R2 | c3c40a3 | 15 | Pointer to 85 for the safe state. |
+| R3 | c3c40a3 | 15 | "The only documented update path of the Main runs through the Control (VERIFIED, vendor guide); another entry unknown"; both transport candidates (Control → USART2; Main USART1) as HYPOTHESIS; 0025 rests on an unproven transport; CTRL and Control stay untouched until F1. |
+| R4 | c3c40a3 | 15 | Bootloader entry condition unknown; the application's jump is dead code (HIGH), so entry from reset is expected; F1 remains the gate. |
+| R5 | c3c40a3 | 15 | Rule 4 reason: read by the factory firmware at boot, bootloader use unknown (HYPOTHESIS); extended to the RTC backup registers. |
+| R6 | c3c40a3 | 15 | Evidence: no option-byte code in the application (VERIFIED); set in production or by the bootloader (inference). |
+| R7 | c3c40a3 | 15, 30 | "(at 0x0800)" dropped; "factory calibration and other factory-firmware data". |
+| R8 | c3c40a3 | 20 | PH9 power hold HYPOTHESIS; PH5 input HIGH, power-key wiring HYPOTHESIS; evidence reworded as model consistency, no stock power-key logic. |
+| R9 | c3c40a3 | 20 | Rail table: voltages HIGH, DCDC1 consumer MEDIUM, others HYPOTHESIS; rules: do not enable unlisted rails, do not exceed, do not switch DCDC1 off. |
+| R10 | c3c40a3 | 20 | Open: power-up path without the Control (H1/H2), to be measured (T0-P2). |
+| R11 | c3c40a3 | 40 | SPI6 pins PG12/PG13/PG14 (AF5), mode 0 MSB first, CS PG15, RST# PB5, INT# PC13; evidence as model consistency; CH394 datasheet cited. |
+| R12 | c3c40a3 | 50 | "48 kHz" and "I²S master at 48 kHz" removed; MCLK 12.288 MHz on PC9/I2S_CKIN (HIGH, not measured); also Main I²S3 pins and codec reset PB10 (A); analog audio over CTRL tagged HIGH (inference). |
+| R13 | c3c40a3 | 70 | PD5 TX / PD6 RX (AF7) on both MCUs; PD5 at idle level or high-impedance, never low. |
+| R14 | c3c40a3 | 80 | "version 1.0.0" removed; D2 evidence as consistency; 0x05/0x06, 0x09/0x0A "exist, role unknown, MUST NOT be sent"; NCO clock 122.88 MHz and sample rates MEDIUM; open: strobe polarity/timing, turnaround, 0x01 offsets and calibration bytes (A9); NCO folding as an interface requirement (A8). |
+| R15 | c3c40a3 | 60 (and 30) | "GT911 detected at 0x14" removed; the mock answers 0x14 by construction. |
+
+Also corrected (RE side, same commit): `his-18-19-update-path.md` and
+`his-gate-review-1.md` no longer say "the Main is updated only through the
+Control"; `main-control-interlink.md` updated for 0023 (A11).
+
+Advisories not applied (open for the gate): A1, A2, A3 (Control material only
+marked informative in 50 and 60), A4, A5, A6, A7, A10.
+
+Status: **not yet cleared**; ready for the diff re-check.
