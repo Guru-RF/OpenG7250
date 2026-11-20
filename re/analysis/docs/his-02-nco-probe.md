@@ -89,3 +89,36 @@ around. The frames stay at
 So the roles of the three words are still open, and the HIS stays as cleared.
 Next step on the emulator side: deliver USART2 RX to the Main (a circular-DMA
 shim for DMA1 Stream 2, like the metering feed), then rerun the probe.
+
+## Run 5 (2026-11-20, emu/integrate c1fdec3): roles told apart
+
+With the USART2 RX shim (`re/emu/docs/USART2-RX-shim.md`) the Main applies every
+settings image. Frames logged per step (last distinct frame; words decoded with
+f = word × 122.88 MHz / 2³²):
+
+| Step (settings sent) | Word @1 | Word @5 | Word @19 | Byte 18 |
+| --- | --- | --- | --- | --- |
+| A 7.100, B 14.200, A selected | 7.100 (A) | 14.200 (B) | 7.100 (A) | 0x12 |
+| A → 7.123456 | 7.123456 (A) | 14.200 (B) | 7.123456 (A) | 0x12 |
+| B → 21.300, A selected | 7.123456 | 14.200 (not yet resent) | 7.123456 | 0x12 |
+| select B | 21.300 (B) | 7.123456 (A) | 21.300 (B) | 0x32 |
+| select A, RIT +1000 Hz on | 7.124456 (A + RIT) | 21.301 (B + RIT) | 7.123456 (A, no RIT) | 0x12 |
+| RIT off, split on | 7.123456 (A) | 21.300 (B) | 7.123456 (A) | 0x12 |
+| split on, A → 3.600 | 3.600 (A) | 21.300 (B) | 3.600 (A) | 0x12 |
+
+Reading (RE side):
+- **Word @1** follows the selected VFO including RIT: the main receiver's tuning
+  (HIGH, from this run).
+- **Word @5** follows the other VFO, also including RIT: a second receiver's
+  tuning (HIGH).
+- **Word @19** follows the selected VFO **without** RIT, and split does not move
+  it in RX: most likely the transmit tuning word, with split applied only on the
+  switch to TX (HYPOTHESIS; TX and XIT were not exercised).
+- A change of the unselected VFO is not sent until the next frame that the
+  frequency-apply path triggers (row 3).
+- Byte 18 bit 5 is set while VFO B is selected (0x12 → 0x32); role unknown.
+- Byte 0 is 0x81 in the superloop (0xC1 at boot).
+
+Interface facts for the HIS (his/80): offsets 1 and 5 each set a receive-path
+tuning frequency independently; offset 19 is a third tuning word, most likely
+for the transmit path. The VFO/RIT/split behaviour above stays here.
