@@ -1,9 +1,10 @@
 # HIS 60 — Display and input
 
-**Evidence:** g7250-base control_unit docs (**rests on disassembly**). Emulator
-observations (re/emu M2): GT911 detected at 0x14 with INT on PE2; the stock
-Control reaches its GUI loop with LTDC and SDRAM mapped. Panel size and the
-input wiring are not yet measured on hardware.
+**Evidence:** g7250-base control_unit docs (**rests on disassembly**). Which
+GT911 address the fitted panel answers cannot be told from the code (the
+emulator's mock answers 0x14 by construction). Panel size and the input wiring
+are not yet measured on hardware. Informative; the Control is not driven under
+decision 0023.
 
 - **LTDC** drives a 1024×600 parallel RGB TFT.
 - External **SDRAM** on FMC bank 1 at 0xC0000000, 32 MiB.

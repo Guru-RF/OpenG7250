@@ -186,7 +186,7 @@ firmware is installable from the Main side without the Control). RE findings:
 - `20-power.md`: the Main powers the Control over CTRL; the power key reaches
   PH5 over CTRL (HYPOTHESIS); switching off is the Main's job.
 - `15-stock-recovery.md`: Main flash layout and image size; constraints for an
-  own installer of the factory image; the vendor path runs through the Control
+  own installer of the factory image; the only documented vendor path runs through the Control
   and must not be disabled; the FPGA configures from its own flash.
 
 These additions have not had a first review; the gate session reads them with

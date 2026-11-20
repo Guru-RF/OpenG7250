@@ -1,23 +1,49 @@
 # HIS 20 — Power
 
 **Evidence:** pins and the PMIC address from g7250-base `main_unit/docs`
-(**rests on disassembly**). Emulator observations (re/emu): the stock Main drives
-PH9 high and stays up with PH5 high (M8c PW-1 confirmation); the stock boot
-addresses I²C1 7-bit 0x34 (M1). CTRL power wiring: owner (HIGH); the power-key
-route to PH5: HYPOTHESIS (re/emu M8c, H1/H2). Rail voltages: the values the stock code writes
-(**rest on disassembly**), decoded with the AXP223 datasheet; not measured.
+(**rests on disassembly**). Emulator (re/emu M1, M8c), consistency with models
+built from the same disassembly, not hardware evidence: PH9 is configured as an
+output and PH5 as an input with pull-up; a device at 0x34 is addressed on
+I²C1. CTRL power wiring: owner (HIGH). Rail voltages: the values as programmed
+by the factory firmware (**rest on disassembly**), decoded with the AXP22x
+datasheet; not measured.
 
 - **PH9** is the power-hold output of the Main: high keeps the unit powered, low
-  drops power.
-- **PH5** is the power-key input, read with a pull-up. With no panel connected it
-  reads high. (Whether an external pull-up exists on the board is not measured;
-  the pull-up seen so far is the MCU's internal one.)
-- The Main powers the Control through the CTRL cable; PH9 low therefore also
-  removes the Control's supply. The panel's power key reaches the Main's PH5
-  over the CTRL cable.
+  drops power (HYPOTHESIS).
+- **PH5** is an input (HIGH) read with a pull-up, most likely the power key
+  (wiring HYPOTHESIS). With no panel connected it reads high. (Whether an
+  external pull-up exists on the board is not measured; the pull-up seen so far
+  is the MCU's internal one.)
+- The Main powers the Control through the CTRL cable (HIGH); PH9 low therefore
+  also removes the Control's supply. The panel's power key most likely reaches
+  PH5 over the CTRL cable (HYPOTHESIS).
 - **Switching off is the Main's job.** The Control has no power control over
   the Main. With the CTRL link idle (`70-interlink.md`), new Main firmware MUST
-  watch PH5 itself and, on a power-key press, bring the radio to a safe state
-  and drop PH9.
-- **AXP223 PMIC** on I²C1, 7-bit address 0x34. Rails the hardware needs: DCDC1
-  3.3 V, DCDC2 1.2 V, DCDC3 1.8 V, DCDC5 2.5 V, ALDO1 3.3 V, DLDO1 1.8 V.
+  watch PH5 itself and, on a power-key press, bring the radio to the safe state
+  (`85-rf-control.md`) and drop PH9.
+
+## AXP223 PMIC (I²C1, 7-bit 0x34)
+
+| Rail | Voltage (HIGH) | Consumer |
+| --- | --- | --- |
+| DCDC1 | 3.3 V | likely the MCU supply (MEDIUM) |
+| DCDC2 | 1.2 V | unknown (HYPOTHESIS) |
+| DCDC3 | 1.8 V | unknown (HYPOTHESIS) |
+| DCDC5 | 2.5 V | unknown (HYPOTHESIS) |
+| ALDO1 | 3.3 V | unknown (HYPOTHESIS) |
+| DLDO1 | 1.8 V | unknown (HYPOTHESIS) |
+
+Hardware-protection constraints for new firmware:
+- Rails not in this table (DCDC4, DC5LDO, ALDO2/3, ELDO1–3, DLDO2–4, DC1SW) are
+  off; their consumers, if any, are unknown. **MUST NOT** enable them.
+- **MUST NOT** set a listed rail above its stated value.
+- **MUST NOT** switch DCDC1 off while running (likely the MCU supply).
+
+## Open
+
+- Power-up path without the Control: the key switches the supply on in
+  hardware and the MCU holds it with PH9 (H1), or the MCU runs on standby power
+  and waits for PH5 (H2). HYPOTHESIS, to be measured (T0-P2 in the emulator
+  spec). Decision 0025 depends on it.
+- The AXP223's power-on default state (which rails are on before any I²C write)
+  per its datasheet/OTP: not yet stated.

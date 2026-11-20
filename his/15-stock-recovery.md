@@ -2,35 +2,66 @@
 
 **Requirement (ON8ST).** It must always be possible to reinstall the original
 factory firmware. New firmware therefore leaves the update path and the
-persistent storage the factory firmware depends on untouched.
+persistent storage the factory firmware depends on untouched. For the safe
+state of the RF section see `85-rf-control.md`.
 
-**Evidence:** g7250-base `main_unit/docs/peripherals.md`, `main_unit/docs/flow.md`
-and `control_unit/docs/peripherals.md` (**rest on disassembly**): updates are
-done by the bootloader in flash sector 0 after a reset, not by the application
-(HIGH); the option bytes are set in production or by the bootloader, not by the
-application (VERIFIED). The update transport of the Main is not yet known
-(HYPOTHESIS: a serial bootloader); the rollback drill on the real radio (F1 in
-the emulator spec) has to prove the path before the first flash of new firmware.
+**Evidence:** g7250-base `main_unit/docs/peripherals.md`, `main_unit/docs/flow.md`,
+`main_unit/docs/memory_map.md` and `control_unit/docs/peripherals.md` (**rest on
+disassembly**):
+- updates are done by the bootloader in flash sector 0 after a reset, not by
+  the application (HIGH for the Main; for the Control the absence of update
+  code is VERIFIED, the mechanism HYPOTHESIS);
+- the application contains no option-byte code (VERIFIED); the option bytes
+  are set in production or by the bootloader (inference);
+- the rollback drill on the real radio (F1 in the emulator spec) has to prove
+  the path before the first flash of new firmware.
 
 New firmware:
 
 1. **MUST NOT** write the bootloader region 0x08000000–0x0801FFFF.
 2. **MUST NOT** change the option bytes (RDP, WRP, BOOT_ADD and the others); a
    wrong value can lock or erase the MCU.
-3. **MUST** treat the 24Cxx EEPROM (I²C1 0x50) as read-only. It holds the
-   factory calibration (at 0x0800) and data of the factory firmware.
-4. **MUST NOT** use the Backup SRAM; the factory firmware keeps state there.
+3. **MUST** treat the 24Cxx EEPROM (I²C1 0x50) as read-only. It holds factory
+   calibration and other factory-firmware data.
+4. **MUST NOT** use the Backup SRAM or the RTC backup registers. The factory
+   firmware reads the Backup SRAM at boot, and the bootloader's use of the
+   backup domain is unknown (HYPOTHESIS).
 5. Keeps its own persistent data only in its own application flash, from
-   0x08020000 (`10-reset-clock.md`).
+   0x08020000 (`10-reset-clock.md`). Open check (not a rule): whether the
+   bootloader uses flash sector 6 as a staging area (HYPOTHESIS from unused
+   strings in the application); F1 settles it.
 
-With the first product (a headless Main with the stock Control), only the Main
-is reflashed; the Control keeps its factory firmware.
+Under decision 0023 only the Main is reflashed; the Control keeps its factory
+firmware.
+
+## Update path of the Main
+
+- **Documented path (VERIFIED, vendor update guide V1.0.1, public):** the only
+  documented update path of the Main runs through the Control: files on the
+  Control's USB drive, then the Control's update menu ([BL] held with
+  [POWER]). Whether the Main bootloader has another entry is unknown (the
+  bootloaders are not analysed).
+- **Transport, two candidates (HYPOTHESIS):**
+  1. the Control bootloader sends the image from its USB drive over the CTRL
+     link (USART2) to the Main bootloader;
+  2. the Main bootloader takes the image on the Main console USART1.
+- **Entry condition unknown.** What makes the Main bootloader enter update mode
+  instead of starting the application is not known. The application's own jump
+  to the bootloader is dead code (HIGH), so entry is expected from reset without
+  help from the application. F1 remains the gate.
+- **Consequence for decision 0025** (install stock and new firmware the same
+  way, from the Main, without the Control): it rests on an unproven transport.
+  If candidate 1 is the real path, the CTRL cable and the stock Control are part
+  of the recovery path. Until F1 settles it, new firmware MUST leave both the
+  CTRL link and the Control untouched (already required by 0023,
+  `70-interlink.md`) and MUST NOT disable the vendor path (rules 1 and 2 keep
+  sector 0 intact).
 
 ## Main flash
 
 **Evidence:** part STM32H725xG/H735xG (MEDIUM, **rests on disassembly**: HAL and
-clock evidence); flash organisation per the ST datasheet. Image extent: the
-factory image V1.0.1 file (VERIFIED: base plus file size).
+clock evidence); flash organisation per the ST datasheet (so MEDIUM as well).
+Image extent: the factory image V1.0.1 file (VERIFIED: base plus file size).
 
 | Range | Sectors (128 KiB) | Content |
 | --- | --- | --- |
@@ -51,19 +82,10 @@ Main image (a flat image for 0x08020000) without the Control. Such an installer:
    and 2);
 3. receives the image in parts (for example one sector at a time over
    Ethernet), since it does not fit in RAM;
-4. leaves the vendor update path through the Control usable as the fallback if
-   a transfer breaks.
+4. leaves the vendor path usable as the fallback if a transfer breaks.
 
 Not yet known, to be proven on the radio before relying on it: whether the
 vendor bootloader starts an application it did not write itself.
-
-## The vendor update path
-
-The vendor path updates the Main only through the Control unit: files on the
-Control's USB drive, then the Control's update menu ([BL] held with [POWER])
-(vendor update guide V1.0.1, public). It depends on sector 0 of both MCUs and
-on the CTRL cable. New Main firmware MUST NOT disable it; rules 1 and 2 keep it
-intact. How the Main's bootloader is entered and fed is not known.
 
 ## FPGA
 

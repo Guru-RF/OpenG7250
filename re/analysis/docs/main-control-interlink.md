@@ -1,10 +1,10 @@
 # Main↔Control inter-link (stock protocol)
 
 RE-side record of the stock protocol between the Main and Control MCUs. Moved
-out of the HIS at gate review 1 (decision D6, ON8ST, 2026-11-20): the first
-product is a headless Main without a stock Control, so new firmware does not
-need to speak this protocol. The HIS keeps only the wiring (`his/70-interlink.md`:
-Main USART2 ↔ Control USART2 over the CTRL cable).
+out of the HIS at gate review 1 (decision D6, ON8ST, 2026-11-20). Under
+decision 0023 only the Main is replaced, the stock Control stays in the radio
+and the CTRL link stays idle, so new firmware does not speak this protocol. The
+HIS keeps only the wiring and the idle-link rules (`his/70-interlink.md`).
 
 Full analysis: `docs/protocol.md` in fventuri/g7250-base (snapshot 18c9164),
 which this summary follows.

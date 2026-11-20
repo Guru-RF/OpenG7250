@@ -41,6 +41,7 @@ does not read `his/` until the review is marked cleared.
 - `60-display-input.md` — display, SDRAM, touch, keys, encoders
 - `70-interlink.md`     — Main↔Control serial link (wiring)
 - `80-rf-fpga.md`       — FPGA bus on GPIOE
+- `85-rf-control.md`    — Main RF control: T/R, filters, PA bias DAC, metering; safe state
 
 ## Rules
 

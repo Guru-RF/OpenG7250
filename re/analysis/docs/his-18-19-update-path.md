@@ -11,7 +11,7 @@ Hardware facts and constraints from this note go into `his/15-stock-recovery.md`
 
 ## 1. How the stock path updates the Main today
 
-**Through the Control (VERIFIED, vendor guide steps 3–15).**
+**Documented path: through the Control (VERIFIED, vendor guide steps 3–15).**
 1. Connect a PC to the rear USB port of the Control unit; the radio shows a
    USB drive of about 16 MB (the Control's W25Qxx SPI flash, exposed as mass
    storage by the Control application).
@@ -32,7 +32,9 @@ bootloader. A USART1 console path is the alternative. The Main has no USB
 connector; the Main application has no LAN update code, and nothing suggests the
 bootloader uses the CH394.
 
-**Answer.** Today the Main is updated **only through the Control**.
+**Answer.** The only documented update path of the Main runs through the
+Control (VERIFIED, vendor guide). Whether the Main bootloader has another entry
+is unknown (the bootloaders are not analysed).
 
 ## 2. Entering and feeding the Main bootloader without the Control
 

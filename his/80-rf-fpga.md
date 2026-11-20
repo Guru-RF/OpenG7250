@@ -2,10 +2,10 @@
 
 **Evidence:** signals and command codes from g7250-base peripherals doc
 (VERIFIED in the firmware analysis, i.e. **rests on disassembly**). Emulator
-observation (re/emu D2): with a fused GPIOE+FPGA model that implements this
-bus, the stock Main completes its FPGA bus check with zero bus errors and reads
-version 1.0.0 and DRDY-paced RX I/Q. The NCO clock and the absolute sample rate
-are not measured.
+(re/emu D2): a fused GPIOE+FPGA model of this bus, built from the same
+disassembly, is accepted by the factory image; this is consistency, not hardware
+evidence, and the real FPGA version is unknown. The NCO clock and the absolute
+sample rate are not measured.
 
 The RF I/Q front end is an **FPGA reached over an 8-bit parallel bus on GPIOE**
 (no FMC), driven by the MCU in software.
@@ -26,10 +26,19 @@ The RF I/Q front end is an **FPGA reached over an 8-bit parallel bus on GPIOE**
 | 0x02 | status read (flag bits + three 16-bit values incl. ADC peak) |
 | 0x03 | TX I/Q write — two signed 24-bit values per sample |
 | 0x04 | RX I/Q read — two signed 24-bit values per sample, 8/4/2/1 per DRDY for rate index 0–3 |
+| 0x05/0x06, 0x09/0x0A | exist (two pulse commands); role unknown. **MUST NOT** be sent |
 | 0x08 | 3-byte FPGA version read |
 
 ## Timing / data
-- **NCO:** 32-bit phase words for a 122.88 MHz clock (f × 2³² / 122.88 MHz),
-  frequency folded into 0–61.44 MHz with a spectral-inversion flag.
+- **NCO:** 32-bit phase words, f × 2³² / f_clk (formula VERIFIED), with
+  f_clk = 122.88 MHz (MEDIUM). The FPGA takes a phase word for the first Nyquist
+  zone (0 to f_clk/2) plus a spectral-inversion flag in the frame.
 - **Sample rate:** rate index 0–3 → 384/192/96/48 kS/s I/Q; DRDY (PE10) at
-  ~48 kHz. (Absolute rate unmeasured.)
+  ~48 kHz (MEDIUM; absolute rate unmeasured).
+
+## Open
+
+- Strobe polarity and timing, and bus turnaround (who drives D0–D7 when): not
+  measured. Bus contention is a hardware risk.
+- Byte offsets of the 0x01 frame, and the meaning and safe values of its
+  per-rate calibration bytes: unknown.
