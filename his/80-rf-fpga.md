@@ -42,8 +42,10 @@ The RF I/Q front end is an **FPGA reached over an 8-bit parallel bus on GPIOE**
 
 - Strobe polarity and timing, and bus turnaround (who drives D0–D7 when): not
   measured. Bus contention is a hardware risk.
-- Byte offsets of the 0x01 frame, and the meaning and safe values of its
-  per-rate calibration bytes: unknown.
+- 0x01 frame: the meaning of bytes 9–18 and safe values for the per-rate
+  calibration bytes among them are unknown; the meaning of the flag bits in
+  byte 0 is unknown; the position of the spectral-inversion flag in the frame
+  is unknown.
 - The three NCO words (at byte offsets 1, 5 and 19): two of them set tuning
   frequencies of the receive path (MEDIUM); which offset has which role is
   unknown. Needs a bus capture (`90-needs-hardware.md`).
