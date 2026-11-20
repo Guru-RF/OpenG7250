@@ -70,7 +70,10 @@ Image extent: the factory image V1.0.1 file (VERIFIED: base plus file size).
 
 - The factory Main image V1.0.1 is a flat image for 0x08020000 of 453 152 bytes
   (sectors 1–4). Two such images do not fit in the application area.
-- RAM (320 KiB AXI SRAM) is smaller than the image.
+- No single RAM region holds the image. The AXI SRAM is 320 KiB as shipped
+  (stack top seen); on the H72x its size depends on the TCM/AXI shared-RAM option
+  bytes, which new firmware MUST NOT change (rule 2). DTCM and D2 SRAM add RAM,
+  but not contiguously.
 
 ## Installing the factory firmware from the new firmware
 
@@ -82,7 +85,9 @@ Main image (a flat image for 0x08020000) without the Control. Such an installer:
    and 2);
 3. receives the image in parts (for example one sector at a time over
    Ethernet), since it does not fit in RAM;
-4. leaves the vendor path usable as the fallback if a transfer breaks.
+4. never touches sector 0, so the vendor path stays available after a broken
+   transfer, provided the Main bootloader accepts an image when there is no
+   valid application (unknown: the entry condition above; F1).
 
 Not yet known, to be proven on the radio before relying on it: whether the
 vendor bootloader starts an application it did not write itself.

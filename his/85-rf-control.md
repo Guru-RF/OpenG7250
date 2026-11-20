@@ -25,12 +25,13 @@ section, and return to it whenever it is not transmitting.
 | SPI2 PA DAC | RESET PB14 | PB14 low forces all outputs to VrefL; bias channels 2, 7, 8 at 0 whenever not transmitting | VERIFIED |
 | DAC1 OUT1 | PA4 | RF-gain control voltage; safe level unknown | VERIFIED (pin) |
 | PD12 | PD12 | unknown output (TIM4_CH1 capable); keep low | HIGH (pin); role unknown |
+| PA12 | PA12 | unknown output; no safe level known | VERIFIED (output); role unknown |
 | CH394 | RST# PB5 | held low (in reset) until the product brings it up (`40-ethernet.md`) | VERIFIED |
 | Main codec | reset PB10 | held in reset unless used (`50-audio.md`) | VERIFIED |
 | USART2 TX | PD5 | idle level, never low (`70-interlink.md`) | VERIFIED (pin) |
 
 The output-enable lines PA10 and PH10 are active low: high disables the
-shift-register outputs (VERIFIED from the power-off path). The chip type behind
+shift-register outputs (HIGH: interpretation of the power-off writes). The chip type behind
 them is of the 74HC595 kind (HYPOTHESIS).
 
 ## SPI1 — filter and switch shift registers (HIGH)
@@ -95,5 +96,9 @@ this spec; they must be established by calibration on the radio.
 - OE polarity (both chains) is taken only from the power-off path; strobe and
   latch timing of the shift registers and the DAC: per datasheet once the parts
   are identified on the board.
-- Function of each T/R line, of DAC channel 5 and of PD12.
+- Function of each T/R line, of DAC channel 5, of PD12 and of PA12.
+- Pin state between reset and the product's GPIO init (and while the bootloader
+  runs): the MCU pins are high-impedance. Whether board pull-ups hold PA10/PH10
+  inactive and the T/R lines at RX levels is not known. New firmware SHOULD set
+  these pins first in its startup.
 - Safe values for the ATU latches and for DAC1 OUT1.

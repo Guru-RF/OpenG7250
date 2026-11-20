@@ -18,9 +18,13 @@ datasheet; not measured.
   also removes the Control's supply. The panel's power key most likely reaches
   PH5 over the CTRL cable (HYPOTHESIS).
 - **Switching off is the Main's job.** The Control has no power control over
-  the Main. With the CTRL link idle (`70-interlink.md`), new Main firmware MUST
-  watch PH5 itself and, on a power-key press, bring the radio to the safe state
-  (`85-rf-control.md`) and drop PH9.
+  the Main (HIGH: firmware analysis only, wiring not traced; a power-hold role of
+  the Control's PCA9557 bit 5 is not excluded). With the CTRL link idle
+  (`70-interlink.md`), new Main firmware MUST watch PH5 itself and, on a
+  power-key press, bring the radio to the safe state (`85-rf-control.md`) and
+  drop PH9. A key press is PH5 low, pulled down by the key against the pull-up
+  (HYPOTHESIS); debounce and hold time are the product's choice. This rule rests
+  on two hypotheses: PH5 is the power key and PH9 is the power hold.
 
 ## AXP223 PMIC (I²C1, 7-bit 0x34)
 
