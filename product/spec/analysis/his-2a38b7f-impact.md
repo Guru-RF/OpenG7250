@@ -142,3 +142,16 @@ with the streaming installer and no rollback. Recommendation: A/B, which keeps U
   a bootloader entry without the Control).
 - HIS-17 (power): power-up without the Control (HIS 20 "Open").
 - HIS-07/11/12: timing and calibration values, once measured.
+
+## 6. Addendum: follow-up answers at `d0a39b0` (gate review 3)
+
+| HIS | Answer | Spec consequence |
+|---|---|---|
+| 02 | Two of the three NCO words tune the receive path (MEDIUM); third word and order need a bus capture (HIS 80, 90). | One DDC stays (0004). Pending hardware. |
+| 06 | ANT1/ANT2 on the rear; selection most likely PD13 latch bits 4–5 (MEDIUM), no safe value; latch unwritten (HIS 85). | Antenna selection shares the ATU latch: like the ATU (0032), not selectable until confirmed; `ANT_STATE` reads 0 "unknown". Pending hardware. |
+| 15 | MAC address from the CH394's own registers; uniqueness unverified (HIS 40). | Discovery and identification report the CH394's MAC. Pending hardware: uniqueness. |
+| 16 | Public vendor update guide: Radioddity "Extended manual for Xiegu G7250 v1.0.1" (HIS 15). | Cite in `sources.md`; A1.8a item 9. |
+| 17 | Power-up without the Control needs hardware (HIS 20, 90). | Pending hardware (0029). |
+| 19 | F1 drill and safe step order in HIS 90. | Pending hardware (0028). |
+| 20 | True RNG present on both candidate parts (HIS 10, HIGH). | A1.10 challenges and the arm token use the hardware RNG. |
+| — | IWDG start mode open (HIS 10, 90); SWD on PA13/PA14. | Firmware only. |

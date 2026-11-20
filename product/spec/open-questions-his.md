@@ -1,6 +1,6 @@
 # Open questions for the hardware-interface spec (HIS)
 
-Questions that only the hardware-interface spec (`g7250-his`, now `his/` in the umbrella repository) can answer. The HIS was cleared by gate review 2 on 2026-11-20 and answered at commit `2a38b7f`; each question below carries its status. This repository
+Questions that only the hardware-interface spec (`g7250-his`, now `his/` in the umbrella repository) can answer. The HIS was cleared by gate review 2 on 2026-11-20 and answered at commit `2a38b7f`; the answers to the follow-up questions passed gate review 3 at `d0a39b0`. Each question below carries its status; "pending hardware" means only the radio can settle it (HIS 90). This repository
 does not look for the answers itself (AGENTS.md rules 1 and 7). Each question says why we
 need it, which decision or milestone waits for it, and what public sources already say.
 
@@ -26,7 +26,7 @@ Priority: **M1** = needed for milestone M1 (discovery, capability block, RX-IQ);
 
 ### HIS-02 — Number of receivers (M1)
 
-- **HIS answer** ([HIS] `2a38b7f`): partly (HIS 80); see `analysis/his-2a38b7f-impact.md` §2.
+- **HIS answer** ([HIS] `d0a39b0`): partly (HIS 80): two of the three NCO words set receive-path tuning frequencies (MEDIUM); the third word and the order need a bus capture on the radio (HIS 90). Pending hardware.
 - Question: how many independent receive channels (DDCs) can the main unit run at the same
   time?
 - Why: P2 reports the number of DDCs in the discovery reply [P2]. Each DDC adds one I&Q
@@ -64,7 +64,7 @@ Priority: **M1** = needed for milestone M1 (discovery, capability block, RX-IQ);
 
 ### HIS-06 — Antenna switching (M2)
 
-- **HIS answer** ([HIS] `2a38b7f`): open (not in the HIS); see `analysis/his-2a38b7f-impact.md` §2.
+- **HIS answer** ([HIS] `d0a39b0`): partly (HIS 85): two rear ports ANT1/ANT2 (SO-239, 50 Ω, VERIFIED); selection most likely bits 4–5 of the PD13 ATU latch (MEDIUM), no known safe value, latch left unwritten until confirmed. Pending hardware.
 - Question: how are ANT1 and ANT2 selected, and what is the state after power-on and after
   a fault?
 - Why: G7250 register map (0005); safe receive default state for a host that has not armed
@@ -192,14 +192,14 @@ Priority: **M1** = needed for milestone M1 (discovery, capability block, RX-IQ);
 
 ### HIS-15 — MAC address (M1)
 
-- **HIS answer** ([HIS] `2a38b7f`): open (not in the HIS); see `analysis/his-2a38b7f-impact.md` §2.
+- **HIS answer** ([HIS] `d0a39b0`): partly (HIS 40): the CH394 provides the MAC address in its own register set; the factory firmware stores none in the EEPROM (HIGH). Uniqueness per unit not verified. Pending hardware.
 - Question: where is the MAC address stored, and is it unique per unit?
 - Why: the P2 discovery reply carries the MAC address [P2].
 - Added by 0008: is there a unique serial number besides the MAC address?
 
 ### HIS-16 — Public sources on the network interface (M1)
 
-- **HIS answer** ([HIS] `2a38b7f`): open (not in the HIS); see `analysis/his-2a38b7f-impact.md` §2.
+- **HIS answer** ([HIS] `d0a39b0`): partly (HIS 15): the public vendor update guide is Radioddity's "Extended manual for Xiegu G7250 v1.0.1" in the V1.0.1 release package on radioddity.com/pages/xiegu-download. The network-reception sources are not answered.
 - Question: which public sources document the network interface of the G7250? ON8ST
   mentions a video by the YouTube channel "Temporarily Offline", and [G7250-MAN] refers to a
   "G7250 HDSDR Network Reception Tutorial". Links, please.
@@ -210,6 +210,7 @@ Priority: **M1** = needed for milestone M1 (discovery, capability block, RX-IQ);
 ### HIS-17 — The CTRL link (M2, M4)
 
 - **HIS answer** ([HIS] `2a38b7f`): answered (HIS 20, 50, 70); see `analysis/his-2a38b7f-impact.md` §2.
+- **Update** ([HIS] `d0a39b0`): power-up without the Control needs hardware (HIS 20, HIS 90 observation T0-P2). Pending hardware.
 - Question: what does the 15-pin CTRL cable between main unit and controller carry? In
   particular: can the main unit send audio to the controller's speaker, and can it receive
   microphone audio, PTT and Morse key from the controller? What happens on the main unit when
@@ -256,6 +257,7 @@ Priority: **M1** = needed for milestone M1 (discovery, capability block, RX-IQ);
 ### HIS-19 — Firmware loading and recovery (M5)
 
 - **HIS answer** ([HIS] `2a38b7f`): answered, with unknowns (HIS 15); see `analysis/his-2a38b7f-impact.md` §2.
+- **Update** ([HIS] `d0a39b0`): the F1 drill and its safe step order are in HIS 90 (SWD read-only first, backup only at RDP level 0). Pending hardware.
 - Question: how is firmware loaded into the main unit, is there a boot loader that survives
   a failed update, and can an update be done over the network?
 - Why: firmware update over the management channel (0001 spec section 10, 0008); P2 also has
@@ -275,7 +277,7 @@ Priority: **M1** = needed for milestone M1 (discovery, capability block, RX-IQ);
 
 ### HIS-20 — Source of randomness (M5)
 
-- **HIS answer** ([HIS] `2a38b7f`): open (not in the HIS); see `analysis/his-2a38b7f-impact.md` §2.
+- **HIS answer** ([HIS] `d0a39b0`): answered (HIS 10): both candidate Main parts (STM32H725xG, H735xG) have a true random-number generator per the ST datasheet (HIGH for present).
 - Question: is there a hardware random-number generator or an equivalent entropy source?
 - Why: challenges for the management channel (0008) and the per-session TX arm token (0007).
 
