@@ -12,15 +12,13 @@
 
 ## Open integration steps
 
-- Add `g7250-emu` as submodule `re/emu/` once its current work is finished, and
-  switch its data pin (`deps/g7250-base.lock`) from `g7250-base` to `re/analysis`,
-  with a regression run.
-- Gate review of `his/` done: cleared by gate review 2
-  (`re/analysis/docs/his-gate-review-2.md`; review 1 in
-  `re/analysis/docs/his-gate-review-1.md`). The product side may read `his/`.
-  From now on every change to `his/` goes through the gate before the product
-  side reads it.
-- Create `g7250-testbench` and `g7250-firmware` with their own remotes and add
-  them as submodules. (`g7250-spec` is merged into `product/spec/`.)
-- Decide which parts of the emulator's current harness and tests move to
-  `g7250-testbench`.
+- Gate review of `his/` done: cleared at `d0a39b0` by gate review 3
+  (`re/analysis/docs/his-gate-review-3.md`; reviews 1 and 2 in the same
+  folder). The product side may read `his/`. From now on every change to `his/`
+  goes through the gate before the product side reads it.
+- Create `g7250-firmware` with its own remote and add it as a submodule.
+  (`g7250-spec` is merged into `product/spec/`.)
+- Start `testbench/` in the tree. It is written from `product/spec/` and `his/`
+  only, so the product side may read it; emulator tests that rely on stock
+  behaviour stay in `re/emu/`. Decide which parts of the emulator's current
+  harness and tests move to `testbench/`.

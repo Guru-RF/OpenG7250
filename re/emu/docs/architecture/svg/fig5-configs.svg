@@ -1,0 +1,97 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 470" font-family="Helvetica, Arial, sans-serif" font-size="11">
+  <defs>
+    <marker id="c5" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 Z" fill="#2b3a4a"/></marker>
+    <marker id="c5b" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 Z" fill="#4a6b8a"/></marker>
+  </defs>
+  <style>
+    .cfg{fill:#f4f7fa;stroke:#2b3a4a;stroke-width:1.5;}
+    .pri{fill:#dfe9f2;stroke:#2b3a4a;stroke-width:2.2;}
+    .m{fill:#cfe0ee;stroke:#2b3a4a;stroke-width:1.2;}
+    .stock{fill:#e9e2d6;stroke:#6b5333;stroke-width:1.2;}
+    .ext{fill:#fff;stroke:#2b3a4a;stroke-width:1.2;stroke-dasharray:4 3;}
+    .t{fill:#17222e;} .tt{fill:#17222e;font-weight:bold;}
+    .l{fill:#33506a;font-size:9px;}
+    .net{stroke:#4a6b8a;stroke-width:2;fill:none;}
+    .link{stroke:#8a4b16;stroke-width:1.6;fill:none;}
+    .cap{fill:#55707f;font-size:9px;}
+    .tag{fill:#17222e;font-weight:bold;font-size:10px;}
+  </style>
+
+  <text class="tt" x="360" y="20" text-anchor="middle" font-size="14">Test configurations — EH (headless Main) is the primary target (§3.7)</text>
+
+  <!-- EH primary -->
+  <rect class="pri" x="20" y="36" width="430" height="190" rx="6"/>
+  <text class="tag" x="35" y="54">EH — NF-Main headless (primary)</text>
+  <rect class="m" x="40" y="66" width="150" height="80" rx="5"/>
+  <text class="tt" x="115" y="86" text-anchor="middle">NF-Main</text>
+  <text class="l" x="115" y="102" text-anchor="middle">clean-room firmware</text>
+  <text class="l" x="115" y="116" text-anchor="middle">on machine: main</text>
+  <text class="l" x="115" y="132" text-anchor="middle">no Control attached</text>
+  <!-- VLAN -->
+  <rect class="ext" x="220" y="76" width="90" height="60" rx="5"/>
+  <text class="t" x="265" y="100" text-anchor="middle">CH394</text>
+  <text class="l" x="265" y="114" text-anchor="middle">VLAN (in-emu)</text>
+  <text class="l" x="265" y="128" text-anchor="middle">UDP · WOL</text>
+  <!-- SDR host -->
+  <rect class="ext" x="330" y="66" width="105" height="80" rx="5"/>
+  <text class="tt" x="382" y="86" text-anchor="middle">SDR host</text>
+  <text class="l" x="382" y="102" text-anchor="middle">AetherSDR /</text>
+  <text class="l" x="382" y="114" text-anchor="middle">other software</text>
+  <text class="l" x="382" y="132" text-anchor="middle">+ reference host</text>
+  <line class="net" x1="190" y1="106" x2="218" y2="106" marker-end="url(#c5b)"/>
+  <line class="net" x1="310" y1="106" x2="328" y2="106" marker-end="url(#c5b)"/>
+  <line class="net" x1="328" y1="120" x2="312" y2="120" marker-end="url(#c5b)"/>
+  <text class="l" x="360" y="166" text-anchor="middle">P1 (OpenHPSDR) · TCI · optional CI-V over LAN</text>
+  <text class="l" x="235" y="182" text-anchor="middle">power modes PW-2…PW-8 · sleep / wake / Wake-on-LAN</text>
+  <text class="l" x="235" y="196" text-anchor="middle">safety oracles as hard faults · deterministic VT</text>
+  <text class="cap" x="235" y="214" text-anchor="middle">conformance tier L4a (critical path) — Q-CONF(P1)=100% critical, Q-CONF(TCI)≥95%</text>
+
+  <!-- SS baseline -->
+  <rect class="cfg" x="470" y="36" width="230" height="190" rx="6"/>
+  <text class="tag" x="485" y="54">SS — stock + stock (baseline)</text>
+  <rect class="stock" x="486" y="66" width="95" height="70" rx="5"/>
+  <text class="tt" x="533" y="90" text-anchor="middle">stock Main</text>
+  <text class="l" x="533" y="106" text-anchor="middle">machine: main</text>
+  <rect class="stock" x="595" y="66" width="95" height="70" rx="5"/>
+  <text class="tt" x="642" y="90" text-anchor="middle">stock Control</text>
+  <text class="l" x="642" y="106" text-anchor="middle">machine: control</text>
+  <line class="link" x1="581" y1="101" x2="595" y2="101"/>
+  <text class="l" x="588" y="150" text-anchor="middle">LinkCable + CtrlCable</text>
+  <text class="cap" x="585" y="172" text-anchor="middle">validates the hardware models;</text>
+  <text class="cap" x="585" y="186" text-anchor="middle">"runs perfectly" (A1–A12);</text>
+  <text class="cap" x="585" y="200" text-anchor="middle">reference per vendor release (§7)</text>
+
+  <!-- ES -->
+  <rect class="cfg" x="20" y="250" width="330" height="180" rx="6"/>
+  <text class="tag" x="35" y="268">ES — NF-Main + stock Control attached (low-priority robustness)</text>
+  <rect class="m" x="40" y="282" width="120" height="60" rx="5"/>
+  <text class="tt" x="100" y="304" text-anchor="middle">NF-Main</text>
+  <text class="l" x="100" y="320" text-anchor="middle">must stay safe</text>
+  <rect class="stock" x="210" y="282" width="120" height="60" rx="5"/>
+  <text class="tt" x="270" y="304" text-anchor="middle">stock Control</text>
+  <text class="l" x="270" y="320" text-anchor="middle">unmodified</text>
+  <line class="link" x1="160" y1="312" x2="208" y2="312" marker-end="url(#c5)"/>
+  <line class="link" x1="208" y1="326" x2="162" y2="326" marker-end="url(#c5)"/>
+  <text class="cap" x="185" y="362" text-anchor="middle">S-ES1…S-ES3: no stray TX, stock settings intact (E-B2/E-B3).</text>
+  <text class="cap" x="185" y="378" text-anchor="middle">The stock head cannot drive the NF-Main — safety test only.</text>
+  <text class="cap" x="185" y="398" text-anchor="middle">brick checks E-B1 (roll-back) run from here.</text>
+
+  <!-- EE -->
+  <rect class="cfg" x="370" y="250" width="330" height="180" rx="6"/>
+  <text class="tag" x="385" y="268">EE — NF-Main + NF-Control (optional later track)</text>
+  <rect class="m" x="390" y="282" width="120" height="60" rx="5"/>
+  <text class="tt" x="450" y="304" text-anchor="middle">NF-Main</text>
+  <text class="l" x="450" y="320" text-anchor="middle">own firmware</text>
+  <rect class="m" x="560" y="282" width="120" height="60" rx="5"/>
+  <text class="tt" x="620" y="304" text-anchor="middle">NF-Control</text>
+  <text class="l" x="620" y="320" text-anchor="middle">own firmware</text>
+  <line class="net" x1="510" y1="312" x2="558" y2="312" marker-end="url(#c5b)"/>
+  <line class="net" x1="558" y1="326" x2="512" y2="326" marker-end="url(#c5b)"/>
+  <text class="l" x="535" y="300" text-anchor="middle">NF-link</text>
+  <text class="cap" x="535" y="362" text-anchor="middle">own redesigned inter-unit link with version negotiation;</text>
+  <text class="cap" x="535" y="378" text-anchor="middle">versions need not match (graceful degradation).</text>
+  <text class="cap" x="535" y="398" text-anchor="middle">Not on the critical path (M13).</text>
+
+  <text class="cap" x="360" y="452" text-anchor="middle">Critical path: SS baseline → EH (NF-Main headless) → HIL. ES and EE strengthen/extend but do not gate the first release.</text>
+  <text class="cap" x="360" y="465" text-anchor="middle">Source: emulator spec §2, §3.7, §8.3, §10, §14.</text>
+</svg>

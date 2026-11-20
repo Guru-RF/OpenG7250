@@ -1,0 +1,15 @@
+// g7250_main_i2c1_func.repl — Main I2C1 slaves with a FUNCTIONAL EEPROM.
+//
+// Like g7250_main_i2c1_mock.repl, but the EEPROM at 0x50 is the clean-room
+// functional model G7250Eeprom24C (compiled into Renode first via
+// `i @models/csharp/G7250Slaves.cs`), so the Main's settings loader reports
+// "[OK] Settings data successfully loaded from EEPROM" instead of the dummy's
+// "[ERR] ... incorrect". The other devices stay DummyI2CSlave (their data does
+// not gate the boot). Load AFTER g7250_main.repl AND after the `i` include.
+ee_func:      Antmicro.Renode.Peripherals.I2C.G7250Eeprom24C @ i2c1 0x50
+i2c1_axp223:  Mocks.DummyI2CSlave @ i2c1 0x34
+i2c1_axp_1a:  Mocks.DummyI2CSlave @ i2c1 0x1A
+i2c1_axp_0d:  Mocks.DummyI2CSlave @ i2c1 0x0D
+i2c1_aic3204: Mocks.DummyI2CSlave @ i2c1 0x18
+i2c1_vc6_68:  Mocks.DummyI2CSlave @ i2c1 0x68
+i2c1_vc6_6a:  Mocks.DummyI2CSlave @ i2c1 0x6A
