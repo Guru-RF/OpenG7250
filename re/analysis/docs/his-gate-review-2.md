@@ -566,3 +566,18 @@ Advisory, not blocking:
 all applied correctly, and nothing new leaks stock behaviour. N1–N3 are small
 and local (70, 20, 15). Once they are applied, a check of that diff alone is
 enough to mark the HIS **CLEARED**; no further full read is needed.
+
+## Changes for the re-check
+
+| # | Commit | Where | Change |
+| --- | --- | --- | --- |
+| N1 | 89f5b5d | 70 | Rule 3 tagged MEDIUM; emulator run marked incomplete (no periodic TX); panel behaviour to be confirmed on hardware. |
+| N2 | 89f5b5d | 20 | "No power control over the Main" HIGH (firmware analysis; PCA9557 bit 5 not excluded); the MUST rests on two hypotheses; key press = PH5 low against the pull-up (HYPOTHESIS), no stock timing. |
+| N3 | 89f5b5d | 15 | Installer item 4 conditional: vendor path after a broken transfer only if the bootloader accepts an image without a valid application (unknown; F1). |
+| A12 | 89f5b5d | 15 | "No single RAM region holds the image"; AXI SRAM size depends on the TCM/AXI option bytes (rule 2). |
+| A13 | 89f5b5d | 85 | Open: pin state between reset and init, board pull-ups unknown; set these pins first. |
+| A14 | 89f5b5d | 85 | PA12 listed as an unknown output. |
+| A15 | 89f5b5d | 85 | OE polarity HIGH (interpretation of the power-off writes). |
+
+Re-check brought in as `7a9bc6f` (cherry-pick of `12bb91d`). Status: **not
+yet cleared**; ready for the check of this diff.
