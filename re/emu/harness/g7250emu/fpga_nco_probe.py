@@ -131,21 +131,21 @@ def main():
         s = socket.create_connection(("127.0.0.1", PORT), timeout=10)
         # The boot continues after "Check complete!" (bias trim, final RX set-up)
         # before the superloop applies 0x01 images. Keep sending the base image
-        # until the console grows past the FPGA check (the superloop logs the
-        # fields it applies), then start the steps.
+        # until the superloop starts, then start the steps.
         base = settings_frame(*STEPS[0][1:])
         limit = float(os.environ.get("NCO_LOOP_TIMEOUT", "3600"))
         t1 = time.time()
 
-        def after_check():
-            txt = open(console, errors="replace").read()
-            i = txt.find("Check complete!")
-            return -1 if i < 0 else len(txt) - (i + len("Check complete!"))
-        while after_check() <= 40:
+        # "Init Radio Server" is printed right before the superloop starts
+        # (after the bias trim); wait for it, then a few seconds more.
+        while "Init Radio Server" not in open(console, errors="replace").read():
             if time.time() - t1 > limit:
                 print("nco probe: superloop not reached within %.0f s" % limit); break
             s.sendall(base); time.sleep(0.02)
-        print("console grew after %.0f s host time" % (time.time() - t1))
+        print("superloop start seen after %.0f s host time" % (time.time() - t1))
+        t2 = time.time()
+        while time.time() - t2 < 10:
+            s.sendall(base); time.sleep(0.02)
         hold = float(os.environ.get("NCO_STEP_HOLD", "20"))
         for i, st in enumerate(STEPS):
             fr = settings_frame(*st[1:])
