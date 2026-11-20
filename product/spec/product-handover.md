@@ -71,7 +71,10 @@ Still open:
    after its gate.
 2. Go for an AetherSDR RFC issue (annex Q-O1); shared P2 refactor vs. self-contained backend
    (Q-O2).
-3. Go to create `product/refmodel/` and the `g7250-testbench` submodule (0019).
+3. Go to create `product/refmodel/` and the `g7250-testbench` submodule (0019), and
+   `product/tools/g7250ctl/` (the management CLI, 0026).
+4. Review of the proposed decisions 0025 (one installation path on the main unit) and 0026
+   (firmware management on the host side).
 
 Watch TAPR/OpenHPSDR-Firmware#6 for a reply on board type 200.
 

@@ -56,6 +56,17 @@ framing (0020 §27).
 A1.1 **Purpose.** The management channel carries identification, configuration, logs and
 firmware update, on a connection separate from G7250-P2 and TCI (0001 spec section 10; 0008).
 
+A1.1a **Firmware management lives on the host side** (0026). The radio has no user interface
+for firmware management: host software drives it over this channel, with the protocol of
+A1.3–A1.10 as the only protocol. Its reference implementation is a standalone command-line
+tool, `g7250ctl` (planned at `product/tools/g7250ctl/`, GPL-3.0-or-later): identify, show version
+and state, install an image (new firmware or an owner-supplied stock image, A1.8a), verify,
+activate, abort, rollback, return to stock, enter vendor recovery, read logs, set the first
+secret. It MUST pass every A1 conformance test of Annex X3 against the reference model (0019).
+AetherSDR's firmware page uses the same protocol and follows the CLI (annex Q-O4). The very first
+install, on a radio still running stock firmware, cannot use this protocol; it depends on HIS-19
+(A1.8a; 0025 R4/R5).
+
 A1.2 **Transport.** The management channel MUST use its own UDP port, served by the eighth
 socket of the CH394Q (0008, Decision, Transport 1; 0017). That socket is reserved at both
 levels, MUST be open whenever the network is up, and MUST NOT be closed to make room for

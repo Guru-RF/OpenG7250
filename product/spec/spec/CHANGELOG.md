@@ -13,6 +13,9 @@ All dates 2026-11-19. Decision numbers refer to `decisions/`.
   first install uses the same path, pending HIS-19, with an explicit open risk (A1.8, A1.8a
   "One installation path", items 1, 4, 9; T-A1-58, T-A1-59; HIS-19). No new management
   command.
+- 0026 (proposed): firmware management lives on the host side; the part A management
+  protocol is the only protocol; the CLI `g7250ctl` (`product/tools/g7250ctl/`) is its reference
+  implementation; AetherSDR follows on the same protocol (A1.1a).
 
 ## rc5 — release candidate 5 (tag `spec-rc5`)
 

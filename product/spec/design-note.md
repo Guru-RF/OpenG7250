@@ -229,6 +229,11 @@ AetherSDR work runs alongside: the G7250 backend receives from M1 and transmits 
 
 ## 8. Dependencies and open questions
 
+- **Firmware management tool.** Firmware is managed from the host: the CLI `g7250ctl`
+  (`product/tools/g7250ctl/`) is the reference implementation of the management protocol,
+  AetherSDR's firmware page follows on the same protocol (0026). The first install from stock
+  depends on HIS-19.
+
 - **HIS.** All hardware questions are in `open-questions-his.md` (HIS-01 to HIS-19). M1 needs
   at least HIS-01, -02, -04, -14, -15, and part of -18.
 - **Reversibility.** Installing the new firmware is reversible: the vendor's own update and
