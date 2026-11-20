@@ -15,7 +15,7 @@ on 2026-11-19, as recorded in `decisions/`.
   the PTT key.
 - Files: `spec/network-interface.md` (parts A, B), `spec/part-c-tci-profile.md`,
   `spec/annex-aethersdr.md`, `spec/glossary.md`, `spec/CHANGELOG.md`, generated
-  `spec/register-map.yaml` and `spec/traceability-auto.md`; `design-note.md` draft 3.
+  `spec/register-map.yaml` and `spec/traceability-auto.md`; `design-note.md` draft 4 (rc4).
 - Checks: `python3 tools/spec_lint.py` (0 findings, 483 test ids), `python3 tools/trace.py`,
   `python3 tools/budget.py`, `python3 tools/regmap.py` (`--check` to verify).
 - Level 1 is G7250-P2: openHPSDR Protocol 2, board type 200 (0016, 0002).
@@ -51,16 +51,21 @@ on 2026-11-19, as recorded in `decisions/`.
 
 All numbers 0001–0018 are now in use.
 
-## Open questions for ON8ST (rc1 review)
+## Open questions for ON8ST
 
-1. Review and accept (or change) the proposed decisions 0020 (rc1 detail choices), 0021
-   §1–§47 (TCI profile choices) and 0022 §1–§88 (review fixes). They are all in rc4.
-2. `.claude/settings.json`: the home path was removed by the history rewrite; the rules that
-   name the decrypted-firmware folder are still in the file (ON8ST's call whether to keep them).
-3. Go for the RE session to push `spec-rc4` to the fork, and later for the spec PR to Guru-RF.
-4. Go for an AetherSDR RFC issue (annex Q-O1); shared P2 refactor vs. self-contained backend
+Decided on 2026-11-20 (ON8ST):
+- 0020, 0021 and 0022 stay **proposed** until ON8ST has reviewed rc4 himself and comes back
+  with comments.
+- `.claude/settings.json` stays as it is (the deny rules naming the decrypted-firmware folder
+  remain, also in the history).
+- **Go** for the RE session to push branch `spec/rc1` and tag `spec-rc4` to the fork
+  (on8st/OpenG7250). The spec PR to Guru-RF follows after PR #1, with a separate go.
+
+Still open:
+1. ON8ST's review of rc4 and the acceptance of 0020–0022.
+2. Go for an AetherSDR RFC issue (annex Q-O1); shared P2 refactor vs. self-contained backend
    (Q-O2).
-5. Go to create `product/refmodel/` and the `g7250-testbench` submodule (0019).
+3. Go to create `product/refmodel/` and the `g7250-testbench` submodule (0019).
 
 Watch TAPR/OpenHPSDR-Firmware#6 for a reply on board type 200.
 
