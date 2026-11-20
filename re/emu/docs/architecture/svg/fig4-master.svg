@@ -1,0 +1,159 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 760 980" font-family="Helvetica, Arial, sans-serif" font-size="11">
+  <defs>
+    <marker id="m" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 Z" fill="#2b3a4a"/></marker>
+    <marker id="mb" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 Z" fill="#4a6b8a"/></marker>
+  </defs>
+  <style>
+    .band{fill:#f4f7fa;stroke:#2b3a4a;stroke-width:1.6;}
+    .hb{fill:#dfe9f2;stroke:#2b3a4a;stroke-width:1.6;}
+    .blk{fill:#e3ecf3;stroke:#2b3a4a;stroke-width:1.1;}
+    .mod{fill:#cfe0ee;stroke:#2b3a4a;stroke-width:1.1;}
+    .sys{fill:#f0e6da;stroke:#8a4b16;stroke-width:1.2;}
+    .img{fill:#e7efe3;stroke:#3a6b3a;stroke-width:1.3;}
+    .t{fill:#17222e;} .tt{fill:#17222e;font-weight:bold;}
+    .l{fill:#33506a;font-size:9px;}
+    .bt{fill:#17222e;font-weight:bold;font-size:12px;}
+    .flow{stroke:#2b3a4a;stroke-width:1.8;fill:none;}
+    .flowb{stroke:#4a6b8a;stroke-width:1.8;fill:none;}
+    .core{fill:#2b3a4a;}
+    .cap{fill:#55707f;font-size:9px;}
+    .sec{fill:#8a4b16;font-size:9px;}
+  </style>
+
+  <text class="bt" x="380" y="22" text-anchor="middle" font-size="15">Emulation + test solution — component map (data/control flow)</text>
+  <text class="cap" x="380" y="38" text-anchor="middle">All components that together deliver a perfectly-tested alternative firmware platform. Source: emulator spec §2,§3,§5,§6,§7,§8,§9,§10,§13.</text>
+
+  <!-- Renode core spine (left) -->
+  <rect class="core" x="18" y="150" width="34" height="560" rx="6"/>
+  <text x="35" y="440" transform="rotate(-90 35 440)" text-anchor="middle" fill="#fff" font-weight="bold" font-size="12">Renode core · shared virtual time · GDB · snapshots · exec-trace / heatmap</text>
+
+  <!-- BAND 1: image source -->
+  <rect class="img" x="70" y="52" width="620" height="78" rx="6"/>
+  <text class="tt" x="80" y="70">1 · Image source — local, NO decryption anywhere (§4, SECURITY.md)</text>
+  <rect class="blk" x="84" y="80" width="180" height="40" rx="4"/>
+  <text class="t" x="174" y="98" text-anchor="middle">image-map (OUTSIDE any repo)</text>
+  <text class="l" x="174" y="112" text-anchor="middle">user-supplied decrypted app images</text>
+  <rect class="blk" x="284" y="80" width="160" height="40" rx="4"/>
+  <text class="t" x="364" y="98" text-anchor="middle">verify.py + manifest.yaml</text>
+  <text class="l" x="364" y="112" text-anchor="middle">hash-only · refuses mismatch</text>
+  <rect class="blk" x="464" y="80" width="210" height="40" rx="4"/>
+  <text class="t" x="569" y="98" text-anchor="middle">loads image → flash (per machine)</text>
+  <text class="l" x="569" y="112" text-anchor="middle">boot the app directly (no bootloader)</text>
+  <line class="flow" x1="264" y1="100" x2="282" y2="100" marker-end="url(#m)"/>
+  <line class="flow" x1="444" y1="100" x2="462" y2="100" marker-end="url(#m)"/>
+  <line class="flow" x1="380" y1="130" x2="380" y2="150" marker-end="url(#m)"/>
+
+  <!-- BAND 2: platform -->
+  <rect class="band" x="70" y="150" width="620" height="120" rx="6"/>
+  <text class="tt" x="80" y="168">2 · Platform (.resc / .repl) — two coupled machines; headless-Main (EH) is primary (§2.4, §3)</text>
+  <rect class="hb" x="90" y="178" width="240" height="78" rx="5"/>
+  <text class="tt" x="210" y="196" text-anchor="middle">machine: main</text>
+  <text class="l" x="210" y="210" text-anchor="middle">g7250_main.repl · H725-derived</text>
+  <text class="l" x="210" y="224" text-anchor="middle">RF/PA/baseband · CH394 · Plant</text>
+  <text class="l" x="210" y="244" text-anchor="middle">EH = this machine only</text>
+  <rect class="hb" x="430" y="178" width="240" height="78" rx="5"/>
+  <text class="tt" x="550" y="196" text-anchor="middle">machine: control</text>
+  <text class="l" x="550" y="210" text-anchor="middle">g7250_control.repl · H743</text>
+  <text class="l" x="550" y="224" text-anchor="middle">LTDC/SDRAM · touch · GUI</text>
+  <text class="l" x="550" y="244" text-anchor="middle">optional track (SS, ES, EE)</text>
+  <!-- link between machines -->
+  <path class="sys" d="M330,205 h100 v40 h-100 z" fill="#f0e6da" stroke="#8a4b16"/>
+  <text class="sec" x="380" y="220" text-anchor="middle">LinkCable</text>
+  <text class="sec" x="380" y="232" text-anchor="middle">CtrlCable</text>
+  <line class="flowb" x1="330" y1="217" x2="330" y2="217"/>
+  <line class="flow" x1="380" y1="270" x2="380" y2="286" marker-end="url(#m)"/>
+
+  <!-- BAND 3: models -->
+  <rect class="band" x="70" y="286" width="620" height="150" rx="6"/>
+  <text class="tt" x="80" y="304">3 · Models (C#, with Python prototypes) — register/behaviour fidelity per peripheral (§3.2)</text>
+  <!-- col 1 stm32h7 -->
+  <rect class="blk" x="88" y="314" width="190" height="110" rx="5"/>
+  <text class="tt" x="183" y="330" text-anchor="middle">stm32h7 blocks</text>
+  <text class="l" x="183" y="346" text-anchor="middle">RCC PWR FLASH SYSCFG/EXTI</text>
+  <text class="l" x="183" y="360" text-anchor="middle">GPIO DMA/MDMA/BDMA USART</text>
+  <text class="l" x="183" y="374" text-anchor="middle">I2C SPI/I²S ADC DAC TIM RTC</text>
+  <text class="l" x="183" y="388" text-anchor="middle">IWDG CRC LTDC DMA2D FMC</text>
+  <text class="l" x="183" y="402" text-anchor="middle">SDMMC DBGMCU OTG-stub</text>
+  <!-- col 2 devices -->
+  <rect class="mod" x="288" y="314" width="190" height="110" rx="5"/>
+  <text class="tt" x="383" y="330" text-anchor="middle">device models</text>
+  <text class="l" x="383" y="346" text-anchor="middle">CH394 (SPI6, UDP/WOL)</text>
+  <text class="l" x="383" y="360" text-anchor="middle">FPGA (fused w/ GPIOE)</text>
+  <text class="l" x="383" y="374" text-anchor="middle">AIC3204 EEPROM AXP223 VC6</text>
+  <text class="l" x="383" y="388" text-anchor="middle">GT911 W25Q SDCard BT401</text>
+  <text class="l" x="383" y="402" text-anchor="middle">KeyMatrix QuadEncoder H22Mic</text>
+  <!-- col 3 system -->
+  <rect class="sys" x="488" y="314" width="190" height="110" rx="5"/>
+  <text class="tt" x="583" y="330" text-anchor="middle">system models</text>
+  <text class="sec" x="583" y="346" text-anchor="middle">LinkCable (byte timing, SLIP tap)</text>
+  <text class="sec" x="583" y="360" text-anchor="middle">CtrlCable (PTT/CW/power/audio)</text>
+  <text class="sec" x="583" y="374" text-anchor="middle">PowerModel (H1/H2, sleep/wake)</text>
+  <text class="sec" x="583" y="388" text-anchor="middle">Plant (PA, detectors, NTC, load)</text>
+  <text class="sec" x="583" y="402" text-anchor="middle">safety oracles</text>
+  <line class="flow" x1="380" y1="436" x2="380" y2="452" marker-end="url(#m)"/>
+
+  <!-- BAND 4: harness -->
+  <rect class="band" x="70" y="452" width="620" height="118" rx="6"/>
+  <text class="tt" x="80" y="470">4 · Python harness (g7250emu) — drives and observes the emulator (§13, §8)</text>
+  <g>
+    <rect class="blk" x="84" y="480" width="82" height="42" rx="4"/><text class="t" x="125" y="498" text-anchor="middle">core</text><text class="l" x="125" y="512" text-anchor="middle">run·VT·snap</text>
+    <rect class="blk" x="170" y="480" width="82" height="42" rx="4"/><text class="t" x="211" y="498" text-anchor="middle">io</text><text class="l" x="211" y="512" text-anchor="middle">UART·VLAN·TAP</text>
+    <rect class="blk" x="256" y="480" width="82" height="42" rx="4"/><text class="t" x="297" y="498" text-anchor="middle">inject</text><text class="l" x="297" y="512" text-anchor="middle">keys·plant·fault</text>
+    <rect class="blk" x="342" y="480" width="82" height="42" rx="4"/><text class="t" x="383" y="498" text-anchor="middle">observe</text><text class="l" x="383" y="512" text-anchor="middle">trace·shot·oracle</text>
+    <rect class="blk" x="428" y="480" width="92" height="42" rx="4"/><text class="t" x="474" y="498" text-anchor="middle">protocols</text><text class="l" x="474" y="512" text-anchor="middle">P1·TCI·CI-V·SLIP</text>
+    <rect class="blk" x="524" y="480" width="70" height="42" rx="4"/><text class="t" x="559" y="498" text-anchor="middle">targets</text><text class="l" x="559" y="512" text-anchor="middle">emu·hil</text>
+    <rect class="blk" x="598" y="480" width="78" height="42" rx="4"/><text class="t" x="637" y="498" text-anchor="middle">report</text><text class="l" x="637" y="512" text-anchor="middle">score·trace</text>
+  </g>
+  <text class="l" x="300" y="540" text-anchor="middle">inject → platform (stimuli)</text>
+  <text class="l" x="474" y="540" text-anchor="middle">protocols ↔ CH394 VLAN (P1/TCI/CI-V)</text>
+  <text class="l" x="383" y="554" text-anchor="middle">observe ← platform (traces, screenshots, oracle checks)</text>
+  <line class="flow" x1="297" y1="522" x2="297" y2="436" marker-end="url(#m)" opacity="0.5"/>
+  <line class="flowb" x1="474" y1="522" x2="474" y2="436" marker-end="url(#mb)" opacity="0.5"/>
+  <line class="flow" x1="430" y1="570" x2="430" y2="586" marker-end="url(#m)"/>
+
+  <!-- BAND 5: test suites -->
+  <rect class="band" x="70" y="586" width="620" height="100" rx="6"/>
+  <text class="tt" x="80" y="604">5 · Test suites — tiers, scenarios and conformance (§6, §8)</text>
+  <rect class="blk" x="84" y="614" width="230" height="62" rx="4"/>
+  <text class="t" x="199" y="630" text-anchor="middle">tiers L0 … L7</text>
+  <text class="l" x="199" y="644" text-anchor="middle">static · unit · integration · baseline</text>
+  <text class="l" x="199" y="658" text-anchor="middle">conformance · fault/fuzz · perf · HIL</text>
+  <rect class="blk" x="324" y="614" width="170" height="62" rx="4"/>
+  <text class="t" x="409" y="630" text-anchor="middle">baseline A1 … A12</text>
+  <text class="l" x="409" y="644" text-anchor="middle">stock "runs perfectly"</text>
+  <text class="l" x="409" y="658" text-anchor="middle">golden traces · 3-run determinism</text>
+  <rect class="blk" x="504" y="614" width="172" height="62" rx="4"/>
+  <text class="t" x="590" y="630" text-anchor="middle">conformance (NF)</text>
+  <text class="l" x="590" y="644" text-anchor="middle">P1 host · TCI · CI-V-net</text>
+  <text class="l" x="590" y="658" text-anchor="middle">headless EH · power modes</text>
+  <line class="flow" x1="430" y1="686" x2="430" y2="702" marker-end="url(#m)"/>
+
+  <!-- BAND 6: score + gates + targets -->
+  <rect class="band" x="70" y="702" width="620" height="120" rx="6"/>
+  <text class="tt" x="80" y="720">6 · Quality score, gates and targets (§9, §10, §11)</text>
+  <rect class="blk" x="84" y="730" width="250" height="80" rx="4"/>
+  <text class="t" x="209" y="746" text-anchor="middle">quality score &amp; per-build report</text>
+  <text class="l" x="209" y="760" text-anchor="middle">ROOD → ORANJE → GROEN-EMU</text>
+  <text class="l" x="209" y="773" text-anchor="middle">→ GROEN-HIL → RELEASE</text>
+  <text class="l" x="209" y="792" text-anchor="middle">report = only channel to the NF team</text>
+  <rect class="blk" x="344" y="730" width="150" height="80" rx="4"/>
+  <text class="t" x="419" y="746" text-anchor="middle">brick gates</text>
+  <text class="l" x="419" y="762" text-anchor="middle">E0–E4 (emulator)</text>
+  <text class="l" x="419" y="776" text-anchor="middle">F0–F3 (fw project)</text>
+  <text class="l" x="419" y="790" text-anchor="middle">H-G1…H-G5 (HIL)</text>
+  <rect class="hb" x="504" y="730" width="172" height="80" rx="4"/>
+  <text class="t" x="590" y="746" text-anchor="middle">targets</text>
+  <text class="l" x="590" y="762" text-anchor="middle">emu (every build)</text>
+  <text class="l" x="590" y="776" text-anchor="middle">HIL bench (final stage)</text>
+  <text class="l" x="590" y="790" text-anchor="middle">twin-validated vs stock</text>
+  <line class="flow" x1="334" y1="770" x2="342" y2="770" marker-end="url(#m)"/>
+  <line class="flow" x1="494" y1="770" x2="502" y2="770" marker-end="url(#m)"/>
+  <line class="flow" x1="380" y1="822" x2="380" y2="840" marker-end="url(#m)"/>
+
+  <rect class="img" x="200" y="840" width="360" height="40" rx="6"/>
+  <text class="tt" x="380" y="858" text-anchor="middle">→ gate E4: hand-off to g7250-fw (clean-room firmware)</text>
+  <text class="cap" x="380" y="872" text-anchor="middle">see Part 3 pipeline</text>
+
+  <text class="cap" x="380" y="905" text-anchor="middle">Legend: blue = Renode/emulator; darker blue = coupled machines/targets; light-blue = device models; brown = system/plant/clean-room-sensitive; green = images &amp; hand-off.</text>
+  <text class="cap" x="380" y="920" text-anchor="middle">Arrows: dark = data/control into the emulator and down the pipeline; blue = protocol traffic over the in-emulation VLAN.</text>
+</svg>
