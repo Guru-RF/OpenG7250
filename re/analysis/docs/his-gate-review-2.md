@@ -481,3 +481,88 @@ Advisories not applied (open for the gate): A1, A2, A3 (Control material only
 marked informative in 50 and 60), A4, A5, A6, A7, A10.
 
 Status: **not yet cleared**; ready for the diff re-check.
+
+---
+
+## Re-check (diff da50bd6..b960c0a, his/)
+
+Checked `git diff da50bd6 his/integrate -- his` against the sources, plus the
+new RE notes `his-17-ctrl-idle.md` and `his-18-19-update-path.md`. Commit
+5f7679c (HIS-17/18/19) was read in full as new material.
+
+### R1–R15
+
+| # | Result | Note |
+| --- | --- | --- |
+| R1 | applied | `85-rf-control.md`: every pin checked against g7250-base peripherals (SPI1 PG11/PD7 AF5, chains A/B, ATU PD13/PG2/PG5, SPI2 PB13/PB15/PB12/PB14, channel map, PH6/PH3/PH4, ADC1 pins, PD12). No trim targets, power curves, fan law or conversion constants. The OE polarity (active low) comes from flow.md's power-off step; that the Open list says so is enough. |
+| R2 | applied | 15, first paragraph. |
+| R3 | applied | Both candidates, HYPOTHESIS; the vendor guide's documented path through the Control is added (VERIFIED, public guide). |
+| R4 | applied | |
+| R5 | applied | Includes the RTC backup registers. |
+| R6 | applied | |
+| R7 | applied | Offset removed in 15 and 30. |
+| R8 | applied | |
+| R9 | applied | |
+| R10 | applied | Plus the AXP223 default state as an open item (A10 is in effect done). |
+| R11 | applied | Pins match the source (PG12 MISO, PG13 SCK, PG14 MOSI). |
+| R12 | applied | "= 256 × 48 kHz" is arithmetic on the clock, not a rate requirement: acceptable. |
+| R13 | applied | |
+| R14 | applied | |
+| R15 | applied | Also removed from the 30 evidence line. |
+
+### New material (5f7679c) and side effects
+
+No code, stock addresses, timings, log text or protocol content leaked. The
+stock behaviour from the RE notes (20 ms frames, settings-file save at
+power-off, 100 ms power-off wait, the `.bbf` encryption) stayed on the RE side.
+The vendor update procedure in 15 comes from the public user guide and is
+needed for recovery, so it may stay. Three statements are tagged too strongly
+or not at all:
+
+- **N1 (required) — 70, rule 3 and the evidence line.** "With a silent Main the
+  stock Control keeps running without an error state" has no tag. Its sources
+  are weak: the emulator run is incomplete (the RE note says the USART TC flag
+  is not modelled, so the Control's periodic TX never ran), and the firmware
+  analysis gives "no link timeout" as MEDIUM. Tag it MEDIUM (firmware analysis;
+  the emulator run does not cover the normal TX loop) and add "panel behaviour
+  with a silent Main: to be confirmed on hardware".
+- **N2 (required) — 20, "Switching off is the Main's job".** "The Control has
+  no power control over the Main" has no tag; the source is firmware analysis
+  only, and PCA9557 bit 5 on the Control (role HYPOTHESIS, "power hold" is one
+  reading) is not excluded. Tag it HIGH (firmware analysis; wiring not traced).
+  The MUST that follows rests on PH5 = power key and PH9 = power hold, both
+  HYPOTHESIS. State that, and say what "a key press" is at the pin: PH5 low,
+  pulled down by the key against the pull-up (HYPOTHESIS). Give no stock
+  debounce or hold time.
+- **N3 (required) — 15, installer item 4.** "Leaves the vendor path usable as
+  the fallback if a transfer breaks" reads as a guarantee. With a broken
+  application area, the vendor path works only if the Main bootloader enters
+  update mode without a valid application. That is the unknown entry condition
+  of the "Update path" subsection. Change it to: "never touches sector 0, so the
+  vendor path stays available, provided the bootloader accepts an image with
+  no valid application (unknown; F1)".
+
+Advisory, not blocking:
+- **A12** — 15, "RAM (320 KiB AXI SRAM) is smaller than the image". On the
+  H72x the AXI SRAM size depends on the TCM/AXI shared-RAM option bytes (320 KiB
+  matches the stack top seen, i.e. the setting as shipped). The product must not
+  change it (rule 2). Total RAM including DTCM and D2 SRAM is larger than the
+  image, but not contiguous. Streaming is still the right design; say "no single
+  RAM region holds the image".
+- **A13** — 85. Between reset and the product's GPIO init (and while the
+  bootloader runs), the MCU pins are high-impedance. Whether board pull-ups hold
+  PA10/PH10 inactive and the T/R lines in RX is not known. Add this to Open, and
+  ask the product to set these pins first in its startup.
+- **A14** — 85. PA12 is an output of unknown role that is set high in the
+  power-off path (flow.md); list it next to PD12 as unknown.
+- **A15** — 85 says the OE polarity is "VERIFIED from the power-off path". HIGH
+  would match the evidence better (an interpretation of the power-off writes).
+- A1, A2, A3 (beyond marking the material informative), A4, A5, A6 and A7
+  remain open, as the emu session recorded.
+
+### Verdict (re-check)
+
+**NOT CLEARED**, because three tag/wording items remain: N1, N2, N3. R1–R15 are
+all applied correctly, and nothing new leaks stock behaviour. N1–N3 are small
+and local (70, 20, 15). Once they are applied, a check of that diff alone is
+enough to mark the HIS **CLEARED**; no further full read is needed.
