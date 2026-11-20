@@ -108,3 +108,20 @@ added. The one leak is G1 (VFO/RIT semantics of the NCO words).
 **NOT CLEARED.** Required: G1 (80, 90) and G2–G6 (90). The sections already
 cleared stay cleared; the items are limited to the NCO wording and the step
 order in 90. A check of the diff of those changes is enough to clear.
+
+## Changes for review 3
+
+All in `d0a39b0` on his/integrate (review brought in as `bc1bba7`, cherry-pick
+of `684797c`).
+
+| # | Where | Change |
+| --- | --- | --- |
+| G1 | 80, 90 | "main VFO (including RIT) / other VFO" removed; two of the three NCO words set receive-path tuning frequencies (MEDIUM); third word and order unknown. |
+| G2 | 90 step 4 | No full-chip or mass erase; sector erase of 1…n only; sector 0 read back before and after and compared with the backup. |
+| G3 | 90 step 4 | Test image toggles no pin beyond the safe state of 85, drives PH9 high from reset, reports via USART1 (PB6/PB7) or a RAM counter over SWD. |
+| G4 | 90 step 3 | Control backup only after its own SWD location and option-byte read (DEV_ID 0x450), else Main only; dumps are RE-side material, never for the product side. |
+| G5 | 90 step 4 | Fallback: restore sectors 1–7 from the step-3 backup by SWD if the vendor path fails. |
+| G6 | 90 | Dummy loads on both ANT1 and ANT2. |
+| A | 10, 90 | IWDG start mode as an open point; step 2 also reads CPUFREQ_BOOST and the IWDG freeze bits; no retry under reset at RDP 2. |
+
+Status: ready for the check of this diff.
