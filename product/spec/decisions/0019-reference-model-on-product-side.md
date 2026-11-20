@@ -47,7 +47,8 @@ against a network endpoint.
   procedure, expected result and source requirement, so the test bench can implement them
   from the spec alone.
 - Creating `product/refmodel/` and the `g7250-testbench` submodule needs a go from ON8ST and a
-  work tree that contains them (none of the current checkouts do).
+  work tree that contains them (none of the current checkouts do). Amended by 0027: the test
+  bench is the `testbench/` folder of the umbrella repository, not a submodule.
 - The model and the tests are licensed under 0018 (code: GPL-3.0-or-later unless a vendor SDK
   forbids it; the model needs no vendor SDK).
 

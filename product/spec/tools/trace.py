@@ -23,6 +23,7 @@ NOT_IN_SPEC = {
     "0013": "integration route (AetherSDR); covered by the AetherSDR annex",
     "0018": "licences",
     "0019": "location of the reference model",
+    "0027": "location of the test bench",
 }
 
 

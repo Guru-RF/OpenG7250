@@ -49,11 +49,16 @@ on 2026-11-19, as recorded in `decisions/`.
 | 0017 | G7250-P2 offers no DDC audio stream (port 1028); frees one of the 8 CH394Q sockets | accepted |
 | 0018 | Licences: documents CC BY 4.0, firmware GPL-3.0-or-later (Apache-2.0 if the vendor SDK forbids GPL), AetherSDR backend GPL-3.0; © ON8ST | accepted |
 | 0019 | Reference model on the product side (`product/refmodel/`); shared test bench stays black-box | accepted |
-| 0020 | rc1 detail choices: ports 7250 (register map) and 7251 (management), address map, codes, timers, B11 error handling | proposed (review at rc1) |
-| 0021 | TCI profile choices: port 50001, PROTOCOL ExpertSDR3,2.1, DEVICE G7250, TX policy, mode class from MODULATION, FLOAT32 IQ, LAN restrictions | proposed (review at rc1) |
-| 0022 | rc1 review fixes: RF path frozen while keyed, takeover procedure, non-owner TX IQ discarded, fault classes, limit tiers, SWR fold-back, level-switch procedure, rate limits | proposed (review at rc1) |
+| 0020 | rc1 detail choices: ports 7250 (register map) and 7251 (management), address map, codes, timers, B11 error handling | accepted (2026-11-20) |
+| 0021 | TCI profile choices: port 50001, PROTOCOL ExpertSDR3,2.1, DEVICE G7250, TX policy, mode class from MODULATION, FLOAT32 IQ, LAN restrictions | accepted (2026-11-20) |
+| 0022 | rc1 review fixes: RF path frozen while keyed, takeover procedure, non-owner TX IQ discarded, fault classes, limit tiers, SWR fold-back, level-switch procedure, rate limits | accepted (2026-11-20) |
+| 0023 | Controller left alone (option A): CTRL idle, controller not a front panel | accepted |
+| 0024 | Switching between stock and new firmware: foreign-image upload, vendor path intact, retained stock image, vendor recovery | accepted; amended by 0025 |
+| 0025 | One installation path on the main unit, both directions, no controller step; open risk R5 (HIS-19) | accepted (2026-11-20) |
+| 0026 | Firmware management on the host: spec protocol, CLI `g7250ctl` as reference, AetherSDR on the same protocol | accepted (2026-11-20) |
+| 0027 | Test bench is the `testbench/` folder of the umbrella repository, not a submodule | accepted |
 
-All numbers 0001–0018 are now in use.
+All numbers 0001–0027 are now in use.
 
 ## Open questions for ON8ST
 
@@ -85,7 +90,7 @@ Still open:
    after its gate.
 2. Go for an AetherSDR RFC issue (annex Q-O1); shared P2 refactor vs. self-contained backend
    (Q-O2).
-3. The `g7250-testbench` submodule (0019). `product/refmodel/` and `product/tools/g7250ctl/`
+3. The test bench as the `testbench/` folder of the umbrella repository (0019, 0027). `product/refmodel/` and `product/tools/g7250ctl/`
    exist with READMEs (ae85316).
 
 Watch TAPR/OpenHPSDR-Firmware#6 for a reply on board type 200.
