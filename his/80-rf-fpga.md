@@ -4,9 +4,11 @@
 (VERIFIED in the firmware analysis, i.e. **rests on disassembly**). Emulator
 (re/emu D2): a fused GPIOE+FPGA model of this bus, built from the same
 disassembly, is accepted by the factory image; this is consistency, not hardware
-evidence, and the real FPGA version is unknown. The 0x01 byte offsets and the roles of the
-three words are what the factory image writes over this bus in the emulator
-(re/emu HIS-02 probe, with settings changes), which agrees with the disassembly. The NCO clock and the absolute
+evidence, and the real FPGA version is unknown. The 0x01 byte offsets are
+observed: they are the bytes the factory image writes over this bus in the
+emulator (re/emu HIS-02 probe, with settings changes), which agrees with the
+disassembly. The roles of the three words are inferred from the values written;
+the FPGA's use of the words is not observed. The NCO clock and the absolute
 sample rate are not measured.
 
 The RF I/Q front end is an **FPGA reached over an 8-bit parallel bus on GPIOE**
@@ -47,7 +49,8 @@ The RF I/Q front end is an **FPGA reached over an 8-bit parallel bus on GPIOE**
   byte 0 is unknown; the position of the spectral-inversion flag in the frame
   is unknown.
 - The three NCO words: offsets 1 and 5 each set a receive-path tuning frequency,
-  independently of each other (HIGH, emulator run of the factory image); offset
+  independently of each other (MEDIUM: inferred from the values the factory
+  image writes in the emulator; FPGA use not observed); offset
   19 is a third tuning word, most likely for the transmit path (HYPOTHESIS: the
   transmit side was not exercised). Which physical receive path each of offsets
   1 and 5 drives, and the transmit role of offset 19, need a capture on the

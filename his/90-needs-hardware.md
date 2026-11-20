@@ -6,7 +6,7 @@ statements in the other sections stay as tagged there.
 
 | Question | What is known now | What is needed |
 | --- | --- | --- |
-| HIS-02: the three NCO words in the FPGA 0x01 frame | The words are big-endian at byte offsets 1, 5 and 19 of the 24-byte frame (HIGH). Offsets 1 and 5 each set a receive-path tuning frequency (HIGH); offset 19 is most likely the transmit tuning word (HYPOTHESIS) (`80-rf-fpga.md`). | A capture on the radio including transmit, to confirm offset 19 and map offsets 1 and 5 to the physical receive paths. |
+| HIS-02: the three NCO words in the FPGA 0x01 frame | The words are big-endian at byte offsets 1, 5 and 19 of the 24-byte frame (HIGH). Offsets 1 and 5 each set a receive-path tuning frequency (MEDIUM); offset 19 is most likely the transmit tuning word (HYPOTHESIS) (`80-rf-fpga.md`). | A capture on the radio including transmit, to confirm offset 19 and map offsets 1 and 5 to the physical receive paths. |
 | HIS-07, HIS-11, HIS-12: timing and calibration values | Not in this spec on purpose: stock timing and stock calibration are not hardware facts. | Measurement on the radio. |
 | HIS-17: power-up without the Control | Two hypotheses H1/H2 (`20-power.md`, Open). | Observation T0-P2: Main with the CTRL cable disconnected, DC on; does the Ethernet link come up? |
 | HIS-19: does the vendor bootloader start an image it did not write; is there a bootloader entry without the Control | Unknown; the bootloaders are not analysed (`15-stock-recovery.md`). | The F1 drill, after the steps below. |
