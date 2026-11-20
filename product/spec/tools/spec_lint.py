@@ -11,6 +11,8 @@ Checks over spec/*.md:
   L6  conformance test ids (T-...) are unique across the spec
   L7  register names used in the spec exist in spec/register-map.yaml (if that file exists)
   L8  spec/register-map.yaml matches the spec tables (tools/regmap.py --check)
+  L9  no "TBD" in the spec (v1.0 freeze, 0035); every pending-hardware id P-... used is defined
+      in Annex P, Table P-1, and every id defined there is used elsewhere
 
 Run from product/spec:  python3 tools/spec_lint.py    (exit 1 on any finding)
 """
@@ -89,6 +91,21 @@ def main():
                 if "RFC 2119" in b or "BCP 14" in b:
                     continue
                 findings.append(f"L5 {rel}: normative text without a source: {b.strip()[:100]}")
+    # L9: v1.0 freeze (0035): no TBD; P-ids defined and used
+    ni = (ROOT / "spec" / "network-interface.md").read_text()
+    defined = set(re.findall(r"^\| (P-[A-Z0-9]+-\d+) \|", ni, re.M))
+    used = set()
+    for path in SPEC:
+        for i, line in enumerate(path.read_text().splitlines(), 1):
+            if "TBD" in line and "\"TBD\"" not in line and path.name != "CHANGELOG.md":
+                findings.append(f"L9 {path.relative_to(ROOT)}:{i}: TBD after the v1.0 freeze: {line.strip()[:80]}")
+            if re.match(r"^\| P-[A-Z0-9]+-\d+ \|", line):
+                continue
+            used |= set(re.findall(r"\bP-[A-Z0-9]+-\d+\b", line))
+    for u in sorted(used - defined):
+        findings.append(f"L9 P-id {u} used but not defined in Annex P")
+    for d in sorted(defined - used):
+        findings.append(f"L9 P-id {d} defined in Annex P but not used")
     # L8: the generated register map must match the spec tables (tools/regmap.py --check)
     import subprocess
     if REGMAP.exists():

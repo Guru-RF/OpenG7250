@@ -295,7 +295,7 @@ C3.2 Initialization commands and their G7250 values, in this order:
 | 4 | `TRX_COUNT:1;` | 1 | MUST | [TCI] §4.1 TRX_COUNT; one transmitter [G7250-MAN] (0007, rule 4); one receiver in this version (0004; HIS-02, [HIS] HIS 80) |
 | 5 | `CHANNELS_COUNT:2;` | 2 (channel A and B in receiver 0) | MUST | [TCI] §4.1 CHANNELS_COUNT. Channel B is needed as the split TX frequency (C4, SPLIT_ENABLE). Whether channel B can also be demodulated is separate (C4, RX_CHANNEL_ENABLE). The old name `CHANNEL_COUNT` MUST NOT be sent ([TCI] §4.1 note). |
 | 6 | `VFO_LIMITS:500000,54000000;` | 0.5–54 MHz | MUST | [TCI] §4.1 VFO_LIMITS; receive range 0.5–30 MHz and 50–54 MHz [G7250-MAN]. VFO_LIMITS has a single range, so 30–50 MHz is inside it but not receivable; see C3.3. |
-| 7 | `IF_LIMITS:<-f>,<+f>;` | ± half the receiver bandwidth in use, TBD (L2: G6, HIS-01; L1: AetherSDR's DSP) | MUST | [TCI] §4.1 IF_LIMITS ("for VFOA only"; "Sent when you connect a device or change the sample rate") |
+| 7 | `IF_LIMITS:<-f>,<+f>;` | ± half the receiver bandwidth in use (L2: pending G6, P-L2-1; HIS-01; L1: AetherSDR's DSP) | MUST | [TCI] §4.1 IF_LIMITS ("for VFOA only"; "Sent when you connect a device or change the sample rate") |
 | 8 | `MODULATIONS_LIST:...;` | see C3.4 | MUST | [TCI] §4.1 MODULATIONS_LIST; modes [G7250-MAN] |
 | 9 | `READY;` | — | MUST | [TCI] §4.1 READY |
 
@@ -392,7 +392,7 @@ C4.2 "trx" is the transceiver number, always 0 (`TRX_COUNT:1`); "ch" is the chan
 | `TX_ENABLE` | MUST | Server-controlled permission, not activity: `true` exactly when the `TX_ENABLE` conditions of C5.5.6 hold, which do not include item 3, so it stays `true` while keyed (0021 §44 item 1). A client set is ignored and the current state is replied ([TCI] §4.3 note). | §4.3 TX_ENABLE |
 | `TRX` | MUST (M7 on L2) | `TRX:0,true,tci;` keys with TX audio from the client's TCI stream. [TCI] takes the TCI stream only "if the TCI audio stream is enabled, otherwise the microphone signal is taken" ([TCI] §4.2 TRX note): a `TRX:0,true,tci;` from a client without a running `AUDIO_START` is therefore a microphone request (Annex C-C, C-C21; 0021 §41 item 10). `TRX:0,true;` (microphone) and `mic1`/`mic2`/`micpc`/`ecoder2`: refused unless a microphone path exists (HIS-17; token `mic`, 0021 §45 item 10); refused means the server replies `TRX:0,false;`. `TRX:0,true,tci;` is also refused when the client's TX audio block period exceeds half the keyed timeout in force (C6.3.3). Every key needs the arm (C5.5) and follows the key rule of A3.1a: a refused `TRX` is not latched (0022 §24). A `TRX:0,true` from the keying client while it keys with `TRX` changes nothing but restates the request (C8.2.3). Keyed liveness: Table C8-1, for every source and mode. | §4.2 TRX |
 | `TUNE` | MUST (M7 on L2) | Tune carrier at `TUNE_DRIVE`, under the arm. It does **not** start the internal ATU: the meaning is not identical (as P2 TUNE, 0007 Sub-decision 6). ATU tuning is `G7250_ATU_TUNE` (C5.7). A client that has not opted in is bound by the 1 s generic keyed window unless it restates `TUNE:0,true;` (Table C8-1, C8.2.3; 0021 §18, §28). `TUNE:0,false;` during an ATU tune cycle aborts the cycle (C5.7). | §4.2 TUNE |
-| `DRIVE` | MUST | 0–100. Mapping to power TBD (HIS-12). Whatever the `DRIVE` or `TUNE_DRIVE` value, forward power stays within the bound of the limit in force, built-in, persistent or `G7250_LIMIT`, by the mapping of Table A3-3 for the detector in use (A3.4c; 0022 §52): without a PEP detector on the PEP estimate from the digital crest factor for every mode, the class-based mean bounds acting in addition (A3.4c; 0022 §62; C8.1). A `REDUCE` limit action lowers power on the radio side (A3.3, A3.4a: drive lowered for forward power and supply, fixed caps `P_swr` and `P_temp` for SWR and PA temperature) and does not change the `DRIVE` or `TUNE_DRIVE` value (0007, Sub-decision 4 rule 4; 0021 §21). | §4.2 DRIVE |
+| `DRIVE` | MUST | 0–100. Mapping to power pending hardware (P-PWR-1; HIS-12). Whatever the `DRIVE` or `TUNE_DRIVE` value, forward power stays within the bound of the limit in force, built-in, persistent or `G7250_LIMIT`, by the mapping of Table A3-3 for the detector in use (A3.4c; 0022 §52): without a PEP detector on the PEP estimate from the digital crest factor for every mode, the class-based mean bounds acting in addition (A3.4c; 0022 §62; C8.1). A `REDUCE` limit action lowers power on the radio side (A3.3, A3.4a: drive lowered for forward power and supply, fixed caps `P_swr` and `P_temp` for SWR and PA temperature) and does not change the `DRIVE` or `TUNE_DRIVE` value (0007, Sub-decision 4 rule 4; 0021 §21). | §4.2 DRIVE |
 | `TUNE_DRIVE` | MUST | 0–100, as `DRIVE`. | §4.2 TUNE_DRIVE |
 | `TX_FOOTSWITCH` | SHOULD | Reports a PTT input that reaches the main unit (controller microphone PTT, HIS-17). It never keys by itself, on either level (0007, Sub-decision 6; 0021 §9; C7.3). | §4.4 TX_FOOTSWITCH |
 | `MON_ENABLE`, `MON_VOLUME` | MAY | TX monitor in the RX audio stream. | §4.2 MON_ENABLE, MON_VOLUME |
@@ -418,7 +418,7 @@ C4.2 "trx" is the transceiver number, always 0 (`TRX_COUNT:1`); "ch" is the chan
 | Command | Status | G7250 note | [TCI] |
 |---------|--------|------------|-------|
 | `RX_SENSORS_ENABLE` | MUST | Interval 30–1000 ms. | §4.4 RX_SENSORS_ENABLE |
-| `RX_SENSORS`, `RX_CHANNEL_SENSORS` | MUST, MAY for ch 1 | Signal level in dBm in the RX filter. L2: calibration TBD (HIS-11). | §4.4 RX_SENSORS, RX_CHANNEL_SENSORS |
+| `RX_SENSORS`, `RX_CHANNEL_SENSORS` | MUST, MAY for ch 1 | Signal level in dBm in the RX filter. L2: calibration pending hardware (P-SEN-5; HIS-11). | §4.4 RX_SENSORS, RX_CHANNEL_SENSORS |
 | `TX_SENSORS_ENABLE` | MUST (M7 on L2) | Interval 30–1000 ms. | §4.4 TX_SENSORS_ENABLE |
 | `TX_SENSORS` | MUST (M7 on L2) | arg2 "microphone signal level, dBm": RMS level of the TX audio in use in dB relative to full scale of the TCI TX audio stream, `-140` without TX audio (no microphone on the main unit, 0017; 0021 §15). arg3 RMS output power in W: the forward power averaged over the sliding 100 ms window of A3.4c; arg4 peak output power in W: the PEP over the same window, or, if the detector gives no PEP (HIS-11), the PEP estimate of A3.4c (measured mean × digital crest factor), the value the safety core enforces (0022 §62; 0021 §42); arg5 SWR: the value the safety core uses (`TLM_SWR`). All are the safety core's own values (A3.4c; 0006; 0022 §17; 0021 §21). | §4.4 TX_SENSORS |
 | `HW_SENSORS_ENABLE`, `HW_SENSORS` | SHOULD | Supply voltage V, current A, temperature °C from the 0006 telemetry (supply voltage, PA or supply current, PA temperature), HIS-11. A sensor that does not exist is reported as `0` and flagged absent in `G7250_FEATURES` (C5.4). | §4.5 HW_SENSORS_ENABLE, HW_SENSORS |
@@ -433,7 +433,7 @@ C4.2 "trx" is the transceiver number, always 0 (`TRX_COUNT:1`); "ch" is the chan
 | `CW_MACROS_EMPTY`, `CALLSIGN_SEND`, `CW_MON` | SHOULD | Notifications, as [TCI]. | §4.5 |
 | `CW_MACROS_SPEED`, `CW_MACROS_SPEED_UP`, `CW_MACROS_SPEED_DOWN`, `CW_MACROS_DELAY` | SHOULD | As [TCI]. | §4.2, §4.3 |
 | `CW_KEYER_SPEED` | SHOULD | Speed of the radio's own keyer for the KEY input on the controller, if it reaches the main unit (HIS-17); token `cw_keyer` (Table C5-1). Not the client-timed `KEYER` below (token `keyer`). | §4.2 CW_KEYER_SPEED |
-| `KEYER` | MAY | Client-timed CW key ([TCI] §4.4 KEYER: arg3 is "for a press – the pause before it, for a release – how long the key was held"; the device "plays each state for the given duration"). "Works in CW mode only" ([TCI]): outside `CW` every `KEYER` command is ignored and not latched, so a later change to `CW` does not key (0021 §33; A3.1a). The first press is a TX request under the arm. An arg3 above 1000 ms is clamped to 1000 ms (0021 §33). Every `KEYER` command restates the request for the generic keyed window (C8.2.3); a key-down from a client that has not opted in ends after the 1 s generic keyed window without a further `KEYER` (0021 §18). The key-down cap acts on the key-down as played: a key-down that has been played for more than 1 s from the start of its playback, without the release being played, ends from every client, opted in or not, whatever frames it sends (C8.2; part B B10.5a; `unkey` 9; 0022 §25; 0021 §33). Jitter over TCP/WebSocket on level 2: TBD (G6). | §4.4 KEYER |
+| `KEYER` | MAY | Client-timed CW key ([TCI] §4.4 KEYER: arg3 is "for a press – the pause before it, for a release – how long the key was held"; the device "plays each state for the given duration"). "Works in CW mode only" ([TCI]): outside `CW` every `KEYER` command is ignored and not latched, so a later change to `CW` does not key (0021 §33; A3.1a). The first press is a TX request under the arm. An arg3 above 1000 ms is clamped to 1000 ms (0021 §33). Every `KEYER` command restates the request for the generic keyed window (C8.2.3); a key-down from a client that has not opted in ends after the 1 s generic keyed window without a further `KEYER` (0021 §18). The key-down cap acts on the key-down as played: a key-down that has been played for more than 1 s from the start of its playback, without the release being played, ends from every client, opted in or not, whatever frames it sends (C8.2; part B B10.5a; `unkey` 9; 0022 §25; 0021 §33). Jitter over TCP/WebSocket on level 2: pending G6 (P-L2-1). | §4.4 KEYER |
 
 ### Spots, focus, panels, reserved
 
@@ -713,7 +713,8 @@ allowed (true) / transmission denied (false)"; 0021 §44 item 1):
 5. No firmware update in progress and no unconfirmed trial boot (0008; A1.8; C2.8).
 6. The TX mode class is defined (C5.6): the modulation of the TX channel is not `WFM`. Reject
    reason `NO_MODE_CLASS` (0007 Decision 1 rule 1).
-7. Transmit is implemented (L2: M7; L1: M4).
+7. Transmit is implemented (L2: M7; L1: M4) and calibrated: the transmit parameters of part B
+   Annex P are set (record `tx` bit 4; 0035, 0036).
 8. Armed.
 9. The effective TX frequency (C4, split and XIT) lies inside a transmit range of [G7250-MAN]
    for the configured region (`LIMIT_TX_FREQ`, Table A3-2; A1.6 C-6).
@@ -728,7 +729,7 @@ of C5.5.3, 0021 §44 item 4); `MAINTENANCE` (item 5, also during an unconfirmed 
 0022 §10; (L1) a trial boot reaches TCI as the P2 reject reason `MAINTENANCE` of a running
 session; during a firmware update the P2 session has ended (A1.8) and P2 shows AetherSDR no
 update state, so AetherSDR is not required to report `MAINTENANCE` then and MAY report
-`NOT_RUNNING`; the update case is tested on level 2 only, T-C5-44); `NO_MODE_CLASS` (item 6); `TX_NOT_IMPLEMENTED` (item 7). (L1) Any P2 reject reason
+`NOT_RUNNING`; the update case is tested on level 2 only, T-C5-44); `NO_MODE_CLASS` (item 6); `TX_NOT_IMPLEMENTED` (item 7, not implemented); `NOT_CALIBRATED` (item 7, not calibrated). (L1) Any P2 reject reason
 is passed on unchanged, including `WATCHDOG_DISABLED` (part B B10.2 item 3); on level 2 the
 connection watchdog of C8.2 is always on, so `WATCHDOG_DISABLED` is not used. `NOT_OWNER` is
 not used on TCI (Table B8-3: reserved). The order among several failing conditions is that of
@@ -829,7 +830,7 @@ the loss of its connection (0021 §43 item 7) and the policy unkey of C5.5.8 whe
 cycle is a non-holder's (0021 §46 item 8). The switch to the TX state before the carrier and the return to the receive state
 after the cycle are done by the radio for the P2 DUC0 and DDC0 frequencies (A3.9b items 2, 7;
 B10.9); AetherSDR sets both before the write, as for a key. Part B has no register for ATU selection, so `atu_select`
-is absent on level 1 until one exists (0021 §23). Tune power of the profile TBD (HIS-08,
+is absent on level 1 until one exists (0021 §23). Tune power of the profile pending hardware (P-ATU-1; HIS-08,
 HIS-12); the tune power used is never above the forward-power bound in force (A3.4 rule 5;
 0022 §53), so a `G7250_LIMIT` on `LIMIT_FWD_POWER` below it lowers the tune carrier.
 
@@ -837,7 +838,7 @@ HIS-12); the tune power used is never above the forward-power bound in force (A3
 
 | Command | Type | Form | Meaning |
 |---------|------|------|---------|
-| `G7250_ANT` | bidirectional | `G7250_ANT:0,<1\|2>;` (set, reply), `G7250_ANT:0;` (read) | ANT1 or ANT2 ([G7250-MAN], "ANT SELECT"). The reply reports the antenna actually selected (0006; part B `ANT_STATE`), `G7250_ANT:0,0;` while it is not known (`ANT_STATE` 0, "unknown", Table B8-2; 0021 §41 item 6); a set of `0` is answered with the value in force and `BAD_VALUE`. Settable only with token `ant`; with token `ant_state` only, it is a notification and a set is answered with the value in force and `G7250_WRITE_STATUS` `READ_ONLY`; with neither, absent (C5.1.4; 0021 §23). Refused while keyed with `KEYED` (C7.6). Default after reset TBD (HIS-06; 0007 Decision 5). |
+| `G7250_ANT` | bidirectional | `G7250_ANT:0,<1\|2>;` (set, reply), `G7250_ANT:0;` (read) | ANT1 or ANT2 ([G7250-MAN], "ANT SELECT"). The reply reports the antenna actually selected (0006; part B `ANT_STATE`), `G7250_ANT:0,0;` while it is not known (`ANT_STATE` 0, "unknown", Table B8-2; 0021 §41 item 6); a set of `0` is answered with the value in force and `BAD_VALUE`. Settable only with token `ant`; with token `ant_state` only, it is a notification and a set is answered with the value in force and `G7250_WRITE_STATUS` `READ_ONLY`; with neither, absent (C5.1.4; 0021 §23). Refused while keyed with `KEYED` (C7.6). Default after reset: pending hardware (P-ANT-1; HIS-06; 0007 Decision 5); until set, the reply is `G7250_ANT:0,0;` and a set gets `READ_ONLY` (Annex P). |
 
 (L1) Part B group 5 has only the read-only `ANT_STATE` (Table B8-2) and the P2 Alex words
 are ignored until HIS-06 (part B B7), so AetherSDR announces at most `ant_state` until a
@@ -848,10 +849,10 @@ writable register exists (0021 §23).
 | Command | Type | Form | Meaning |
 |---------|------|------|---------|
 | `G7250_PREAMP` | bidirectional | `G7250_PREAMP:0,<bool>;` | Preamplifier, if it exists (HIS-07). The TCI `PREAMP` command is reserved ([TCI] §4.6) and so not used. Present only with token `preamp`. Refused while keyed with `KEYED` (C7.6). |
-| `G7250_ATT` | bidirectional | `G7250_ATT:0,<dB>;` | Attenuation in dB, steps TBD (HIS-07). Present only with token `att`. Refused while keyed with `KEYED` (C7.6). |
+| `G7250_ATT` | bidirectional | `G7250_ATT:0,<dB>;` | Attenuation in dB, steps pending hardware (P-RF-4; HIS-07). Present only with token `att`. Refused while keyed with `KEYED` (C7.6). |
 
 Both are absent on both levels until HIS-07 is answered and, on level 1, a part B register
-exists (group 6 is reserved, the step attenuator byte 1443 is TBD (HIS-07), part B B7, B8.3) (C5.1.4;
+exists (group 6 is reserved, the step attenuator byte 1443 is ignored until P-RF-4 is set (HIS-07), part B B7, B8.3) (C5.1.4;
 0021 §23).
 
 ### C5.10 Safety and fault state
@@ -1093,7 +1094,7 @@ a third larger than 24-bit IQ.
 
 - C6.4.1 **(L2)** The server MUST keep the aggregate of all streams to all clients within the
   SPI design target of 0004 Decision point 6, with the WebSocket and TCP overhead included
-  (TBD, G6, HIS-14, HIS-18). A stream start that would exceed it MUST NOT be followed, and
+  (pending G6, P-L2-2; HIS-14, HIS-18). A stream start that would exceed it MUST NOT be followed, and
   `G7250_STREAM_STATE` reports `budget`. Streams already running are never stopped to make
   room.
 - C6.4.2 **(L2)** Proposed provisional limit, until G6 gives numbers: at most one IQ stream at
@@ -1108,7 +1109,7 @@ a third larger than 24-bit IQ.
   0004.
 
 C6.5 **CH394Q buffers.** In TCP mode the CH394Q handles retransmission, so the 0004 buffer
-split for UDP no longer applies on level 2; a level-2 split is TBD (HIS-14, G6).
+split for UDP no longer applies on level 2; a level-2 split is pending G6 (P-L2-2; HIS-14).
 
 ---
 
@@ -1270,7 +1271,7 @@ Before applying such a change the server MUST evaluate the new effective TX freq
    broadcast of C7.7. Keying again needs a new TX request. In a gap of a CW transmission the
    change ends the hang delay as C7.6.7 states, and queued CW text is discarded (C7.7).
 2. Otherwise the change MUST be followed while keyed, without unkey.
-3. Which frequencies share one RF-path state is the filter plan, TBD (HIS-07); until it is
+3. Which frequencies share one RF-path state is the filter plan, pending hardware (P-RF-1; HIS-07); until it is
    known, each transmit range of the `tx_band` list (part B B4.8) counts as its own state, on
    both levels.
 4. **At the key** (A3.1b; 0022 §33). While unkeyed the RF path follows the receive frequency
@@ -1577,7 +1578,7 @@ way: with that bit set the radio's keyer forms the RF and drops DUC I&Q (part B 
    elements of TCI CW are DUC I&Q of a PTT transmission: inside a PTT transmission with DUC
    I&Q, RF is commanded only up to the last non-zero DUC sample, and a run of all-zero
    samples longer than `t_blank` is a gap for that check (part B A3.9a item 6; Table A3-2;
-   threshold and `t_blank` TBD HIS-11). RF in a gap is detected within `t_blank` plus the
+   threshold and `t_blank` pending hardware P-SEN-3; HIS-11). RF in a gap is detected within `t_blank` plus the
    reaction time of 10 ms, while the PTT stays set. AetherSDR MUST send exact zeros
    (I = Q = 0) in the gaps between elements and during the hang delay of item 1. Remaining
    known limit: non-zero samples in a gap (noise, dither, a DC offset, a ramp tail running
@@ -1613,7 +1614,7 @@ C8.5a **TX settings at a session end, a takeover and a level switch** (A3.6, A3.
 
 1. **(L2)** The settings of Table A3-4 (PA enable, hardware CW from KEY, keyer options,
    break-in, EER, hang delay, RF delay, CW ramp, RX step attenuator during TX) have no TCI
-   command; on level 2 the firmware sets them for its own TX chain, values TBD (G6). At every
+   command; on level 2 the firmware sets them for its own TX chain, values pending G6 (P-L2-3). At every
    level switch, in both directions, they MUST return to the values of Table A3-4 after the
    unkey and before the new level's first packet or command is processed, as at a level-1
    session end (A2.5a step 4; A3.6a): a level-1 owner's values never carry into level 2, and

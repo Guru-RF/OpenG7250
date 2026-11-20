@@ -224,6 +224,9 @@ code_sets:
         name: BAD_TOKEN
       - value: 11
         name: TX_NOT_IMPLEMENTED
+      - value: 12
+        name: NOT_CALIBRATED
+        text: "(transmit parameters of Annex P not set; 0035)"
   - set: "Drop reason (`TX_ARM_STATE` [23:16]; Table A3-1)"
     values:
       - value: 0
