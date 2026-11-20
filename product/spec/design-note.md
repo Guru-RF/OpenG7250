@@ -1,12 +1,13 @@
 # G7250 network firmware — design note
 
-- Version: draft 4 (spec rc4), 2026-11-19
-- Status: draft for review by ON8ST
-- Structure: as agreed in 0001, amended by decisions 0002–0024 (0020–0022 proposed, for
-  review at rc4; 0023 scope accepted by ON8ST 2026-11-20, details proposed; 0024 proposed).
+- Version: draft 5 (spec v1.0 candidate), 2026-11-21
+- Status: for review by ON8ST with the v1.0 package
+- Structure: as agreed in 0001, amended by decisions 0002–0038 (status of each in
+  `product-handover.md`).
 - © 2026 ON8ST. Licensed under CC BY 4.0 (see `LICENSE.md`, decision 0018).
-- The normative interface is in `spec/network-interface.md` (not yet written). This note
-  describes the product; it does not define the protocol.
+- The normative interface is in `spec/network-interface.md` (parts A and B, Annexes P and
+  X1–X3) and `spec/part-c-tci-profile.md`. This note describes the product; it does not
+  define the protocol.
 
 Sources are cited by key (see `sources.md`) or by decision number (see `decisions/`).
 
@@ -105,8 +106,9 @@ PTT paths, what the CTRL cable carries.
   it, the host reads a read-only capability record in the G7250 register map: name, versions,
   sample rates, antennas, ATU, TX power per band and mode, wideband parameters, link speed,
   and this unit's own conversion constants. Reading it is not a takeover. (0003)
-- **Streams.** One DDC at 48/96/192/384 ksps (384 only if the SPI clock is about 50 MHz or
-  more), TX IQ 24-bit at 192 ksps, microphone only if the CTRL link carries it (HIS-17),
+- **Streams.** One DDC at 48/96/192/384 ksps (384 only once an SPI clock of about 50 MHz or
+  more is shown on the radio; about 17 MHz is known to work, so 192 ksps until then; Annex P
+  P-NET-1), TX IQ 24-bit at 192 ksps, no microphone stream in v1.0 (0031),
   wideband from M2 at 4096 samples × 20 frames/s. Unsupported requests are refused, not
   rounded. A 10 Mbit/s link refuses the session. Design target: at most 60 % SPI load. (0004)
 - **Telemetry.** Standard P2 status fields carry raw ADC words as in P2; the host converts
@@ -114,7 +116,8 @@ PTT paths, what the CTRL cable carries.
   currents, SWR, arm, fault, limits, ATU state) are registers in engineering units. (0006)
 - **Management channel.** Its own UDP port on the eighth socket at both levels;
   identification is read-only and open, writes need the radio's secret (challenge-response,
-  first secret claimed over the network in a short window after first start). Firmware
+  first secret claimed over the network in a short window after first start). Factory default
+  address: DHCP with an IPv4 link-local fallback (0035). Firmware
   updates with integrity checks (no signatures yet), staging in the other slot and rollback,
   behind a boot stage of our own; downgrade needs a flag (0028). P2 Set IP is accepted as in P2; P2 Erase/Program are ignored. It never keys the radio.
   (0008)
@@ -127,9 +130,12 @@ after 500 ms of silence the radio unkeys (arm kept). Maximum continuous TX 5 min
 arm kept). The P2 watchdog (1 s) cannot be disabled while armed. Takeover by another host is
 always allowed and always unkeys and disarms; the owner is identified by IP address and UDP
 port. Controller inputs (PTT, key), SEND and ATU tuning never key the radio on their own on
-level 1. Limits (SWR, temperature, power, supply, TX time) act with warn / reduce / unkey /
-disarm / fault; values wait for the HIS. Two fault classes: host-clearable and reset-only.
-(0007, 0015)
+level 1; in v1.0 the main unit's local PTT and KEY inputs are not used at all (0030). Limits
+(SWR, temperature, power, supply, TX time) act with warn / reduce / unkey / disarm / fault;
+their values need the radio and are named in Annex P, so the radio rejects every arm with
+`NOT_CALIBRATED` until they are measured (0035, 0036). The ATU is driven by this firmware and
+stays in bypass until its values are measured (0032). Two fault classes: host-clearable and
+reset-only. (0007, 0015)
 
 Added by the rc1 review (0022, proposed): while keyed, antenna, ATU, filter, preamp and
 attenuator relays never switch, from any source; a TX-frequency change that leaves the range
@@ -186,12 +192,19 @@ a 1 s window unless refreshed (0021 §18).
 5. **Clean room.** The product side uses only the HIS, public documents and datasheets, the
    public product information, and decisions recorded here (AGENTS.md).
 6. **Spec first.** Every part of the spec gets a reference model and conformance tests in
-   g7250-testbench before it is built in firmware (0001 item 5).
+   `testbench/` before it is built in firmware (0001 item 5, 0027).
+7. **Calibrated before transmit.** Values that only the radio can give are named in Annex P
+   with a safe placeholder; transmit is part of r1.0 but stays disabled (`NOT_CALIBRATED`)
+   until they are measured (0035, 0036).
+8. **Black box before the radio.** Every firmware image first passes the spec-based tests on
+   the reference model and, as a black box, on the RE side's emulator (0019, 0034).
 
 ## 6. Milestones
 
-Each milestone has testable exit criteria, first against the reference model in
-g7250-testbench, then on the radio. (0001 item 6, 0011)
+Each milestone has testable exit criteria, first against the reference model and the tests in
+`testbench/`, then on the emulator as a black box (0034), then on the radio (0001 item 6,
+0011). Release r1.0 contains M1–M5, transmit included; on the radio, transmit is enabled once
+the Annex P values are measured (0036). The firmware is written in Rust on Embassy (0033).
 
 | Milestone | Content | Exit criterion (outline) | Depends on |
 |-----------|---------|--------------------------|------------|
@@ -204,7 +217,9 @@ g7250-testbench, then on the radio. (0001 item 6, 0011)
 | **M6** | Level 2: TCI receive | a TCI client following the G7250 TCI profile receives and controls the radio | 0014, part C |
 | **M7** | Level 2: TCI transmit | TCI transmit within the same safety core | 0014, M6 |
 
-AetherSDR work runs alongside: the G7250 backend receives from M1 and transmits from M4.
+AetherSDR work runs alongside: the G7250 backend receives from M1 and transmits from M4; it is
+written in C++/Qt by a separate product-side session after firmware milestone F2 and offered
+upstream through the RFC (0038, proposed).
 
 ## 7. Out of scope
 
@@ -216,9 +231,14 @@ AetherSDR work runs alongside: the G7250 backend receives from M1 and transmits 
 - DDC audio playback on the main unit (0017).
 - More receivers than the hardware has (0001).
 - The stock firmware's network protocol (clean room).
+- A power-off command; the product is headless and is switched off by removing power. A
+  network-wakeable standby is a later option (0029).
+- The main unit's local PTT and KEY inputs, and audio through its codec, in v1.0 (0030, 0031).
+- An Aether-gate (Flex-emulation) route: no transmit, and the radio would pose as a Flex
+  (annex AetherSDR §4 option D; 0013 note).
 - The controller (head) firmware: the controller keeps its stock firmware and is not
-  modified, reflashed or replaced; whether it works with the new main-unit firmware is open
-  (0023; HIS-17). The new firmware leaves CTRL idle and does not use the controller as a
+  modified, reflashed or replaced; the main unit leaves CTRL idle towards it ([HIS] HIS 70);
+  how its panel behaves with a silent main unit needs the radio (Annex P, P-SYS-4). The new firmware leaves CTRL idle and does not use the controller as a
   front panel, on either level (0023, note of 2026-11-20). The FPGA configures itself from
   its own flash and is never touched ([HIS] HIS 15; 0028).
 - Distributing vendor (stock) firmware images: the owner supplies any stock image (0024,
@@ -230,14 +250,14 @@ AetherSDR work runs alongside: the G7250 backend receives from M1 and transmits 
 ## 8. Dependencies and open questions
 
 - **Firmware management tool.** Firmware is managed from the host: the CLI `g7250ctl`
-  (`product/tools/g7250ctl/`) is the reference implementation of the management protocol,
-  AetherSDR's firmware page follows on the same protocol (0026). The first install from stock
-  goes once through the controller (0028). No code in the spec phase: the folders hold
-  READMEs and documentation only (0028 Decision 4).
+  (`product/tools/g7250ctl/`, Rust, sharing the protocol crate, 0037 proposed) is the reference
+  implementation of the management protocol; AetherSDR's firmware page follows on the same
+  protocol (0026). The first install from stock goes once through the controller (0028).
 
-- **HIS.** Cleared on 2026-11-20 and read at `2a38b7f`. Each question in
-  `open-questions-his.md` (HIS-01 to HIS-20) carries its answer status; the impact is in
-  `analysis/his-2a38b7f-impact.md`. Still open for M1: HIS-02 (in part), HIS-15, HIS-20.
+- **HIS.** Cleared and read at `2a38b7f`, `d0a39b0`, `b95f519` and `9d10e72` (gate reviews
+  2–5). Each question in `open-questions-his.md` (HIS-01 to HIS-20) carries its answer status;
+  the impact is in `analysis/his-2a38b7f-impact.md`. Everything that needs the radio is in
+  Annex P of the spec (31 parameters, each with a safe placeholder) and in HIS 90.
 - **Reversibility.** Installing the new firmware is reversible. The vendor bootloader and its
   update path through the controller are never touched and are the recovery path. From the new
   firmware the owner installs a stock image over the network, without the controller, through
@@ -254,9 +274,6 @@ AetherSDR work runs alongside: the G7250 backend receives from M1 and transmits 
 - **Sources still to read.** The TCI 2.1 PDF and its terms of use (before part C), the
   Radioddity product page, the HDSDR network tutorial and the Temporarily Offline video
   (`sources.md`).
-- **Decisions.** 0001–0019 are accepted; 0020–0022 (rc1 details, TCI profile choices, review
-  fixes) are proposed for review at rc4. 0023 (controller out of scope) has its scope
-  statement accepted (ON8ST, 2026-11-20) and its details proposed; 0024 (switching between
-  stock and new firmware) is proposed. After rc5: 0023 and 0024 accepted; 0025 (one
-  installation path on the main unit, amends 0024) is proposed. What remains are hardware values from the HIS
-  (limits, clocks, filter plan, sensor details).
+- **Decisions.** 0001–0032 and 0036 are accepted; 0033–0035, 0037 and 0038 are proposed
+  (`product-handover.md`). What remains for the product are the values of Annex P, which
+  need the radio.
