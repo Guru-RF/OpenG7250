@@ -58,6 +58,12 @@ All numbers 0001–0018 are now in use.
 ## Open questions for ON8ST
 
 Decided on 2026-11-20 (ON8ST):
+- **Review of rc4 completed** by ON8ST (2026-11-20).
+- 0025 and 0026 stay **proposed**; ON8ST asked for an artifact explaining them before he
+  decides.
+- **Go** to push the follow-up commits on `spec/draft` with tag `spec-rc6`.
+- **Go** to create `product/tools/g7250ctl/` (0026) and `product/refmodel/` (0019); the
+  openg7250 session adds them to the product-side sparse checkout.
 - 0020, 0021, 0022, 0023 and 0024 are **accepted** ("Akkoord met alles", after his review of
   rc4). 0023: controller out of scope; 0024: switching between stock and new firmware.
 - `.claude/settings.json` stays as it is (the deny rules naming the decrypted-firmware folder
@@ -71,10 +77,9 @@ Still open:
    after its gate.
 2. Go for an AetherSDR RFC issue (annex Q-O1); shared P2 refactor vs. self-contained backend
    (Q-O2).
-3. Go to create `product/refmodel/` and the `g7250-testbench` submodule (0019), and
-   `product/tools/g7250ctl/` (the management CLI, 0026).
-4. Review of the proposed decisions 0025 (one installation path on the main unit) and 0026
-   (firmware management on the host side).
+3. The `g7250-testbench` submodule (0019); `product/refmodel/` and `product/tools/g7250ctl/`
+   are approved and wait for the sparse-checkout change.
+4. ON8ST's decision on 0025 and 0026 (artifact provided).
 
 Watch TAPR/OpenHPSDR-Firmware#6 for a reply on board type 200.
 

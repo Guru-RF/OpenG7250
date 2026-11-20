@@ -4,7 +4,7 @@
 
 All dates 2026-11-19. Decision numbers refer to `decisions/`.
 
-## After rc5 (2026-11-20)
+## rc6 — release candidate 6 (tag `spec-rc6`)
 
 - 0023 note: ON8ST confirms option A; CTRL stays idle and the controller is not used as a
   front panel on either level (part A "Scope of the firmware", A3.7).
