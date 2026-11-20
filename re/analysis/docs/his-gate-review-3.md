@@ -125,3 +125,31 @@ of `684797c`).
 | A | 10, 90 | IWDG start mode as an open point; step 2 also reads CPUFREQ_BOOST and the IWDG freeze bits; no retry under reset at RDP 2. |
 
 Status: ready for the check of this diff.
+
+---
+
+## Final check (diff bc1bba7..d0a39b0, his/)
+
+| Item | Result |
+| --- | --- |
+| G1 (80, 90) | applied: no VFO/RIT semantics are left; "two of them set tuning frequencies of the receive path (MEDIUM)". The emulator alternative was dropped from the HIS-02 row. |
+| G2 (90 step 4) | applied: no full-chip or mass erase; sector erase 1…n only; sector 0 read back before and after and compared with the backup. |
+| G3 (90 step 4) | applied: the test image holds the 85 safe state, drives PH9 high from reset, toggles no other pin, and reports through USART1 or a RAM counter read over SWD. |
+| G4 (90 step 3) | applied: the Control is backed up only after its own steps 1–2, otherwise the backup covers the Main only; the dumps are RE-side material under the clean-room rules. |
+| G5 (90 step 4) | applied: the step-3 SWD backup is the fallback. |
+| G6 (90) | applied: dummy loads on both ANT1 and ANT2. |
+| Advisories | applied: IWDG start mode is open in 10 and 90; step 2 also reads CPUFREQ_BOOST and the IWDG freeze bits; no retry under reset at RDP 2. |
+
+Nothing in the diff adds stock behaviour, and every step stays read-only except
+the guarded sector writes in step 4.
+
+Nits (non-blocking, fix in passing):
+- 90: the "IWDG start mode" row sits after a blank line, so it renders as a
+  stray line rather than as a row of the table above; remove the blank line.
+- 90 step 4: give the USART1 pins (PB6/PB7 AF7) their tag (VERIFIED, g7250-base
+  peripherals).
+
+### Verdict (final)
+
+**CLEARED** at d0a39b0. The announced HIS-02 interface addition to 80 from the
+emulator probe is not covered by this check and needs its own.
