@@ -10,7 +10,6 @@ statements in the other sections stay as tagged there.
 | HIS-07, HIS-11, HIS-12: timing and calibration values | Not in this spec on purpose: stock timing and stock calibration are not hardware facts. | Measurement on the radio. |
 | HIS-17: power-up without the Control | Two hypotheses H1/H2 (`20-power.md`, Open). | Observation T0-P2: Main with the CTRL cable disconnected, DC on; does the Ethernet link come up? |
 | HIS-19: does the vendor bootloader start an image it did not write; is there a bootloader entry without the Control | Unknown; the bootloaders are not analysed (`15-stock-recovery.md`). | The F1 drill, after the steps below. |
-
 | IWDG start mode | Unknown: set by the IWDG1_SW option byte (`10-reset-clock.md`). | Read in step 2 below. |
 
 ## Safe order of the hardware steps for HIS-19 / F1
@@ -45,7 +44,7 @@ Nothing below writes or erases unless the step says so.
    - **The test image** holds the safe state of `85-rf-control.md`, drives PH9
      high from reset (under H1 the unit otherwise drops power, `20-power.md`),
      and toggles no other pin. It reports that it runs through the Main debug
-     console (USART1 TX on PB6, RX on PB7, AF7) or through a RAM counter read
+     console (USART1 TX on PB6, RX on PB7, AF7; VERIFIED) or through a RAM counter read
      over SWD.
    - **Programming:** no full-chip or mass erase. Sector-erase only the sectors
      the image needs (1…n) and write from 0x08020000. Read sector 0 back before
