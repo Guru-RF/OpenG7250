@@ -60,7 +60,10 @@ All numbers 0001–0018 are now in use.
 Decided on 2026-11-20 (ON8ST):
 - **Review of rc4 completed** by ON8ST (2026-11-20).
 - **Emu receipt:** the openg7250 relay ("received: ON8ST acceptance of 0020–0024 and
-  HIS-17/18/19 questions") counts as the emu session's receipt (ON8ST, 2026-11-20). The rc plan
+  HIS-17/18/19 questions") counts as the emu session's receipt (ON8ST, 2026-11-20). Emu's own
+  receipt followed, relayed verbatim by openg7250: "I have received ON8ST's acceptance of
+  decisions 0020–0024 and the HIS sub-questions HIS-17, HIS-18 and HIS-19. They are being handled
+  through the HIS and its gate." The rc plan
   (steps 1–7) is complete; spec-rc7 is on the fork (b9132bc), `spec/draft` at 4902a37.
 - 0025 and 0026 **accepted** (2026-11-20) after review on the decision page
   (https://claude.ai/artifact/F9UDf2htv7qiBHUoeb5jDv); R5 of 0025 is decided when the HIS
