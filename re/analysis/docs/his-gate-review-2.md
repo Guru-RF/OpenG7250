@@ -581,3 +581,27 @@ enough to mark the HIS **CLEARED**; no further full read is needed.
 
 Re-check brought in as `7a9bc6f` (cherry-pick of `12bb91d`). Status: **not
 yet cleared**; ready for the check of this diff.
+
+---
+
+## Final check (diff 7a9bc6f..0105b8e, his/ changes in 89f5b5d)
+
+| Item | Result |
+| --- | --- |
+| N1 (70) | applied: rule 3 tagged MEDIUM; the evidence line says the emulator run does not cover the Control's periodic TX; hardware confirmation open. |
+| N2 (20) | applied: HIGH tag with the PCA9557 bit 5 caveat; key press = PH5 low (HYPOTHESIS); no stock timing ("product's choice"); the rule is marked as resting on the two hypotheses. |
+| N3 (15) | applied: the fallback is conditional on the unknown bootloader entry condition (F1). |
+| A12 (15) | applied. |
+| A13 (85) | applied: added to Open, with a SHOULD to set the pins first. |
+| A14 (85) | applied. PA12 is listed without the stock power-off level, which is the safer choice. |
+| A15 (85) | applied: HIGH. |
+
+Nothing in the diff adds stock behaviour, a value without a source, or a fact
+without a tag.
+
+### Verdict (final)
+
+**CLEARED.** The product side may read `his/` at 89f5b5d. Advisories A1–A7
+remain open and do not block. The HIS status line in `his/README.md` and the
+root `README.md` still say "not yet cleared". Updating them is the emu
+session's change.
