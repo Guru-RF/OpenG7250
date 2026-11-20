@@ -743,6 +743,39 @@ new code on top of the reused P2 codec.
   `G7250Discovery`, register-map client, TX chain), with the board-neutral P2 code moved into
   a shared `src/core/backends/p2/` used by both ANAN and G7250.
 - **C. A new backend family `g7250`** with its own copy of the P2 wire code it needs.
+- **D. Aether-gate** [AETHER-GATE]: a separate bridge that presents the radio to AetherSDR as
+  a FlexRadio, so that AetherSDR speaks the Flex protocol to the gate and the gate translates.
+  Considered on ON8ST's request (2026-11-20) and **rejected**; see below.
+
+### Aether-gate (option D)
+
+What it is, from its public README [AETHER-GATE] and AetherSDR's README [AETHER], both read
+on 2026-11-20:
+
+- A bridge that "presents _any_ radio" to AetherSDR as a FlexRadio, for radios without native
+  AetherSDR support: Icom LAN rigs, the IC-7300 over USB, CAT transceivers through hamlib,
+  SoapySDR dongles, and a simulator. GPL-3.0-or-later. Status "working, but very young".
+  Originally by G0JKN (forked from `nigelfenton/Aether-gate` into the aethersdr organisation).
+- "Receive & control only — no transmit yet"; "It does not key the radio" [AETHER-GATE].
+- AetherSDR integrates "radios that earn deep native support directly in-engine" through the
+  `IRadioBackend` seam, and names the gate as the route for the rest [AETHER].
+
+Why it is rejected for the product (ON8ST, 2026-11-20):
+
+- **No transmit.** The gate never keys the radio. Every integration must offer full
+  functionality including TX (0012), with the TX arm and safety rules of part A.
+- **The radio would pose as a Flex.** G7250-P2 is openHPSDR Protocol 2 with board type 200
+  (0002, 0016) and its own register map and arm handshake (0005, 0007). Behind a Flex
+  emulation, the arm, the limits and the write rejections of the spec have no equivalent, and
+  AetherSDR would treat the radio as a Flex.
+- **A second hop.** A separate bridge process is what 0013 ruled out ("no separate bridge").
+
+The native route stays: a G7250 backend on AetherSDR's `IRadioBackend` seam, on its P2 code
+(0013, 0016; options B and C). That still means AetherSDR's P2 support must be extended with
+transmit and with board type 200 / G7250-P2, which Q-O1 and Q-O2 cover.
+
+A gate adapter for the stock radio (stock firmware, not G7250-P2) would be a separate project
+outside the product, and is not part of this spec (ON8ST, 2026-11-20).
 
 ### Assessment
 

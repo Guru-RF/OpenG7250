@@ -107,6 +107,20 @@ the source has been found but not checked.
   Protocol 1, including TX. ANAN-G2 over Protocol 2 is experimental and receive-only
   ("Transmit is a future phase"). Backends use an `IRadioBackend` seam. TCI server
   announcing protocol 2.1. Licence GPL-3.0.
+- Read again 2026-11-20 for annex §4 option D: radios that "earn deep native support" are
+  integrated "directly in-engine" through `IRadioBackend`; Aether-gate covers radios without
+  native support; "Receive + control today (no transmit yet)" for the gate.
+
+### [AETHER-GATE] Aether-gate README
+
+- What: a bridge that presents other radios to AetherSDR as a FlexRadio.
+- Where: github.com/aethersdr/Aether-gate, `README.md` (forked from
+  github.com/nigelfenton/Aether-gate).
+- Read: 2026-11-20 (also read by the openg7250 session on the same day, public page).
+- Used for: annex AetherSDR §4, option D (rejected).
+- Facts used: targets Icom LAN rigs, IC-7300 over USB, hamlib CAT rigs, SoapySDR dongles and a
+  simulator; "Receive & control only — no transmit yet", "It does not key the radio";
+  GPL-3.0-or-later; "working, but very young".
 
 ### [AETHER-SRC] AetherSDR source code
 

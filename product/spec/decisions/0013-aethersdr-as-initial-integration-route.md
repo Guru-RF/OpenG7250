@@ -36,3 +36,11 @@ No separate host-side bridge is built.
 
 - Start brief, ON8ST, 2026-11-19.
 - Discussion with ON8ST, 2026-11-19.
+
+## Note of 2026-11-20
+
+Aether-gate (a separate bridge that presents radios to AetherSDR as a FlexRadio, receive and
+control only) was considered on ON8ST's request and rejected: no transmit (against 0012), the
+radio would pose as a Flex, and it is a separate bridge, which this decision rules out. The
+native route on AetherSDR's `IRadioBackend` seam stays. See `spec/annex-aethersdr.md` §4,
+option D, [AETHER-GATE].
