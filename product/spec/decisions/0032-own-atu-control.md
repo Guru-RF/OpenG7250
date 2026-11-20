@@ -25,6 +25,11 @@ memory and reporting are the firmware's job. The spec already defines the ATU tu
   `G7250_ATU_TUNE`.
 - Pending-hardware annex: ATU parameters.
 
+## Amendment
+
+- 0035 (amendment after the review of 2026-11-21): while the latches are unwritten the ATU
+  state is not known, so `ATU_STATE` reads 5 (unknown), not 0 as item 3 says.
+
 ## Sources
 
 - [HIS] HIS 85 (`2a38b7f`); ON8ST, 2026-11-20; decisions 0005, 0007, 0022 §22.

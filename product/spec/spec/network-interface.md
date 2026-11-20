@@ -193,7 +193,9 @@ A1.5 **Identification** (read; no authentication) (0008, Functions):
   read;
 - that no stock image is retained and that `ENTER_VENDOR_RECOVERY` is not supported, as two
   flags, so that a later version can set them (I-2a; A1.8a; 0024, 0028);
-- integrity result of both images and update state: normal, trial boot, rolled back (I-3);
+- integrity result of both images and update state: normal, trial boot, rolled back, or
+  installer (a streaming installation of A1.8a item 3 in progress, with the number of sectors
+  written) (I-3; 0028);
 - whether a secret is set, and whether the first-secret window is open and for how long
   (I-3a);
 - active level, owner of the RF chain (host IP address and UDP port, or none) and TX arm
@@ -322,8 +324,10 @@ A1.8 **Firmware update** (authenticated) (0008, Functions, U-1 to U-10):
   ([HIS] HIS 10). This firmware places a boot stage of its own there, which picks one of two
   image slots in the application area and carries out the atomic switch (U-5) and the trial
   boot and rollback (U-6). The boot stage is part of the first install (A1.8a item 9) and is
-  not updated through this channel (U-7). It MUST NOT write the vendor bootloader region or
-  the option bytes ([HIS] HIS 15 rules 1, 2).
+  not updated through this channel (U-7). The boot record (active slot, trial state) MUST be
+  kept outside the boot stage's sector, so that an update never erases the boot stage (the
+  erase unit is a 128 KiB sector, [HIS] HIS 15). The boot stage MUST NOT write the vendor
+  bootloader region or the option bytes ([HIS] HIS 15 rules 1, 2).
 - The staged image MUST be hashed and compared with the header before activation. No
   signature is checked in this version (U-4; 0008, Resolved 5).
 - Activation MUST be atomic; power loss before the switch leaves the old image running (U-5).
@@ -392,14 +396,18 @@ behaviour are not specified here (0025, "Clean room").
      the first sector erase.
    - **Installer state.** The installer MUST keep the TX-side state of A3.6 that steps 2–4 left
      (bias channels at 0, chain A output disabled or bit 7 clear, T/R lines at their receive
-     levels, codec in reset, [HIS] HIS 85), MUST NOT change any RF control pin, keys nothing,
+     levels, codec in reset, SEND and TUNER trigger released, [HIS] HIS 85), MUST NOT change any
+     RF control pin, keys nothing,
      ignores the local PTT and KEY inputs (0030), and MUST service the independent watchdog if it
      runs (its start mode is pending hardware, P-SYS-7). It answers only `IDENTIFY` (with the
      installer state and the sectors written), `GET_CHALLENGE`, `UPDATE_BLOCK`, `UPDATE_STATUS`,
-     `UPDATE_VERIFY`, `UPDATE_ACTIVATE` and `UPDATE_ABORT`; every other management command gets
-     status 58. Discovery, the P2 ports and TCI are closed.
-   - **Abort before the first erase.** `UPDATE_ABORT` before the first sector erase restarts the
-     main unit into this firmware, with its secret and configuration unchanged; it is logged.
+     `UPDATE_VERIFY`, `UPDATE_ACTIVATE` and `UPDATE_ABORT`, and a repeat of the accepted
+     `UPDATE_BEGIN`, which it answers from the stored reply (A1.4); every other management
+     command gets status 58. Discovery, the P2 ports and TCI are closed.
+   - **Before the first erase.** `UPDATE_ABORT` before the first sector erase restarts the main
+     unit into this firmware, with its secret and configuration unchanged; it is logged. The
+     10-minute rule of A1.8 applies until the first erase: 10 min without an update command
+     other than `UPDATE_STATUS` restart the main unit into this firmware in the same way.
    - **Writing.** The installer receives the blocks over this channel and writes them to the
      application area from 0x08020000, at most one 128 KiB sector at a time, each sector only
      after all its blocks have arrived with a good CRC ([HIS] HIS 15, installer items 1–3). It
@@ -412,8 +420,9 @@ behaviour are not specified here (0025, "Clean room").
      sector erase, before any sector is written (item 7). Once the first sector is erased there
      is no return to this firmware, and
      `UPDATE_ABORT` is answered with status 60 (the reply says the transfer must be completed or
-     the recovery path used). If the transfer breaks off, the installer keeps waiting for blocks and
-     never restarts by itself (the 10-minute rule of A1.8 does not apply); if power is lost, the
+     the recovery path used). If the transfer breaks off after the first erase, the installer
+     keeps waiting for blocks and never restarts by itself (the 10-minute rule of A1.8 no
+     longer applies); if power is lost, the
      main unit has no valid application and the recovery path is the vendor path through the
      controller (U-9; 0028 Decision 2), which the gate above has shown to work.
    - Before the first erase, the reply to `UPDATE_BEGIN` MUST state that the installation is
@@ -424,8 +433,8 @@ behaviour are not specified here (0025, "Clean room").
 5. **Permanent, not a trial** (0024, Details). A stock image is activated without trial boot
    and without rollback to this firmware (U-6 does not apply), because it cannot confirm
    itself. The reply says so.
-6. **Safety and order** (0024 R4). A foreign `UPDATE_BEGIN` and `UPDATE_ACTIVATE`,
-   `RETURN_TO_STOCK` and `ENTER_VENDOR_RECOVERY` MUST be refused with status 50 while armed or
+6. **Safety and order** (0024 R4). A foreign `UPDATE_BEGIN`, `RETURN_TO_STOCK` and
+   `ENTER_VENDOR_RECOVERY` MUST be refused with status 50 while armed or
    keyed and with status 58 while another firmware update is in progress; the last two then
    get status 56. When a foreign `UPDATE_BEGIN` is accepted, the P2 session ends and all
    streams stop as from `UPDATE_BEGIN` (A1.8; 0022 §10), level-2 TCI connections are closed,
@@ -1164,8 +1173,8 @@ its bias off (bias channels at 0; the transmit bias per unit is P-PWR-5), TX pat
 FIFO emptied (0022 §32); not armed, new token, session limits back to the persistent values (A3.4; after a reset the
 persistent values are read from the stored configuration), `TX_MODE_CLASS` = 0,
 `KEYED_TIMEOUT` = 500 ms, watchdog counted as enabled, the TX settings of A3.6a at their
-session-start values (0022 §64); ATU not tuning, ATU in bypass
-until P-ATU-1 is set, then as stored per band (0032; HIS-08); antenna latch unwritten and
+session-start values (0022 §64); ATU not tuning, its latches unwritten and its state
+unknown (`ATU_STATE` 5) until P-ATU-1 is set, then as stored per band (0032; HIS-08); antenna latch unwritten and
 `ANT_STATE` 0 until P-ANT-1 is set (HIS-06); filters for the default RX frequency, preamplifier
 off and attenuation as pending hardware (P-RF-5; HIS-07).
 At a takeover only the TX-side part applies; RX-side settings are kept for the new owner
@@ -1839,7 +1848,7 @@ Table B4-1 — Capability record, version 1.1 (0003 §3; 0020 §26)
 | 0x1C | `antennas` | [7:0] number of antenna connectors; bit 8 host can select; bit 9 separate RX-only input | 2 [G7250-MAN]; bit 8 HIS-06; bit 9 HIS-06, HIS-07 (assumed 0) |
 | 0x1D | `atu` | bit 0 internal ATU present; bit 1 host can control it; bit 2 per-band memory; bit 3 external tuner interface present; bit 4 host can control the external tuner interface | bits 0, 2, 3 = 1 [G7250-MAN]; bit 1 = 1 (this firmware drives the ATU, [HIS] HIS 85; 0032); bit 4 = 0 in this version (SEND and TUNER interface pending hardware, P-SYS-8; HIS-09) |
 | 0x1E | `atu_range` | [31:16] minimum, [15:0] maximum load in Ω | 20, 150 [G7250-MAN] |
-| 0x1F | `telemetry` | bit 0 forward power; bit 1 reverse power; bit 2 PA temperature; bit 3 supply voltage; bit 4 supply current; bit 5 PA current; bit 6 ADC overload | bits 0–5 = 1 for the sensors of [HIS] HIS 85 (ADC1 inputs); a value stays invalid in `SENSOR_VALID` until its calibration is set (P-SEN-1, P-SEN-2); bit 6 = 1 (ADC peak, [HIS] HIS 80); meaning in B9 (0006; HIS-11) |
+| 0x1F | `telemetry` | bit 0 forward power; bit 1 reverse power; bit 2 PA temperature; bit 3 supply voltage; bit 4 supply current; bit 5 PA current; bit 6 ADC overload | bits 0, 1, 2, 3, 5 = 1 for the ADC1 inputs of [HIS] HIS 85 (forward, reflected, PA temperature, supply voltage, PA supply current Idd); bit 4 = 0 (no separate supply-current input); a value stays invalid in `SENSOR_VALID` until its calibration is set (P-SEN-1, P-SEN-2); bit 6 = 1 (ADC peak, [HIS] HIS 80); meaning in B9 (0006; HIS-11) |
 | 0x20 | `tx` | bit 0 TX hardware present; bit 1 TX implemented in this firmware (0 before M4); bit 2 TX arm required (always 1); bit 3 declared TX mode class required for arm (always 1); bit 4 transmit parameters of Annex P set (0 until calibrated, Annex P) | bit 0 = 1 [G7250-MAN]; bit 1 per milestone; bit 2 = 1 (0015); bit 3 = 1 (0007) |
 | 0x21 | `tx_band_count` | number of valid entries below (max 16) | 10 [G7250-MAN] |
 | 0x22–0x51 | `tx_band[0..15]` | 3 registers per band: start Hz; stop Hz; [31:16] maximum power SSB/CW/FM, [15:0] maximum power AM, both in 0.1 W | ranges per region [G7250-MAN]; 1000 (100 W) and 250 (25 W) [G7250-MAN]; 50 MHz pending hardware (P-PWR-2; HIS-12; 90 W in [G7250-PUDX], [G7250-RIGPIX]) |
@@ -3073,7 +3082,7 @@ Table P-1 — Pending hardware parameters
 | P-RF-4 | RX step attenuator and preamplifier steps (chain B bits), attenuation during TX | A3.6, B7, part C C5.9 | HIS-07 | preamplifier off, attenuator at its first known position or unwritten; `G7250_ATT` absent |
 | P-RF-5 | RX default state: filters for the default receive frequency, preamplifier, attenuation | A3.6, B5.5 | HIS-07 | chain B output disabled (OE high, [HIS] HIS 85) until a known frame exists; then the P-RF-4 placeholder |
 | P-ANT-1 | Antenna selection (most likely PD13 latch bits 4–5, [HIS] HIS 85) and the default antenna after reset | A3.6, B8 `ANT_STATE`, part C C5.8 | HIS-06 | latch unwritten; `ANT_STATE` = 0 (unknown); `G7250_ANT` reports 0 and a set is answered with `READ_ONLY` |
-| P-ATU-1 | ATU latch meanings and safe values; tune power of the ATU profile; tune-time margin; where tuned states are stored | A3.4 rule 5, A3.9b, Table A3-2, B10.9, part C C5.7 | HIS-08, HIS-12 | ATU in bypass, latches unwritten; `ATU_TUNE` rejected with `NOT_CALIBRATED` (0032) |
+| P-ATU-1 | ATU latch meanings and safe values; tune power of the ATU profile; tune-time margin; where tuned states are stored | A3.4 rule 5, A3.9b, Table A3-2, B10.9, part C C5.7 | HIS-08, HIS-12 | latches unwritten, state unknown (`ATU_STATE` 5); `ATU_TUNE` rejected with `NOT_CALIBRATED` (0032) |
 | P-PWR-1 | Mapping of P2 drive level 0–255 and TCI `DRIVE` 0–100 to forward power (DAC channel 1, [HIS] HIS 85) | A3.4 rule 4, B10.8, part C C4 | HIS-12 | not applicable while TX is disabled |
 | P-PWR-2 | Limit values: SWR S1, S2, `P_min`; temperatures T1–T4 and their hysteresis; under-voltage `REDUCE` and `UNKEY` values; fold-back caps `P_swr`, `P_temp`; `P_ssb_mean`; maximum power at 50 MHz | Table A3-2, A3.4a, A3.4c, A3.5, B4.8 `tx_band` | HIS-11, HIS-12 | not applicable while TX is disabled |
 | P-PWR-3 | Margin on the forward-power bound for the digital crest-factor PEP estimate | Table A3-2, A3.4c | HIS-11, HIS-12 | not applicable while TX is disabled |
@@ -3257,7 +3266,8 @@ Unless a test says otherwise, a test in which KEY or CWX keys runs with break-in
 | T-A1-58 | With the controller disconnected, an image of this firmware (staged in the other slot) and then a synthetic opaque stock image with the "foreign image" flag (streaming installer) are installed through the same management commands (`UPDATE_BEGIN`, `UPDATE_BLOCK`, `UPDATE_VERIFY`, `UPDATE_ACTIVATE`) and the same commanded-reset order; both succeed and no step waits for, or sends anything to, the controller (reference model; A1.8a "Installation paths"; 0025 R2, 0028). |
 | T-A1-59 | For an image of this firmware and for a foreign image alike, a block with a wrong CRC-32 gets status 53, an image whose SHA-256 differs from the header gets status 55 at `UPDATE_VERIFY`, and an image for other hardware gets status 51 before anything is written or erased (reference model; A1.8, A1.8a; 0025 R3). |
 | T-A1-60 | During a streaming installation (A1.8a item 3): `UPDATE_STATUS` reports the sectors written; `IDENTIFY` reports the installer state; any other management command than those listed gets 58, and discovery, P2 and TCI get no answer; the TX-side state of A3.6 is unchanged and toggling the local PTT and KEY inputs keys nothing; `UPDATE_ABORT` before the first erase restarts into this firmware with its secret and configuration unchanged, after it gets status 60; a transfer that stops for more than 10 min does not restart the main unit and resumes when blocks arrive again; sector 0 and the option bytes are never written, and no sector is written before all its blocks arrived with a good CRC (reference model; 0028). |
-| T-A1-61 | Before the F1 gate (P-SYS-5) is set, a foreign `UPDATE_BEGIN` that passes every other check gets status 56 and changes nothing; after it is set (reference model) the same request is accepted (A1.8a item 3, "Gate"; 0028). |
+| T-A1-61 | Before the F1 gate (P-SYS-5) is set, a foreign `UPDATE_BEGIN` that passes every other check gets status 56 and changes nothing (also an oversized one: 56 precedes 61); after it is set (reference model) the same request is accepted (A1.8a item 3, "Gate"; 0028). |
+| T-A1-62 | During a streaming installation, before the first sector erase, 10 min without an update command other than `UPDATE_STATUS` restart the main unit into this firmware with secret and configuration unchanged; a repeat of the accepted `UPDATE_BEGIN` is answered from the stored reply; `IDENTIFY` reports update state "installer" with the sectors written (reference model; A1.4, A1.5 I-3, A1.8a item 3). |
 | T-A2-01 | Identification and record `level` report the active level and the owner (IP and port). |
 | T-A2-02 | A level change drops the arm with `LEVEL_CHANGE` (after G6). |
 | T-A2-03 | While level 2 is active, P2 C&C starts no session and no takeover (after G6). |
