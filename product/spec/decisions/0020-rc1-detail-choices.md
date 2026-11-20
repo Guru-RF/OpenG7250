@@ -1,6 +1,6 @@
 # 0020 — Detail choices for spec release candidate rc1 (network interface, parts A and B)
 
-- Status: under review by ON8ST (2026-11-20); review of rc4 in progress. His first two remarks, the controller and returning to the stock firmware, are handled in 0023 and 0024. Section-level status lines below are superseded by this line.
+- Status: accepted (ON8ST, 2026-11-20: "Akkoord met alles", after his review of rc4). Section-level status lines below are superseded by this line.
 - Date: 2026-11-19
 - Applies to: `spec/network-interface.md` (draft 3, rc1 candidate), parts A and B.
 - Builds on: 0003, 0004, 0005, 0006, 0007, 0008 (accepted), 0011, 0015, 0016, 0017; agrees

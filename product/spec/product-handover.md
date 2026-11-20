@@ -58,17 +58,16 @@ All numbers 0001–0018 are now in use.
 ## Open questions for ON8ST
 
 Decided on 2026-11-20 (ON8ST):
-- 0020, 0021 and 0022 are **under review** by ON8ST (review of rc4 in progress). His first
-  two remarks are handled in 0023 (controller out of scope) and 0024 (switching between stock
-  and new firmware), both proposed.
+- 0020, 0021, 0022, 0023 and 0024 are **accepted** ("Akkoord met alles", after his review of
+  rc4). 0023: controller out of scope; 0024: switching between stock and new firmware.
 - `.claude/settings.json` stays as it is (the deny rules naming the decrypted-firmware folder
   remain, also in the history).
 - **Go** for the RE session to push branch `spec/rc1` and tag `spec-rc4` to the fork
   (on8st/OpenG7250). The spec PR to Guru-RF follows after PR #1, with a separate go.
 
 Still open:
-1. ON8ST's review of rc4 (0020–0022 under review; 0023, 0024 proposed). Answers that ON8ST
-   gathers with the RE-side sessions enter the spec only through the HIS after its gate.
+1. Answers that ON8ST gathers with the RE-side sessions enter the spec only through the HIS
+   after its gate.
 2. Go for an AetherSDR RFC issue (annex Q-O1); shared P2 refactor vs. self-contained backend
    (Q-O2).
 3. Go to create `product/refmodel/` and the `g7250-testbench` submodule (0019).

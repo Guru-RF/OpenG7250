@@ -1,6 +1,6 @@
 # 0023 — The controller (head) is out of scope: it keeps its stock firmware
 
-- Status: proposed (for ON8ST review), 2026-11-20. The scope statement (Decision, item 1) follows ON8ST's remark in his review of rc4 (2026-11-20): the controller is out of scope and that must be stated.
+- Status: accepted (ON8ST, 2026-11-20: "Akkoord met alles", after his review of rc4). Section-level status lines below are superseded by this line.
   "clearly out of scope, but it must be stated"); detail choices (Decision, items 2–7)
   proposed, for ON8ST review.
 - Date: 2026-11-20
