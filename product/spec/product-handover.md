@@ -5,8 +5,12 @@ on 2026-11-19, as recorded in `decisions/`.
 
 ## Where things stand
 
-- Spec release candidate **rc4** is tagged locally as `spec-rc4` on branch `spec/rc1`
-  (tracks origin/spec/rc1; not pushed). `spec-rc1` (93c247b) is the earlier pushed tag.
+- Spec release candidate **rc4** is published on the fork as branch `spec/draft` and tag
+  `spec-rc4` (fd03ea5). Work continues on local `spec/draft` tracking `origin/spec/draft`.
+  `spec/rc1` and `spec-rc1` stay at 93c247b. A pushed tag is never moved: the next one gets
+  a new name (`spec-rc5`). Fetch only named refs (no `--all`, no `--tags`), so `his/integrate`
+  is never fetched.
+- ON8ST's review: `review-guide-rc4.md` lists the 18 choices that need the owner's judgement.
 - rc4 passed repeated independent reviews; the last verification found OPEN HIGH 0,
   OPEN MEDIUM 0. Remaining LOW clarifications for a later pass: which key starts the zero-run
   count, the DUC sample tap before TX DC/IQ correction (HIS-18), leakage below `P_rf_off`
