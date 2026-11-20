@@ -26,8 +26,8 @@ else exists yet, that the fact rests on disassembly.
 ## Status
 
 Imported from the former `g7250-his` repository (tag `his-draft0`). **Cleared at
-d0a39b0 (review 3)**; reviews in `re/analysis/docs/his-gate-review-2.md` and
-`his-gate-review-3.md`, kept on the RE side. The product side may read `his/` at
+b95f519 (review 4)**; reviews in `re/analysis/docs/his-gate-review-2.md` to
+`his-gate-review-4.md`, kept on the RE side. The product side may read `his/` at
 that commit; later changes go through the gate first.
 
 ## Sections
