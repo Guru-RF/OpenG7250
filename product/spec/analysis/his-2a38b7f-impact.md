@@ -155,3 +155,10 @@ with the streaming installer and no rollback. Recommendation: A/B, which keeps U
 | 19 | F1 drill and safe step order in HIS 90. | Pending hardware (0028). |
 | 20 | True RNG present on both candidate parts (HIS 10, HIGH). | A1.10 challenges and the arm token use the hardware RNG. |
 | — | IWDG start mode open (HIS 10, 90); SWD on PA13/PA14. | Firmware only. |
+
+## 7. Addendum: `b95f519` (gate review 4)
+
+- HIS-02 (HIS 80): 0x01 frame layout, NCO words at byte offsets 1, 5 and 19 (HIGH). Firmware
+  detail only; no change to the spec, which offers one DDC (0004). The role of each word stays
+  pending hardware.
+- HIS 90: USART1 on PB6/PB7 now VERIFIED (debug console for the F1 test image); no spec change.
