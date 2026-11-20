@@ -15,8 +15,9 @@
 - Add `g7250-emu` as submodule `re/emu/` once its current work is finished, and
   switch its data pin (`deps/g7250-base.lock`) from `g7250-base` to `re/analysis`,
   with a regression run.
-- Finish the gate review of `his/` (imported from `g7250-his`, see
-  `his/GATE-REVIEW.md`) before the product side reads it.
+- Finish the gate review of `his/` (imported from `g7250-his`; review 1 in
+  `re/analysis/docs/his-gate-review-1.md`, applied; a second, independent read
+  is open) before the product side reads it. Status: draft, gate review open.
 - Create `g7250-testbench` and `g7250-firmware` with their own remotes and add
   them as submodules. (`g7250-spec` is merged into `product/spec/`.)
 - Decide which parts of the emulator's current harness and tests move to

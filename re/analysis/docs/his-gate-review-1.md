@@ -1,5 +1,8 @@
 # HIS gate review 1 (his-draft0)
 
+RE-side record. Moved here from `his/GATE-REVIEW.md` so that no review notes
+or removed stock details remain under `his/`.
+
 Review of the HIS as imported from `g7250-his` (tag `his-draft0`), against the
 gate rule in the root README: only **hardware facts** pass to the product side,
 never how the stock firmware does things.
@@ -108,10 +111,10 @@ independent read is recommended before clearing.
   provenance, but each kept fact should cite an observation or datasheet, not
   disassembly, wherever possible.
 
-## Decide items (open, for ON8ST)
+## Decide items
 
-Left unchanged in the HIS text and marked *(Decide, see GATE-REVIEW)*. Each
-has a short recommendation from the RE side; ON8ST decides.
+**Decided by ON8ST 2026-11-20: as recommended** (D1–D6), applied in e029ea7.
+The recommendations as written at the time:
 
 | # | Item | Where | Recommendation |
 | --- | --- | --- | --- |
@@ -143,7 +146,9 @@ not happened.
 | --- | --- | --- |
 | e0d54c4 | his/integrate | All Remove items applied (10, 20, 30, 40, 50, 60, 80); README and 00-overview rewritten for the umbrella (product/firmware, re/emu, re/analysis, product spec protocol-neutral; no IP-review condition); every section states its evidence and where a fact rests only on disassembly; Decide items unchanged and marked; 70 untouched. |
 | a3fe5f1 | emu/integrate | "Emulator status", "Original note", "M3 attempt finding", "M3 approach pinned" moved from 80-rf-fpga.md to `re/emu/docs/FPGA-model-notes.md`, text unchanged. |
-| (this commit) | his/integrate | Decide items with recommendations; this section. |
+| 25ee552 | his/integrate | Decide items with recommendations; this section. |
+| e029ea7 | his/integrate | D1–D6 applied as decided; stock protocol of the link moved to `re/analysis/docs/main-control-interlink.md`; new `his/15-stock-recovery.md` (see below). |
+| (this commit) | his/integrate | This file moved from `his/GATE-REVIEW.md` to `re/analysis/docs/his-gate-review-1.md`; root README and ROADMAP point here. |
 
 Evidence: no kept fact rests on an emulator observation alone or a datasheet
 alone yet; most still rest on disassembly (g7250-base) with an emulator
@@ -151,9 +156,27 @@ observation confirming the address, pin or bus where one exists. Hardware
 measurements (T0 observations, crystal markings, panel and input wiring) are
 the way to retire the "rests on disassembly" notes.
 
+## Stock-recovery requirement (ON8ST, 2026-11-20)
+
+ON8ST added a requirement during the D1–D6 review: it must always be possible
+to reinstall the original firmware. Per g7250-base, updates are done by the
+bootloader in flash sector 0 after a reset (the Main application's bootloader
+jump is dead code; the Control application has no update code), so the path
+does not depend on the application. `his/15-stock-recovery.md` states the
+constraints for new firmware: never write the bootloader region
+0x08000000–0x0801FFFF or the option bytes; the 24Cxx EEPROM is read-only; the
+Backup SRAM is not used; own persistent data only in own application flash.
+This changed D2: the EEPROM entry also says "read-only for new firmware". The
+Main's update transport is still HYPOTHESIS; the F1 rollback drill has to prove
+it before the first flash of new firmware.
+
+Note on D6: the USART2 pins (PD5/PD6, AF7) are wiring facts but are not in the
+HIS yet, since the headless Main does not use the link; add them if a product
+configuration needs it.
+
 ## Next steps
 
 1. ~~Apply the Remove and Move items, and rewrite the README (RE side).~~ Done, see "Gate review 1: changes applied".
-2. Decide the Decide items (ON8ST).
+2. ~~Decide the Decide items (ON8ST).~~ Done 2026-11-20, as recommended (e029ea7).
 3. Second, independent read; then mark this review **cleared** and update the
    root README status for `his/`.
