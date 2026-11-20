@@ -6,6 +6,8 @@
 // the pins. MODER gives the data direction, so reads vs writes are unambiguous.
 // Handles the boot loopback bus-test (cmd 0x00) and the 3-byte version (0x08);
 // RX I/Q (0x04) returns a changing counter so the runtime health check is happy.
+// Logs every 0x01 configuration frame (the bytes the MCU writes) and every latch of
+// the pulse commands 0x05/0x06/0x09/0x0A at Info level, for the HIS-02 NCO probe.
 using System.Collections.Generic;
 using Antmicro.Renode.Core;
 using Antmicro.Renode.Core.Structure;
@@ -23,6 +25,7 @@ namespace Antmicro.Renode.Peripherals.GPIOPort
         private bool stbPrev, cmdPrev;
         private byte testReg, fpgaOut;
         private uint rx;
+        private readonly List<byte> wr = new List<byte>();
         private Antmicro.Renode.Core.IManagedThread drdy;
         private readonly byte[] ver = { 1, 0, 0 };
 
@@ -51,6 +54,7 @@ namespace Antmicro.Renode.Peripherals.GPIOPort
         {
             moder = otyper = ospeedr = pupdr = odr = lckr = afrl = afrh = 0;
             cmd = readIdx = 0; stbPrev = cmdPrev = false; testReg = fpgaOut = 0; rx = 0;
+            wr.Clear();
         }
 
         private bool IsOutput(int pin) { return ((moder >> (2 * pin)) & 3u) == 1u; }
@@ -86,11 +90,29 @@ namespace Antmicro.Renode.Peripherals.GPIOPort
             if(stb && !stbPrev) // STB rising edge
             {
                 bool outp = IsOutput(0);
-                if(cmdPin) { cmd = (int)(odr & 0xFF); readIdx = 0; }         // latch command
-                else if(outp) { if(cmd == 0x00) { testReg = (byte)(odr & 0xFF); fpgaOut = testReg; } } // write
+                if(cmdPin)                                                   // latch command
+                {
+                    FlushFrame();
+                    cmd = (int)(odr & 0xFF); readIdx = 0;
+                    if(cmd == 0x05 || cmd == 0x06 || cmd == 0x09 || cmd == 0x0A)
+                        this.Log(LogLevel.Info, "FPGA pulse cmd 0x{0:X2}", cmd);
+                }
+                else if(outp)                                                // write
+                {
+                    if(cmd == 0x00) { testReg = (byte)(odr & 0xFF); fpgaOut = testReg; }
+                    else if(cmd == 0x01 && wr.Count < 64) wr.Add((byte)(odr & 0xFF));
+                }
                 else { fpgaOut = NextReadByte(); }                           // read strobe
             }
             stbPrev = stb; cmdPrev = cmdPin;
+        }
+
+        private void FlushFrame()
+        {
+            if(cmd == 0x01 && wr.Count > 0)
+                this.Log(LogLevel.Info, "FPGA cmd 0x01 frame {0} B: {1}", wr.Count,
+                         System.BitConverter.ToString(wr.ToArray()).Replace("-", ""));
+            wr.Clear();
         }
 
         private void DriveExti()
