@@ -10,4 +10,5 @@ input wiring are not yet measured on hardware.
 - **GT911** capacitive touch on I²C1: INT PE2, RST PG14.
 - **Inputs:** a 5×5 key matrix plus a direct key; 8 GPIO quadrature encoders
   plus the main dial on TIM2's encoder inputs; the **H-22 mic keypad** on PI5,
-  a ratio-coded serial signal *(Decide, see GATE-REVIEW)*.
+  a ratio-coded serial signal (a property of the microphone; levels and bit
+  timing not yet measured).

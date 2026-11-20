@@ -11,5 +11,5 @@ datasheet, or, where that is all there is, that the fact rests on disassembly
 (`re/analysis`, g7250-base). Never stock firmware code or behaviour.
 
 **Process.** Candidate facts come from the RE side (`re/analysis`, `re/emu`),
-pass the gate review (`GATE-REVIEW.md`: hardware fact, not stock behaviour),
+pass the gate review (kept on the RE side: hardware fact, not stock behaviour),
 then land here. `product/firmware` reads this spec for hardware facts.
