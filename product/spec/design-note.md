@@ -2,8 +2,8 @@
 
 - Version: draft 4 (spec rc4), 2026-11-19
 - Status: draft for review by ON8ST
-- Structure: as agreed in 0001, amended by decisions 0002–0022 (0020–0022 proposed, for
-  review at rc4).
+- Structure: as agreed in 0001, amended by decisions 0002–0024 (0020–0022 proposed, for
+  review at rc4; 0023 scope accepted by ON8ST 2026-11-20, details proposed; 0024 proposed).
 - © 2026 ON8ST. Licensed under CC BY 4.0 (see `LICENSE.md`, decision 0018).
 - The normative interface is in `spec/network-interface.md` (not yet written). This note
   describes the product; it does not define the protocol.
@@ -216,11 +216,23 @@ AetherSDR work runs alongside: the G7250 backend receives from M1 and transmits 
 - DDC audio playback on the main unit (0017).
 - More receivers than the hardware has (0001).
 - The stock firmware's network protocol (clean room).
+- The controller (head) firmware: the controller keeps its stock firmware and is not
+  modified, reflashed or replaced; whether it works with the new main-unit firmware is open
+  (0023; HIS-17). The FPGA image is replaced only if the main-unit firmware loads it
+  (HIS-18).
+- Distributing vendor (stock) firmware images: the owner supplies any stock image (0024,
+  0018).
+- The first install of the new firmware (stock to new): a separate install guide, not the
+  network spec (0024; HIS-19).
 
 ## 8. Dependencies and open questions
 
 - **HIS.** All hardware questions are in `open-questions-his.md` (HIS-01 to HIS-19). M1 needs
   at least HIS-01, -02, -04, -14, -15, and part of -18.
+- **Reversibility.** Installing the new firmware is reversible: the vendor's own update and
+  recovery path is left intact, and from the new firmware the owner can upload a stock image
+  again and, if the flash has room, return to a retained one (0024; spec A1.8a; HIS-18,
+  HIS-19).
 - **AetherSDR.** A G7250 backend on P2, including transmit (0016). Upstream contributions
   need a go from ON8ST.
 - **g7250-testbench.** Reference model and conformance tests per spec section (0001).
@@ -230,5 +242,7 @@ AetherSDR work runs alongside: the G7250 backend receives from M1 and transmits 
   Radioddity product page, the HDSDR network tutorial and the Temporarily Offline video
   (`sources.md`).
 - **Decisions.** 0001–0019 are accepted; 0020–0022 (rc1 details, TCI profile choices, review
-  fixes) are proposed for review at rc4. What remains are hardware values from the HIS
+  fixes) are proposed for review at rc4. 0023 (controller out of scope) has its scope
+  statement accepted (ON8ST, 2026-11-20) and its details proposed; 0024 (switching between
+  stock and new firmware) is proposed. What remains are hardware values from the HIS
   (limits, clocks, filter plan, sensor details).

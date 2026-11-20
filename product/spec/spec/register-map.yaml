@@ -444,6 +444,12 @@ management_commands:
   - name: ROLLBACK
     code: "0x0046"
     auth: "yes (`UPDATE_STATUS` no)"
+  - name: RETURN_TO_STOCK
+    code: "0x0050"
+    auth: "yes"
+  - name: ENTER_VENDOR_RECOVERY
+    code: "0x0051"
+    auth: "yes"
 tci_commands:
   - name: AGC_GAIN
     status: "MAY"

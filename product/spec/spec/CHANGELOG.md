@@ -4,6 +4,17 @@
 
 All dates 2026-11-19. Decision numbers refer to `decisions/`.
 
+## After rc4 (on branch spec/draft, not yet tagged)
+
+- ON8ST's review of rc4 in progress; 0020–0022 under review.
+- 0023 (proposed): only the main-unit firmware is replaced; the controller keeps its stock
+  firmware and is out of scope (part A "Scope of the firmware", B1.9).
+- 0024 (proposed): switching between stock and new firmware is reversible; the vendor's own
+  update and recovery path is never disabled; an owner-supplied stock image can be installed
+  from the new firmware; `RETURN_TO_STOCK` and `ENTER_VENDOR_RECOVERY` management commands
+  (A1.8a).
+- `review-guide-rc4.md` for ON8ST's review.
+
 ## rc4 — release candidate 4
 
 - Fixes from the full reviews of rc3 and the rc4 draft (0022 §74–§87, 0021 §43–§46): keyer

@@ -8,7 +8,9 @@
   §22–§32 from a second review of the transmit side, §33–§51 from the final review of rc1,
   §52–§61 from the review of the rc2 draft, §62–§73 from the review of rc2, §74–§77 from the
   review of the rc3 draft, §78–§83 from the review of rc3, §84–§86 from the review of
-  the rc4 draft and §87 and §88 from the reviews of rc4. Focus: milestone M1 (discovery, capability block, RX IQ on G7250-P2); sections for M2–M5 are complete except for
+  the rc4 draft and §87 and §88 from the reviews of rc4, and, after ON8ST's review of rc4
+  (2026-11-20), the scope statement for the controller (0023) and the return to stock
+  firmware (0024, proposed). Focus: milestone M1 (discovery, capability block, RX IQ on G7250-P2); sections for M2–M5 are complete except for
   values that depend on the hardware.
 - © 2026 ON8ST, CC BY 4.0 (see `LICENSE.md`).
 - Structure: decision 0001, "(2) Network-interface spec", as revised by 0016, split into parts
@@ -28,6 +30,17 @@ The key words of B1.2 apply to the whole document, parts A, B and C.
 
 Part A holds what applies to every level (0011, Consequences): the management channel, level
 selection and ownership, and the safety behaviour that a host can see on the network.
+
+**Scope of the firmware** (0023, scope accepted by ON8ST 2026-11-20). This document specifies
+the firmware of the G7250 main unit only. The controller (head) keeps its stock firmware; the
+G7250 MUST NOT send anything over CTRL that is meant to change, erase or update the
+controller's firmware, and MUST NOT send anything over CTRL that could damage the controller
+or leave it unable to start with the stock main-unit firmware (0023 items 2, 3). Levels 1 and 2
+MUST work with the controller disconnected or not responding (0023 item 4). Whether the stock
+controller works with this firmware, and what the main unit does towards it over CTRL, is
+TBD (HIS-17); a controller in an unknown or error state is accepted (0023 item 5). The FPGA
+image is replaced only if the main-unit firmware loads it: TBD (HIS-18). The owner can always
+return to the stock firmware (A1.8a; 0024).
 
 ### A1 Management channel
 
@@ -121,6 +134,8 @@ Table A1-2 — Management commands (0020 §27)
 | 0x0024 | `RESTART` | yes | unkey and disarm first, wait until RF is gone, reply, then reset; status 59 if RF stays (A1.9, commanded reset; 0022 §40, §59, §61); also clears class 2 faults (A3.5) |
 | 0x0030, 0x0031 | `READ_LOG`, `CLEAR_LOG` | no, yes | A1.7 |
 | 0x0040–0x0046 | `UPDATE_BEGIN`, `UPDATE_BLOCK`, `UPDATE_VERIFY`, `UPDATE_ACTIVATE`, `UPDATE_ABORT`, `UPDATE_STATUS`, `ROLLBACK` | yes (`UPDATE_STATUS` no) | A1.8; refused with status 50 while armed or keyed, `ROLLBACK` included (0022 §32); `UPDATE_STATUS` is a read and is answered at any time (0022 §51) |
+| 0x0050 | `RETURN_TO_STOCK` | yes | A1.8a item 2: activates the retained stock image; refused with status 50 while armed or keyed, 58 during an update, 56 if no stock image is retained (0024) |
+| 0x0051 | `ENTER_VENDOR_RECOVERY` | yes | A1.8a item 4: restarts into the vendor's update or recovery mode; refused as `RETURN_TO_STOCK`, 56 if not supported (0024) |
 
 Table A1-3 — Management status codes (0020 §27)
 
@@ -149,13 +164,17 @@ A1.5 **Identification** (read; no authentication) (0008, Functions):
 - model "G7250", MAC address (HIS-15), serial number if the hardware has one (HIS-15) (I-1);
 - versions of the main-unit firmware (running image and other slot), boot loader, FPGA if
   present, hardware (I-2; which exist: HIS-18);
+- whether a retained stock image exists, with its length and SHA-256 [FIPS180-4] (no vendor
+  version is read), and whether `ENTER_VENDOR_RECOVERY` is supported (I-2a; A1.8a; 0024);
 - integrity result of both images and update state: normal, trial boot, rolled back (I-3);
 - whether a secret is set, and whether the first-secret window is open and for how long
   (I-3a);
 - active level, owner of the RF chain (host IP address and UDP port, or none) and TX arm
   state; read-only (I-4; 0011 point 2; 0015);
 - uptime, last reset cause (HIS-13), and the management, P2 and capability-record protocol
-  versions (I-5).
+  versions (I-5);
+- the controller state: unknown, not detected or detected; unknown until HIS-17 tells how
+  the main unit detects it (I-6; 0023 item 5).
 
 Identification MUST also be answered to a broadcast request (0008, I-6).
 
@@ -280,8 +299,58 @@ A1.8 **Firmware update** (authenticated) (0008, Functions, U-1 to U-10):
   "downgrade" flag; a downgrade is logged; configuration the older image does not understand
   is kept but not used, and the reply says so (U-8; 0008, Resolved 3).
 - A recovery path that does not depend on this firmware MUST exist; which one: TBD (HIS-19,
-  HIS-17) (U-9).
+  HIS-17) (U-9). The return to the stock firmware is A1.8a (0024).
 - The G7250 MUST NOT program itself through P2 Erase and Program packets (B3.9).
+
+A1.8a **Return to stock firmware** (authenticated) (0024). Installing this firmware MUST be
+reversible: the owner can always return the main unit, and the FPGA image if this firmware
+replaced it (HIS-18), to the stock firmware (0024 R1). Feasibility of each way back: TBD
+(HIS-18, HIS-19).
+
+1. **Vendor path left intact** (0024 R2). The G7250 MUST NOT erase, overwrite or disable the
+   vendor's own update or recovery path (vendor boot loader, the path of the vendor's update
+   tool), as far as HIS-19 shows one exists. An update (A1.8) writes only this firmware's
+   image slots and staging area and never the boot loader (U-7), nor a retained stock image
+   (item 2).
+2. **Retained stock image** (0024 Decision 3). If the flash has room (HIS-18), the first
+   install SHOULD keep the stock image in a slot of its own, and `RETURN_TO_STOCK` MUST then
+   make it the boot choice. The request carries the SHA-256 of the retained image as
+   identification reports it (A1.5 I-2a); a mismatch gets status 55 and changes nothing.
+   Without a retained image the command gets status 56.
+3. **Foreign image upload** (0024 Decision 1). The update of A1.8 MUST accept an
+   owner-supplied stock image when `UPDATE_BEGIN` carries the "foreign image" flag. The
+   package header then names the target hardware id, the component (main unit or FPGA), the
+   length and the SHA-256 supplied by the owner; the G7250 checks the hardware id (status
+   51), the block CRCs and the hash (status 55), and nothing of the vendor format. The
+   downgrade check (U-8) does not apply. `UPDATE_ACTIVATE` MUST repeat the flag; without it
+   the activation gets status 55. Where a stock image is written so that the radio starts it:
+   TBD (HIS-19).
+4. **Vendor recovery mode** (0024 Decision 4). If HIS-19 shows a vendor update or recovery
+   mode that software can select, the G7250 MAY offer `ENTER_VENDOR_RECOVERY`, which restarts
+   into it; otherwise the command gets status 56.
+5. **Permanent, not a trial** (0024, Details). A stock image is activated without trial boot
+   and without rollback to this firmware (U-6 does not apply), because it cannot confirm
+   itself. The reply says so.
+6. **Safety and order** (0024 R4). `RETURN_TO_STOCK`, `ENTER_VENDOR_RECOVERY` and a foreign
+   `UPDATE_ACTIVATE` MUST be refused with status 50 while armed or keyed and with status 58
+   while a firmware update is in progress (for the foreign activation: another than its own).
+   When accepted, the P2 session ends and all streams stop as from `UPDATE_BEGIN` (A1.8;
+   0022 §10), level-2 TCI connections are closed, and the reset follows steps 2–5 of the
+   commanded reset (A1.9). The switch of the boot choice, or of the restart target, and
+   item 7 are done only between steps 4 and 5, as for a factory reset (A1.6a); a refusal with
+   status 59 changes neither.
+7. **Secrets** (0024 R5). Before the switch the G7250 MUST erase the management secret
+   (A1.10), so that the stock firmware cannot read it. Other configuration of this firmware
+   MAY stay in its own storage; where HIS-18 identifies the stock firmware's own settings
+   area, the G7250 SHOULD leave it untouched.
+8. **Log** (0024, Details). The switch MUST be logged with its source and its target
+   (retained, foreign, vendor recovery) before the reset (A1.7).
+9. **Stock to this firmware** (0024 R6). The first install, and every re-install after a
+   return to stock, uses the path the owner uses for the first install. It is out of scope
+   of this document and documented separately: TBD (HIS-19).
+10. **No vendor images in this project** (0024 R7; 0018). The owner supplies any stock image;
+    this project does not redistribute one, and the reference model (0019) tests with a
+    synthetic opaque image.
 
 A1.9 **Management never keys the radio or loosens a limit.** No request on this channel MAY
 key the radio, set PTT, arm TX, set the drive level, switch an RF-path relay or loosen a
@@ -309,12 +378,13 @@ always in the order of A3.2 (0022 §8):
   (A1.6 C-7; 0022 §73 item 18);
 - a firmware update, and every update command including `ROLLBACK`, is refused with status 50
   while armed or transmitting (A1.8; 0022 §32); `UPDATE_STATUS`, a read, is answered (0022
-  §51);
+  §51); so are `RETURN_TO_STOCK` and `ENTER_VENDOR_RECOVERY` (A1.8a item 6; 0024);
 - every other command leaves the TX state unchanged; this includes a C-7 allow-list that
   closes no connection of the arm holder or of a keying client.
 
 **Commanded reset** (0022 §40, §59, §61). Every reset that a command causes (`RESTART`,
-`FACTORY_RESET`, `UPDATE_ACTIVATE`, `ROLLBACK`, and the restart after an abandoned update, A1.8)
+`FACTORY_RESET`, `UPDATE_ACTIVATE`, `ROLLBACK`, `RETURN_TO_STOCK`, `ENTER_VENDOR_RECOVERY`
+(A1.8a; 0024), and the restart after an abandoned update, A1.8)
 MUST be carried out in this order:
 
 1. if keyed, unkey; if armed, disarm, new token and `TX_ARM_STATE` push (A3.2);
@@ -331,14 +401,16 @@ MUST be carried out in this order:
 The reset MUST NOT start before RF is gone, because the state of the PA, SEND and relay lines
 during a reset is not known (HIS-13). The unkey comes before the reply, so the host never sees
 a reply while the radio still transmits; the reply waits for RF gone, normally `t_rf_off`,
-well below the 500 ms retransmission time of A1.4 (0022 §61). `UPDATE_ACTIVATE` and
-`ROLLBACK` are refused while armed or keyed (A1.8), so for them step 1 does not apply.
+well below the 500 ms retransmission time of A1.4 (0022 §61). `UPDATE_ACTIVATE`,
+`ROLLBACK`, `RETURN_TO_STOCK` and `ENTER_VENDOR_RECOVERY` are refused while armed or keyed
+(A1.8, A1.8a), so for them step 1 does not apply.
 
 **One commanded reset at a time** (0022 §86 item 5). From the acceptance of a commanded reset
 until the reset, or until its refusal with status 59, the G7250 MUST run no second one. A
 further commanded reset request in that time, from any host, is not executed: a `RESTART`
 (a repeat of the accepted request included) is answered with status 1, because the reset it
-asks for is under way; a `FACTORY_RESET`, `UPDATE_ACTIVATE` or `ROLLBACK` is answered with
+asks for is under way; a `FACTORY_RESET`, `UPDATE_ACTIVATE`, `ROLLBACK`, `RETURN_TO_STOCK` or
+`ENTER_VENDOR_RECOVERY` is answered with
 status 35 (busy), so that the host knows that its own command did not run and nothing of
 Table A1-4 is reset by it. Status 35 takes the place it has in the precedence of Table A1-3.
 A status 1 or 35 answer of this rule is not stored (A1.4): a `RESTART` of a second host
@@ -364,7 +436,8 @@ never disarms, the owner disarms first (0022 §8, §51).
 
 A1.10 **Security on a LAN** (0008, Security):
 
-- Writes (configuration, level switch, log clear, update, rollback) MUST require a per-radio
+- Writes (configuration, level switch, log clear, update, rollback, return to stock, A1.8a)
+  MUST require a per-radio
   secret, proven by challenge and response: a fresh random challenge from the radio, answered
   with HMAC-SHA256 [RFC2104], [FIPS180-4] over the challenge and the request. Reads need no
   authentication (S2). A challenge is valid for one request and 10 s (0020 §24). Source of
@@ -1291,6 +1364,10 @@ rule 3). This rule also covers the discovery reply, bytes 14–19 and 24–59 in
 B1.8 **Scope of this draft.** B1–B6 cover M1. B7–B11 are complete; the only open values
 depend on the hardware and carry their HIS id (0020, Context). Wideband data is M2 (0004
 point 4); transmit (B10) is M4 and only after M3 (design note §6; 0007, header).
+
+B1.9 **Main unit only.** Level 1 runs in the main unit; the controller keeps its stock
+firmware and is out of scope (part A, "Scope of the firmware"; 0023). Controller inputs on
+level 1: A3.7.
 
 ### B2 Transport
 
@@ -2979,6 +3056,12 @@ Unless a test says otherwise, a test in which KEY or CWX keys runs with break-in
 | T-A1-49 | With forward power decaying slowly after the unkey (reference model), a `RESTART` while keyed is accepted; during its wait for RF gone a second `RESTART` from another host gets status 1 and a `FACTORY_RESET` gets status 35; exactly one reset follows (reset counter + 1, `GET_STATS`), and the secret and the configuration of Table A1-4 are unchanged (A1.9, one commanded reset at a time). |
 | T-A1-50 | Host A opens the write session with an authenticated `SET_CONFIG` at *t* = 0 and repeats the same request (same id, command and payload) at *t* = 4 s, answered from the stored reply; a write from host B gets status 35 before *t* = 60 s and is accepted after the 60 s idle time counted from *t* = 0, not from the repeat (A1.4, A1.10). |
 | T-A1-51 | With forward power decaying slowly after the unkey (reference model), host A's `RESTART` while keyed is accepted: a repeat from A during the wait for RF gone gets status 1, a repeat after the reply gets the stored status 0 reply; a `RESTART` from host B during the wait gets status 1, and B's stored reply of an earlier request is unchanged. With forward power held above `P_rf_off` for `t_reset_wait`, A gets status 59, and both A's repeat and B's retried `RESTART` are answered with status 59; no reset follows (A1.4, A1.9; 0022 §87 item 3). |
+| T-A1-52 | `RETURN_TO_STOCK`, `ENTER_VENDOR_RECOVERY` and a foreign-image `UPDATE_ACTIVATE` while armed, and while keyed, get status 50 and leave `TX_STATE` and `TX_ARM_STATE` unchanged; during another firmware update they get status 58 (A1.8a item 6). |
+| T-A1-53 | `RETURN_TO_STOCK` with a SHA-256 that differs from the one identification reports gets status 55 and changes nothing; without a retained stock image, and `ENTER_VENDOR_RECOVERY` where not supported, get status 56; identification reports both (A1.5 I-2a, A1.8a items 2, 4). |
+| T-A1-54 | An accepted `RETURN_TO_STOCK` ends the P2 session, stops the streams, logs the switch with source and target, replies after RF is gone and switches the boot choice and erases the secret only with the reset; with forward power held above `P_rf_off` it gets status 59 and the boot choice and secret are unchanged (reference model; A1.8a items 6–8). |
+| T-A1-55 | A synthetic opaque image sent with the "foreign image" flag is accepted only if the hardware id matches (else 51) and the hash equals the owner-supplied SHA-256 (else 55); `UPDATE_ACTIVATE` without the flag gets 55; with it the activation is permanent, with no trial boot and no rollback (reference model; A1.8a items 3, 5). |
+| T-A1-56 | No update, foreign image included, writes the boot loader, the vendor update or recovery region or a retained stock image (reference model; A1.8a item 1). |
+| T-A1-57 | With the controller disconnected, and with a controller that does not respond, discovery, RX IQ on level 1 and the management channel work; identification reports the controller state (reference model; part A scope, A1.5 I-6; 0023). |
 | T-A2-01 | Identification and record `level` report the active level and the owner (IP and port). |
 | T-A2-02 | A level change drops the arm with `LEVEL_CHANGE` (after G6). |
 | T-A2-03 | While level 2 is active, P2 C&C starts no session and no takeover (after G6). |

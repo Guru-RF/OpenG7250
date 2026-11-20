@@ -207,6 +207,11 @@ Priority: **M1** = needed for milestone M1 (discovery, capability block, RX-IQ);
   on the controller's screen, or receive a button press from it (first-secret set-up,
   physical-presence confirmation, local factory reset)? Does the controller's NETWORK page
   write the main unit's network settings?
+- Added by 0023: does the stock controller work at all with a different main-unit firmware
+  (and if so, what does it need from the main unit)? What must the main unit do, or not do,
+  on CTRL so that the controller is not left in an error state, and so that nothing it sends
+  can damage the controller or keep it from starting with the stock main-unit firmware? How
+  can the main unit detect that a controller is connected?
 
 ### HIS-18 — Processor, memory and logic (G6, M1)
 
@@ -221,6 +226,10 @@ Priority: **M1** = needed for milestone M1 (discovery, capability block, RX-IQ);
   window), and the DUC FIFO capacity while keyed.
 - Added by 0022 §88: the DUC-to-coupler delay, which `t_blank` must cover for the zero-sample
   gap check.
+- Added by 0024: is there flash room for a retained stock image (main unit, and FPGA if
+  separate) beside our two slots or slot plus staging? Is the FPGA image a separate image,
+  and does the main-unit firmware load it? Where does the stock firmware keep its own
+  settings, so that our firmware can leave them untouched?
 
 ### HIS-19 — Firmware loading and recovery (M5)
 
@@ -230,6 +239,11 @@ Priority: **M1** = needed for milestone M1 (discovery, capability block, RX-IQ);
   program packets on port 1024 [P2].
 - Added by 0008: can the boot choice be switched atomically, and can the boot loader detect
   an unconfirmed trial boot?
+- Added by 0024: is there a vendor update or recovery path (vendor boot loader, vendor
+  update tool), how is it entered, can software select it, and does it survive the
+  installation of our firmware? How is the first install (stock to new) done, and how the
+  return (new to stock)? Can the boot choice select a stock image, and where must a stock
+  image be written so that the radio starts it?
 
 ### HIS-20 — Source of randomness (M5)
 

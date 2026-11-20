@@ -51,6 +51,13 @@
 - Unnumbered P2 hosts: duplicated or reordered High Priority packets are filtered only by the
   10 ms edge rule (spec B11.6a).
 
+## E. Your remarks on rc4 (2026-11-20) and how they are handled
+
+| # | Remark | Where | Choice to confirm |
+|---|--------|-------|-------------------|
+| E1 | Nothing says what is done with the controller (head), although it is clearly out of scope | 0023; spec part A "Scope of the firmware", B1.9, A1.5 I-6; design note §7; HIS-17 | Scope statement taken as accepted (your remark). Proposed details: never write controller firmware; do no harm on CTRL, idle until HIS-17 says what is safe; network operation without a working controller; a controller in an unknown or error state is accepted (you get it back by returning to stock) |
+| E2 | Switching back and forth between stock and new firmware; from our firmware it must be possible to upload the factory firmware again | 0024; spec A1.8a, Table A1-2 (`RETURN_TO_STOCK` 0x0050, `ENTER_VENDOR_RECOVERY` 0x0051), T-A1-52 to T-A1-57; design note §7, §8; HIS-18, HIS-19 | Layered: owner-supplied stock image through the update path MUST (your remark); vendor's own path MUST stay intact; retained stock image SHOULD if the flash has room; reboot into vendor recovery MAY. Switch is permanent (no trial boot), never while armed or keyed, erases our secret. Stock to new is the first-install path, documented outside the network spec. Alternative considered: vendor path or recovery mode as the only MUST |
+
 ## D. After your answer
 
 - Accepted items: the decision files get status "accepted (ON8ST, date)".
