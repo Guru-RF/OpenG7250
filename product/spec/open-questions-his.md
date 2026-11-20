@@ -212,6 +212,10 @@ Priority: **M1** = needed for milestone M1 (discovery, capability block, RX-IQ);
   on CTRL so that the controller is not left in an error state, and so that nothing it sends
   can damage the controller or keep it from starting with the stock main-unit firmware? How
   can the main unit detect that a controller is connected?
+- Added on 2026-11-20 (question passed on by the openg7250 session for the emulator): what
+  does the stock controller do when the main unit stays silent on CTRL?
+- Added on 2026-11-20 (same source): does powering the radio on and off depend on the
+  controller?
 
 ### HIS-18 — Processor, memory and logic (G6, M1)
 
