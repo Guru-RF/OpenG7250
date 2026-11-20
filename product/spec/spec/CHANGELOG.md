@@ -4,7 +4,7 @@
 
 All dates 2026-11-19. Decision numbers refer to `decisions/`.
 
-## After rc4 (on branch spec/draft, not yet tagged)
+## rc5 — release candidate 5 (tag `spec-rc5`)
 
 - ON8ST reviewed rc4 and accepted 0020–0024 (2026-11-20).
 - 0023: only the main-unit firmware is replaced; the controller keeps its stock

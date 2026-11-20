@@ -63,7 +63,8 @@ Decided on 2026-11-20 (ON8ST):
 - `.claude/settings.json` stays as it is (the deny rules naming the decrypted-firmware folder
   remain, also in the history).
 - **Go** for the RE session to push branch `spec/rc1` and tag `spec-rc4` to the fork
-  (on8st/OpenG7250). The spec PR to Guru-RF follows after PR #1, with a separate go.
+  (on8st/OpenG7250); done as branch `spec/draft`.
+- **Go** (2026-11-20) to push the follow-up commits on `spec/draft` with tag `spec-rc5`. The spec PR to Guru-RF follows after PR #1, with a separate go.
 
 Still open:
 1. Answers that ON8ST gathers with the RE-side sessions enter the spec only through the HIS
