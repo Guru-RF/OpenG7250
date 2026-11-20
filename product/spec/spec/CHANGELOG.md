@@ -15,6 +15,10 @@ All dates 2026-11-19. Decision numbers refer to `decisions/`.
   behind a boot stage of our own; FPGA never touched. A1.1a, A1.5, A1.8, A1.8a, Tables A1-2 and
   A1-3, T-A1-08, T-A1-52 to T-A1-59 rewritten, T-A1-60 added.
 
+- 0029–0032: headless power and quiet idle; local PTT/KEY not used in v1.0; no audio in v1.0;
+  own ATU control with bypass and write reject reason 11 `NOT_CALIBRATED` until calibrated.
+  Tests T-A3-07, T-A3-42, T-B10-15, T-B10-37 marked "not in v1.0".
+
 ## rc7 — release candidate 7 (tag `spec-rc7`)
 
 - ON8ST accepted 0025 and 0026 (2026-11-20). `product/tools/g7250ctl/` and `product/refmodel/`

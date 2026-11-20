@@ -58,8 +58,12 @@ on 2026-11-19, as recorded in `decisions/`.
 | 0026 | Firmware management on the host: spec protocol, CLI `g7250ctl` as reference, AetherSDR on the same protocol | accepted (2026-11-20) |
 | 0027 | Test bench is the `testbench/` folder of the umbrella repository, not a submodule | accepted |
 | 0028 | After the HIS: first install once via the controller; return to stock by streaming installer; A/B with own boot stage; no code in the spec phase | accepted (2026-11-20) |
+| 0029 | Headless: power hold kept, no power-off command, quiet idle; standby later | accepted (2026-11-20) |
+| 0030 | Local PTT and key inputs on the main unit not used in v1.0 | accepted (2026-11-20) |
+| 0031 | No audio through the main unit's codec in v1.0 | accepted (2026-11-20) |
+| 0032 | Own ATU control; bypass and `NOT_CALIBRATED` until its parameters are measured | accepted (2026-11-20) |
 
-All numbers 0001–0028 are now in use.
+All numbers 0001–0032 are now in use.
 
 ## Open questions for ON8ST
 

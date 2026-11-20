@@ -181,9 +181,9 @@ registers:
   - name: ATU_TUNE
     address: 0x0400
     access: "W, owner"
-    content: "1 starts an ATU tune cycle (A3.9b; a TX request under the arm), 0 aborts; 1 while not armed: `NOT_ARMED`; 1 while keyed by another source: `KEYED`; 1 while another key condition of A3.1a fails: `NOT_KEYABLE`; none is latched; 1 while the cycle runs or within 2 s after its end: no-op; other values `BAD_VALUE`"
+    content: "1 starts an ATU tune cycle (A3.9b; a TX request under the arm), 0 aborts; 1 while not armed: `NOT_ARMED`; 1 while keyed by another source: `KEYED`; 1 while another key condition of A3.1a fails: `NOT_KEYABLE`; 1 before the ATU parameters are set: `NOT_CALIBRATED`; none is latched; 1 while the cycle runs or within 2 s after its end: no-op; other values `BAD_VALUE`"
     sent: "answer"
-    source: "0007 Decision 6; HIS-08; 0020 §8; 0022 §14, §22, §39, §51"
+    source: "0007 Decision 6; HIS-08; 0020 §8; 0022 §14, §22, §39, §51; 0032"
   - name: ATU_STATE
     address: 0x0401
     access: "RO"
@@ -382,7 +382,10 @@ code_sets:
         name: NOT_ARMED
       - value: 10
         name: NOT_KEYABLE
-        text: "(ATU tune while another key condition of A3.1a fails, A3.9b) (B8.4; 0022 §22, §51)"
+        text: "(ATU tune while another key condition of A3.1a fails, A3.9b)"
+      - value: 11
+        name: NOT_CALIBRATED
+        text: "(ATU tune before the ATU parameters are set, A3.9b; 0032) (B8.4; 0022 §22, §51)"
 management_commands:
   - name: IDENTIFY
     code: "0x0001"

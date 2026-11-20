@@ -45,7 +45,12 @@ or PTT over CTRL), on either level, unless a later decision changes it (0023, no
 2026-11-20). Only the first install, and a re-install after a return to stock, needs the
 controller (A1.8a item 9; 0028). The FPGA configures itself from its own flash, and this
 firmware neither loads nor replaces it ([HIS] HIS 15; 0028). The owner can always return to
-the stock firmware (A1.8a; 0024, 0028).
+the stock firmware (A1.8a; 0024, 0028). The product is headless: no management command
+switches the radio off, and it is switched off by removing power (0029). While no session runs
+on either level, the radio is in a quiet idle state: RF section in its safe state ([HIS]
+HIS 85), no streams, and the management channel, discovery and TCI listening as usual (0029).
+In v1.0 the local PTT and KEY inputs of the main unit are not used (0030), and the main unit
+carries no audio (0017, 0031).
 
 ### A1 Management channel
 
@@ -760,7 +765,8 @@ TX request at a moment when every key condition holds:
 - the requester allowed (0022 §65). On level 1 the allowed requesters are the owner's PTT and
   CWX bits (High Priority bytes 4 and 5), the owner's `ATU_TUNE`, and one local source: the
   KEY input, and only while the owner has selected hardware CW with DUC-specific byte 5 bit
-  [1] in this session, under the owner's arm (B10.9). No controller request is a requester on
+  [1] in this session, under the owner's arm (B10.9). In v1.0 the KEY input is not used and
+  is never a requester (0030). No controller request is a requester on
   level 1 (A3.7). On TCI the TX policy decides (C5.5.8);
 - not keyed by another source, and no ATU tune cycle running (A3.9b). On level 1 with
   break-in set (DUC-specific byte 5 bit [7]), the first source keeps the transmission: a PTT
@@ -1181,7 +1187,8 @@ and does not block an arm (0022 §15). SEND, the TUNER trigger and internal ATU 
 under the arm (B10.9). Controller TX functions (ATU key, SWR scan) are refused while level 1
 runs unless they reach the main unit as reportable requests (HIS-17). If a path cannot be
 blocked, M4 is blocked for that path until ON8ST decides (HIS-10, HIS-17; 0007, Decision 6).
-The controller is not used as a front panel on either level (part A, "Scope of the firmware";
+In v1.0 the main unit's local PTT and KEY inputs are not used: they key nothing and are
+reported as 0 (0030; [HIS] HIS 85). The controller is not used as a front panel on either level (part A, "Scope of the firmware";
 0023, note of 2026-11-20); the rules above are safety rules for controller inputs that reach
 the main unit anyway.
 
@@ -1342,7 +1349,11 @@ relay of A3.9.
    Table A3-2 act throughout. A host that sends CW or pauses as DUC I&Q SHOULD send exact
    zeros (I = Q = 0) in its gaps.
 
-A3.9b **ATU tune cycle** (level-independent; 0022 §22). `ATU_TUNE` (B10.9) and
+A3.9b **ATU tune cycle** (level-independent; 0022 §22). The firmware controls the internal
+ATU itself; there is no ATU controller ([HIS] HIS 85; 0032). Until the ATU parameters of the
+pending-hardware list are set, the ATU stays in bypass with its latches unwritten, `ATU_STATE`
+reads 0, and a start is rejected with write reject reason `NOT_CALIBRATED` (on TCI as part C
+C5.7) and is not latched (0032). Once they are set, `ATU_TUNE` (B10.9) and
 `G7250_ATU_TUNE` (part C C5.7) start a tune cycle:
 
 1. It MUST start only from unkeyed. A start while keyed by any other source, including a
@@ -2354,7 +2365,7 @@ echoed with the value in force, B8.4)
 | `TLM_SUPPLY_CURRENT` | 0x0305 | RO | mA (if separate from PA current) | fast | 0006; HIS-11 |
 | `TLM_SWR` | 0x0306 | RO | 1000 × SWR as used by the safety core; 0 = not valid | fast | 0006; 0007 |
 | `SENSOR_VALID` | 0x0307 | RO | bit *n* as record `telemetry` bit *n*; bit 7 PA temperature sensors 1–3 | event | 0006; HIS-11; 0020 §8 |
-| `ATU_TUNE` | 0x0400 | W, owner | 1 starts an ATU tune cycle (A3.9b; a TX request under the arm), 0 aborts; 1 while not armed: `NOT_ARMED`; 1 while keyed by another source: `KEYED`; 1 while another key condition of A3.1a fails: `NOT_KEYABLE`; none is latched; 1 while the cycle runs or within 2 s after its end: no-op; other values `BAD_VALUE` | answer | 0007 Decision 6; HIS-08; 0020 §8; 0022 §14, §22, §39, §51 |
+| `ATU_TUNE` | 0x0400 | W, owner | 1 starts an ATU tune cycle (A3.9b; a TX request under the arm), 0 aborts; 1 while not armed: `NOT_ARMED`; 1 while keyed by another source: `KEYED`; 1 while another key condition of A3.1a fails: `NOT_KEYABLE`; 1 before the ATU parameters are set: `NOT_CALIBRATED`; none is latched; 1 while the cycle runs or within 2 s after its end: no-op; other values `BAD_VALUE` | answer | 0007 Decision 6; HIS-08; 0020 §8; 0022 §14, §22, §39, §51; 0032 |
 | `ATU_STATE` | 0x0401 | RO | 0 off or bypassed, 1 in line, 2 tuning, 3 tuned, 4 failed (the last tune did not end tuned; the ATU is back at the stored state or bypassed; stays until the next tune or an in/out change; does not block keying, A3.9b item 7) | event | 0006; HIS-08; 0020 §8; 0022 §38 |
 | `ANT_STATE` | 0x0500 | RO | [7:0] connector actually selected, from 1; 0 unknown | event | 0006; HIS-06; 0020 §8 |
 
@@ -2389,7 +2400,7 @@ Table B8-3 — Reason and fault codes (0020 §8; 0022 §5, §19)
 | Limit id (`TX_STATE` [31:24]; `LIMIT_STATUS` bit *n*; drop reason 0x40 + id) | 1 `LIMIT_TX_FREQ` (TX frequency); 2 `LIMIT_SWR` (SWR; host-tunable); 3 `LIMIT_PA_TEMP` (PA temperature; host-tunable); 4 `LIMIT_FWD_POWER` (forward power; host-tunable); 5 `LIMIT_SUPPLY_VOLTAGE` (supply voltage); 6 `LIMIT_CURRENT` (supply or PA current); 7 `LIMIT_TX_TIME` (maximum continuous TX time; host-tunable); 8 `LIMIT_ATU_TIME` (ATU tune time); 9 `LIMIT_SENSOR` (sensor plausibility); 10 `LIMIT_RF_NOT_KEYED` (RF while not keyed) |
 | Fault code (`FAULT_CODE`, `FAULT_FLAGS` bit) and class | 0 none; 2 `SWR_REPEATED` (3 SWR trips in 10 s), class 1; 3 `PA_OVERTEMP` (PA temperature above T4), class 1; 9 `SENSOR_IMPLAUSIBLE` (sensor missing, stuck or out of range), class 2; 10 `RF_NOT_KEYED` (RF while not keyed), class 2; 16 `TX_PATH_NOT_BLOCKED` (drop event 13), class 2; 17 `WDT_RESET_AT_START` (processor watchdog reset seen at start-up, HIS-13), class 1; 18 `SELFTEST_FAILED` (start-up self-test failed), class 2; 19 `INTERNAL_ERROR` (internal consistency error), class 2; codes 1 and 4–8 reserved (those limits have no `FAULT` action) |
 | Stream reason (`STREAM_STATUS` [6:0] per byte) | 0 none or running; 1 not enabled by the host; 2 not offered by this firmware; 3 sample rate not offered; 4 sample size not offered; 5 data format not offered (General byte 39); 6 time stamp or VITA-49 requested; 7 wideband parameters not offered; 8 link below 100 Mbit/s; 9 run bit clear; 10 update in progress; 11 VNA mode requested; 12 EER requested; 13 frequency encoding mismatch (General byte 37 bit [3] differs from discovery byte 21, B3.8; 0022 §73 item 12) |
-| Write reject reason (`WRITE_STATUS` [7:0]) | 1 `UNKNOWN_ADDRESS`; 2 `READ_ONLY`; 3 `NOT_OWNER`; 4 `BAD_VALUE`; 5 `LOOSER_LIMIT`; 6 `BUSY`; 7 `NOT_CLEARABLE`; 8 `KEYED` (RF-path change or ATU tune while keyed); 9 `NOT_ARMED`; 10 `NOT_KEYABLE` (ATU tune while another key condition of A3.1a fails, A3.9b) (B8.4; 0022 §22, §51) |
+| Write reject reason (`WRITE_STATUS` [7:0]) | 1 `UNKNOWN_ADDRESS`; 2 `READ_ONLY`; 3 `NOT_OWNER`; 4 `BAD_VALUE`; 5 `LOOSER_LIMIT`; 6 `BUSY`; 7 `NOT_CLEARABLE`; 8 `KEYED` (RF-path change or ATU tune while keyed); 9 `NOT_ARMED`; 10 `NOT_KEYABLE` (ATU tune while another key condition of A3.1a fails, A3.9b); 11 `NOT_CALIBRATED` (ATU tune before the ATU parameters are set, A3.9b; 0032) (B8.4; 0022 §22, §51) |
 
 Names introduced in this part and not in the decisions 0003–0008 (`STREAM_STATUS`,
 `LINK_STATUS`, `WRITE_STATUS`, `LIMIT_STATUS`, `TRIP_COUNT`, the four `LIMIT_<name>`
@@ -2417,8 +2428,8 @@ Table B9-1 — High Priority status packet ([P2]; 0006, Decision)
 | Bytes | G7250 use | Depends on |
 |-------|-----------|------------|
 | 0–3 | sequence number, per [P2] (B2.7) | — |
-| 4 [0] | PTT input that reaches the main unit (for example the controller microphone PTT); reports the input, never keys TX by itself | HIS-10, HIS-17; 0015; A3.7 |
-| 4 [1], [2] | dot, dash of the KEY input, if it reaches the main unit; else 0 | HIS-17 |
+| 4 [0] | PTT input that reaches the main unit (for example the controller microphone PTT); reports the input, never keys TX by itself; 0 in v1.0 | HIS-10, HIS-17; 0015; A3.7; 0030 |
+| 4 [1], [2] | dot, dash of the KEY input, if it reaches the main unit; else 0; 0 in v1.0 | HIS-17; 0030 |
 | 4 [4] | 1 only if a reference PLL exists and is locked; otherwise 0 | HIS-05 |
 | 4 [3], [5]–[7] | 0 | [P2] ([5], [6] "no longer supported") |
 | 5 | bit [0] ADC0 overload; other bits 0 unless more ADCs exist | HIS-01, HIS-03 |
@@ -3156,7 +3167,7 @@ Unless a test says otherwise, a test in which KEY or CWX keys runs with break-in
 | T-A3-04 | A class 1 fault clears only with the current code and only when the condition is gone; a clear does not re-arm. |
 | T-A3-05 | A class 2 fault clears only by reset and is detected again at start-up if the cause persists. |
 | T-A3-06 | After power-on and after every session end the state of A3.6 holds. |
-| T-A3-07 | Controller PTT and KEY inputs are reported and never key the radio without arm, with and without a P2 session while level 1 is active. |
+| T-A3-07 | Not in v1.0 (0030). Controller PTT and KEY inputs are reported and never key the radio without arm, with and without a P2 session while level 1 is active. |
 | T-A3-08 | While keyed, a DUC0 retune inside the same transmit range and RF-path state is followed without unkey. |
 | T-A3-09 | While keyed, a DUC0 change to another `tx_band` entry, or out of all ranges, unkeys before the frequency applies (`TX_STATE` reason 6, or 4 with `LIMIT_TX_FREQ`), keeps the arm, and switches relays only after the unkey; keying again needs a new 0→1 edge. |
 | T-A3-10 | While keyed, an Alex word or step-attenuator change in the High Priority packet is applied only after the unkey; a register write that would switch an RF-path relay is rejected with `KEYED`; a controller ANT or ATU press is ignored and logged. |
@@ -3191,7 +3202,7 @@ Unless a test says otherwise, a test in which KEY or CWX keys runs with break-in
 | T-A3-39 | With a mean-only detector model, *L* = 100 W and class SSB, voice with a 12 dB crest factor at full drive is held to a PEP estimate of at most 100 W (mean about 6.3 W), not to the class bound of 25 W mean (reference model; A3.4c). |
 | T-A3-40 | With a mean-only detector model and class CW declared, SSB I&Q with a 6 dB crest factor at full drive is held to a PEP estimate of at most *L* (mean about *L* / 4), not to the CW bound of mean ≤ *L* (reference model; A3.4c). |
 | T-A3-41 | With a mean-only detector model and class AM, a 25 W carrier modulated to 150 % is held to a PEP estimate of at most *L* and a mean of at most 25 W; at 100 % sine modulation the bounds of Table A3-3 give the same result as before (reference model; A3.4c). |
-| T-A3-42 | With level 1 active and armed: KEY keys only while the owner has set DUC-specific byte 5 bit [1] in this session; after a takeover or session end it keys nothing until the new owner sets the bit; a controller request that reaches the main unit never keys (A3.1a, B10.1). |
+| T-A3-42 | Not in v1.0 (0030). With level 1 active and armed: KEY keys only while the owner has set DUC-specific byte 5 bit [1] in this session; after a takeover or session end it keys nothing until the new owner sets the bit; a controller request that reaches the main unit never keys (A3.1a, B10.1). |
 | T-A3-43 | With DDC0 at 7.1 MHz and DUC0 at 14.2 MHz, `ATU_TUNE` switches the RF path to the 14 MHz TX state and waits `t_settle` before the tune carrier; after the cycle and RF gone the path returns to the 7 MHz state, and the next PTT key switches to the 14 MHz state again (reference model; A3.9b items 2, 7). |
 | T-A3-44 | With forward power held above `P_rf_off` after a normal unkey, after a session end and after a takeover (reference model), the radio enters the fault state with `RF_NOT_KEYED` no later than `t_reset_wait` after the unkey, no relay moves while RF is present, and the session end completes (A3.9a item 1a). |
 | T-A3-45 | During the bounded wait of a PTT edge that needs the TX state, a DDC0 change alone does not refuse the key; it is applied after the next unkey; a DUC0 change to another `tx_band` entry during the wait refuses it (A3.9a item 3). |
@@ -3383,7 +3394,7 @@ Unless a test says otherwise, a test in which KEY or CWX keys runs with break-in
 | T-B10-12 | A TX request with DUC0 outside the transmit ranges does not key. |
 | T-B10-13 | SEND is asserted only while armed and keyed, before RF, and released on every drop event, standby and fault. |
 | T-B10-14 | `ATU_TUNE` without arm does not tune; with arm it tunes within its time limit. |
-| T-B10-15 | KEY keys hardware CW only when armed and CW is selected. |
+| T-B10-15 | Not in v1.0 (0030). KEY keys hardware CW only when armed and CW is selected. |
 | T-B10-16 | A `KEYED_TIMEOUT` write outside 100–500 is rejected with `BAD_VALUE`; the value returns to 500 at session end; unkey happens between T and T + 10 ms. |
 | T-B10-17 | DUC-specific byte 5 bit [0] (EER) set refuses TX IQ with reason 12. |
 | T-B10-18 | DUC-specific bytes 14–15 = 0 and byte 16 = 0 are read as 192 ksps and 24 bits. |
@@ -3405,7 +3416,7 @@ Unless a test says otherwise, a test in which KEY or CWX keys runs with break-in
 | T-B10-34 | Break-in clear, CW selected, armed: a PTT 0→1 edge keys (T/R relay, SEND, `TX_STATE` TX source 1) with no RF until a KEY closure or CWX paddle edge; the elements form RF, SEND and the T/R relay stay in TX between them; no DUC I&Q for 1 s gives no underrun unkey and DUC I&Q sent meanwhile is not transmitted and is counted; a KEY closure already held at the PTT edge forms no RF until it is closed again; with an RF delay of 20 ms (byte 13), a KEY closure or CWX paddle edge after the PTT edge but before the T/R relay has settled and the RF delay has elapsed forms no RF before the PTT key nor after it until a new closure or edge (0022 §87 item 1); at the PTT release the element ends with its trailing ramp, then SEND is released after RF gone and the T/R relay returns (B10.5b). |
 | T-B10-35 | Break-in clear, armed, no PTT: KEY closures and CWX paddle edges form no RF, key nothing and are reported in status byte 4; a PTT 0→1 edge after them sends no element; with CW not selected, a CWX paddle edge inside a PTT transmission forms no RF, is not latched, and the DUC I&Q is transmitted (B10.5b). |
 | T-B10-36 | Break-in set, armed: inside a PTT transmission a KEY closure or CWX paddle edge forms no RF, the keyer stops, and the PTT transmission continues; during the hang delay of a CWX transmission a PTT 0→1 edge is refused and, still held after the hang delay, does not key until a new 0→1 edge; a change of byte 5 bit [7] or bit [1] while keyed applies only after the unkey (B10.5b). |
-| T-B10-37 | Break-in set, armed, hardware CW selected, hang delay 500 ms: a CWX element, then within the hang delay a KEY element, then a CWX element form one CW transmission (`TX_STATE` keyed throughout, SEND and the T/R relay in TX, the maximum continuous TX time counted from the first element); a KEY dot and a CWX dash held together form the elements of the iambic keyer as one paddle pair (B10.5b item 1; 0022 §87 item 5). |
+| T-B10-37 | Not in v1.0 (0030). Break-in set, armed, hardware CW selected, hang delay 500 ms: a CWX element, then within the hang delay a KEY element, then a CWX element form one CW transmission (`TX_STATE` keyed throughout, SEND and the T/R relay in TX, the maximum continuous TX time counted from the first element); a KEY dot and a CWX dash held together form the elements of the iambic keyer as one paddle pair (B10.5b item 1; 0022 §87 item 5). |
 | T-B10-38 | With TX source PTT and CW select clear, a DUC-specific packet with EER set, then one with DUC0 rate 384, arriving while keyed: the transmission continues and DUC I&Q is still transmitted; after the PTT release `STREAM_STATUS` shows the refusal and a new PTT 0→1 edge does not key until a valid DUC-specific packet (B10.6, refusal arriving while keyed; 0022 §87 item 8). |
 | T-B10-39 | With break-in clear, CW selected and `t_settle` 20 ms (reference model): a CWX paddle bit raised during the settle and held, then the other paddle bit raised while the first is still held, forms no RF; after both bits at 0 and a new rise it forms RF; with CW not selected, a CWX paddle edge in the PTT transmission forms no RF and is not latched (B10.5b items 2.2, 2.3; 0022 §88 item 3). |
 | T-B10-40 | With break-in clear, CW selected and no element, a PTT bit held by High Priority packets every 50 ms with no DUC I&Q is not unkeyed by the underrun check and is unkeyed by the maximum continuous TX time (set stricter, 10 s), counted from the key of A3.1a, not from the end of the RF delay (B10.5, A3.4d; 0022 §88 items 2, 4). |
