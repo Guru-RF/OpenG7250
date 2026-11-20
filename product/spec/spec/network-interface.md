@@ -1481,7 +1481,10 @@ Table B2-1 — Local UDP ports of the G7250 (level 1)
 | 8 | 7251 | Management channel | Management channel | MUST be open, at both levels | 0008, Transport 1; 0020 §2 |
 
 - Ports 1036 and up (DDC1 and further, [P2] General bytes 17–18) are not opened while the
-  G7250 implements one DDC (0004 point 1). Number of DDCs: TBD (HIS-02).
+  G7250 implements one DDC (0004 point 1). Number of DDCs: 1 in this version (0004). The FPGA
+  has two independent receive tuning words ([HIS] HIS 80, `9d10e72`, MEDIUM); whether they
+  are two physical receive paths needs the radio, and a second DDC would be a later decision
+  (socket budget, 0004).
 - **Memory-mapped register port.** [P2] gives the default of General bytes 29–30 and 31–32 as
   "xxxx", so it is undefined; this document defines it (0005; 0003, "left to spec part B").
   The port number is 7250 (0020 §1). The G7250 MUST use one and the same local port for both
@@ -1608,7 +1611,7 @@ Table B3-1 — G7250 discovery reply ([P2] Discovery reply, format 1; 0003 §1)
 | 12 | openHPSDR protocol version supported | 44 (V4.4), see B3.5 | [P2] byte 12; B1.3 |
 | 13 | Firmware code version | see B3.5 | [P2] byte 13; 0003 §1 |
 | 14–19 | Mercury 0–3, Penny, Metis code versions | 0x00 | [P2] bytes 14–19 (Atlas only); 0003 §1 |
-| 20 | Number of DDCs implemented | equal to record field `num_ddc`; TBD (HIS-02), assumed 1 | [P2] byte 20; 0003 §1; 0004 point 8 |
+| 20 | Number of DDCs implemented | equal to record field `num_ddc`; 1 in this version (0004; HIS-02, [HIS] HIS 80) | [P2] byte 20; 0003 §1; 0004 point 8 |
 | 21 | Frequency or phase word | 1 = phase word, always, with the fixed scale of B3.8 (0022 §81) | [P2] byte 21; General packet byte 37 NOTE |
 | 22 | Available endian modes | 0x00 (Big-Endian, 3-byte I&Q only), see B3.7 | [P2] byte 22; 0004 point 1 |
 | 23 | Beta version | 0x00 for a release; non-zero for a beta build | [P2] byte 23; 0003 §1 |
@@ -1790,7 +1793,7 @@ Table B4-1 — Capability record, version 1.1 (0003 §3; 0020 §26)
 | 0x0B | `level` | bit 0 level 1 present (always 1); bit 1 level 2 present in this firmware; bit 2 level 2 active; bits [7:4] active level (0 none, 1, 2) | 0011; 0003, Resolved; level 2 only after G6 |
 | 0x0C | `streams` | bit 0 RX IQ; bit 1 TX IQ (DUC); bit 2 DDC audio (always 0); bit 3 microphone data; bit 4 wideband data; bit 5 IQ time stamping | bit 0 = 1; bit 1 per `tx` bit 1; bit 2 = 0 (0017); bit 3 per HIS-17 (assumed 0); bit 4 = 0 before M2, 1 from M2 (0004 point 4; HIS-01, HIS-18); bit 5 = 0 (0004 point 1) |
 | 0x0D | `num_adc` | number of RF ADCs | HIS-01, HIS-03 (assumed 1) |
-| 0x0E | `num_ddc` | number of DDCs; equals discovery byte 20 | HIS-02 (assumed 1) |
+| 0x0E | `num_ddc` | number of DDCs; equals discovery byte 20; 1 in this version | 0004; HIS-02 |
 | 0x0F | `num_duc` | number of DUCs | assumed 1 [G7250-MAN]; HIS-18 |
 | 0x10 | `ddc_rates` | bit mask: bit 0 48, bit 1 96, bit 2 192, bit 3 384, bit 4 768, bit 5 1536 ksps | 0x0F if 384 ksps is offered, else 0x07 (B6.7; 0004 point 6); bits 4, 5 always 0 (0004 point 7) |
 | 0x11 | `duc_format` | [31:16] TX IQ rate in ksps, [7:0] bits per sample | 0x00C00018 (192 ksps, 24 bits; 0004 point 2); HIS-18 |

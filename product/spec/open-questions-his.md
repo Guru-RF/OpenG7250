@@ -1,6 +1,6 @@
 # Open questions for the hardware-interface spec (HIS)
 
-Questions that only the hardware-interface spec (`g7250-his`, now `his/` in the umbrella repository) can answer. The HIS was cleared by gate review 2 on 2026-11-20 and answered at commit `2a38b7f`; the answers to the follow-up questions passed gate review 3 at `d0a39b0`, and the HIS-02 frame layout gate review 4 at `b95f519`. Each question below carries its status; "pending hardware" means only the radio can settle it (HIS 90). This repository
+Questions that only the hardware-interface spec (`g7250-his`, now `his/` in the umbrella repository) can answer. The HIS was cleared by gate review 2 on 2026-11-20 and answered at commit `2a38b7f`; the answers to the follow-up questions passed gate review 3 at `d0a39b0`, the HIS-02 frame layout gate review 4 at `b95f519`, and the HIS-02 word roles gate review 5 at `9d10e72`. Each question below carries its status; "pending hardware" means only the radio can settle it (HIS 90). This repository
 does not look for the answers itself (AGENTS.md rules 1 and 7). Each question says why we
 need it, which decision or milestone waits for it, and what public sources already say.
 
@@ -26,7 +26,7 @@ Priority: **M1** = needed for milestone M1 (discovery, capability block, RX-IQ);
 
 ### HIS-02 — Number of receivers (M1)
 
-- **HIS answer** ([HIS] `b95f519`, gate review 4): partly (HIS 80): the 0x01 frame is 24 bytes, status flags in byte 0, three big-endian NCO words at byte offsets 1, 5 and 19 (HIGH), byte 23 most likely the rate index (MEDIUM); two of the words tune the receive path (MEDIUM), which offset has which role, bytes 9–18, the flag bits and the spectral-inversion flag position are unknown. The number of DDCs the spec offers stays one (0004). Pending hardware: the role of each word (bus capture, HIS 90).
+- **HIS answer** ([HIS] `9d10e72`, gate review 5): partly (HIS 80, 90): offsets 1 and 5 each set a receive-path tuning frequency, independently (MEDIUM); offset 19 is a third tuning word, most likely transmit (HYPOTHESIS); offsets HIGH. Which physical receive path offsets 1/5 drive, and the transmit role of offset 19, need the radio. The spec offers one DDC in this version (0004); a second DDC is a later decision. Pending hardware.
 - Question: how many independent receive channels (DDCs) can the main unit run at the same
   time?
 - Why: P2 reports the number of DDCs in the discovery reply [P2]. Each DDC adds one I&Q

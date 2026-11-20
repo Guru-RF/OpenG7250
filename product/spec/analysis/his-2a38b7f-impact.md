@@ -162,3 +162,14 @@ with the streaming installer and no rollback. Recommendation: A/B, which keeps U
   detail only; no change to the spec, which offers one DDC (0004). The role of each word stays
   pending hardware.
 - HIS 90: USART1 on PB6/PB7 now VERIFIED (debug console for the F1 test image); no spec change.
+
+## 8. Addendum: `9d10e72` (gate review 5)
+
+- HIS-02 (HIS 80, 90): offsets 1 and 5 are two independent receive tuning words (MEDIUM);
+  offset 19 most likely the transmit tuning word (HYPOTHESIS).
+- Spec change: the three "TBD (HIS-02)" places for the number of DDCs (B-part port list,
+  discovery byte 20, record field `num_ddc`) and part C `TRX_COUNT` now read "1 in this
+  version (0004)". A second receiver is possible but unconfirmed; offering it would be a later
+  decision (one more socket, 0004 "Against").
+- Pending hardware: mapping of offsets 1/5 to physical receive paths; offset 19 as the transmit
+  word. TX stays disabled until measured (unchanged).
