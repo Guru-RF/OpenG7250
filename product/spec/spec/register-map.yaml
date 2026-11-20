@@ -72,7 +72,7 @@ registers:
   - name: WATCHDOG_STATE
     address: 0x0206
     access: "RO"
-    content: "bit 0 General byte 38 bit [0] as last written; bit 1 effective state; bit 2 no General packet yet (counts as enabled)"
+    content: "bit 0 General byte 38 bit [0] as last written, 0 while bit 2 is set; bit 1 effective state (1 while bit 2 is set); bit 2 no General packet yet (counts as enabled) (0039)"
     sent: "on change"
     source: "0007 Decision 2.3; 0020 §8"
   - name: SAFETY_STATE
@@ -206,6 +206,7 @@ code_sets:
         text: "(reserved, not set since 0022 §13; a non-owner gets `WRITE_STATUS`)"
       - value: 2
         name: NOT_RUNNING
+        text: "(not set over P2: without RUN there is no session and every write is `NOT_OWNER`, B8.5; set on TCI, part C C5.5.6 item 1)"
       - value: 3
         name: WATCHDOG_DISABLED
       - value: 4
@@ -362,6 +363,8 @@ code_sets:
         text: "EER requested"
       - value: 13
         text: "frequency encoding mismatch (General byte 37 bit [3] differs from discovery byte 21, B3.8; 0022 §73 item 12)"
+      - value: 14
+        text: "TX not calibrated (record `tx` bit 4 = 0, A1.12; 0039)"
   - set: "Write reject reason (`WRITE_STATUS` [7:0])"
     values:
       - value: 1
@@ -455,6 +458,15 @@ management_commands:
     auth: "yes"
   - name: ENTER_VENDOR_RECOVERY
     code: "0x0051"
+    auth: "yes"
+  - name: GET_CALIBRATION
+    code: "0x0060"
+    auth: "no"
+  - name: SET_CALIBRATION
+    code: "0x0061"
+    auth: "yes"
+  - name: CLEAR_CALIBRATION
+    code: "0x0062"
     auth: "yes"
 tci_commands:
   - name: AGC_GAIN

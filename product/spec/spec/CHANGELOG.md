@@ -40,6 +40,13 @@ All dates 2026-11-19. Decision numbers refer to `decisions/`.
   microphone stream in v1.0 (B6.11); T-A3-58 for unused local PTT/KEY; footswitch absent in
   v1.0; citations corrected; tools: trace.py --check, lint L9 "per HIS-nn", L10.
 
+- 0039 (proposed), from the testbench's review by test (SF-01..SF-18): calibration set with
+  `GET_/SET_/CLEAR_CALIBRATION` (A1.12, I-7, status 62); one region with the manual's ten
+  transmit ranges (Table A3-0); Annex M with every management payload (16-byte challenge, HMAC
+  over challenge then message, IDENTIFY, configuration and calibration TLVs, package header);
+  DUC I&Q discarded and stream reason 14 while not calibrated; `BAD_TOKEN` first; smaller fixes
+  (SF-06, 09, 10, 11, 13, 16, 18). Tests T-A1-63..65, T-B10-42.
+
 ## rc7 — release candidate 7 (tag `spec-rc7`)
 
 - ON8ST accepted 0025 and 0026 (2026-11-20). `product/tools/g7250ctl/` and `product/refmodel/`

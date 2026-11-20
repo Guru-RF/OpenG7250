@@ -713,8 +713,8 @@ allowed (true) / transmission denied (false)"; 0021 §44 item 1):
 5. No firmware update in progress and no unconfirmed trial boot (0008; A1.8; C2.8).
 6. The TX mode class is defined (C5.6): the modulation of the TX channel is not `WFM`. Reject
    reason `NO_MODE_CLASS` (0007 Decision 1 rule 1).
-7. Transmit is implemented (L2: M7; L1: M4) and calibrated: the transmit parameters of part B
-   Annex P are set (record `tx` bit 4; 0035, 0036).
+7. Transmit is implemented (L2: M7; L1: M4) and calibrated: the calibration set holds the
+   transmit parameters of part B Annex P (record `tx` bit 4; part A A1.12; 0035, 0036, 0039).
 8. Armed.
 9. The effective TX frequency (C4, split and XIT) lies inside a transmit range of [G7250-MAN]
    for the configured region (`LIMIT_TX_FREQ`, Table A3-2; A1.6 C-6).

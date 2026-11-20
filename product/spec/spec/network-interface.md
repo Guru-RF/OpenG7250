@@ -112,7 +112,7 @@ Table A1-1 — Management message header (0020 §27)
 | 14–15 | status (Table A1-3); 0 in requests |
 | 16–17 | payload length *N* |
 | 18 … 17 + *N* | payload |
-| next 32 bytes | HMAC-SHA256 [RFC2104], [FIPS180-4] over the challenge and bytes 0 … 17 + *N*; present only if flag bit 0 is set |
+| next 32 bytes | HMAC-SHA256 [RFC2104], [FIPS180-4] over the 16-byte challenge followed by bytes 0 … 17 + *N* (Annex M); present only if flag bit 0 is set |
 
 - A request MUST NOT exceed 1000 bytes, so that it fits a 1 KB socket receive buffer with the
   8-byte CH394Q receive header ([CH394] section 12.2.4); a reply MUST NOT exceed 1400 bytes;
@@ -160,6 +160,10 @@ Table A1-2 — Management commands (0020 §27)
 | 0x0040–0x0046 | `UPDATE_BEGIN`, `UPDATE_BLOCK`, `UPDATE_VERIFY`, `UPDATE_ACTIVATE`, `UPDATE_ABORT`, `UPDATE_STATUS`, `ROLLBACK` | yes (`UPDATE_STATUS` no) | A1.8; refused with status 50 while armed or keyed, `ROLLBACK` included (0022 §32); `UPDATE_STATUS` is a read and is answered at any time (0022 §51) |
 | 0x0050 | `RETURN_TO_STOCK` | yes | Reserved (A1.8a item 2): this version retains no stock image; always status 56, after the checks for status 50 and 58 (0024, 0028) |
 | 0x0051 | `ENTER_VENDOR_RECOVERY` | yes | Reserved (A1.8a item 4): no software entry into the vendor path is known; always status 56, after the checks for status 50 and 58 (0024, 0028) |
+| 0x0060 | `GET_CALIBRATION` | no | reads the calibration set (A1.12; 0039) |
+| 0x0061, 0x0062 | `SET_CALIBRATION`, `CLEAR_CALIBRATION` | yes | write or clear the calibration set; refused with status 57 while a P2 session runs, 50 while armed or keyed on any level, 58 during an update (A1.12; 0039) |
+
+The payload of every command is in Annex M (0039).
 
 Table A1-3 — Management status codes (0020 §27)
 
@@ -179,10 +183,11 @@ Table A1-3 — Management status codes (0020 §27)
 | | | 59 | reset refused: RF present (A1.9; 0022 §59) |
 | | | 60 | not possible: one-way installation in progress (A1.8a item 3; 0028) |
 | | | 61 | image too large for the application area (A1.8a item 3; 0028) |
+| | | 62 | refused: the value needs the calibration set (A1.12; 0039) |
 
 Where several codes apply, the reply carries the first of: framing and version (19 for a
 declared length above 1000 bytes, then 17, 18, 16, and 19 for any other datagram size limit), authentication and rate (32, 33, 34, 36), 35, 58, 57, 50, then the command-specific codes
-(48, 49, 51–56, 59, 60, 61) (0022 §51, §59; 0028). A region change while a P2 session runs and TX is armed therefore
+(48, 49, 51–56, 59, 60, 61, 62) (0022 §51, §59; 0028, 0039). A region change while a P2 session runs and TX is armed therefore
 gets 57: ending the session also ends the arm on level 1 (A2.3, Table A3-1).
 
 A1.5 **Identification** (read; no authentication) (0008, Functions):
@@ -193,6 +198,8 @@ A1.5 **Identification** (read; no authentication) (0008, Functions):
   read;
 - that no stock image is retained and that `ENTER_VENDOR_RECOVERY` is not supported, as two
   flags, so that a later version can set them (I-2a; A1.8a; 0024, 0028);
+- whether TX is calibrated (record `tx` bit 4) and the id and date of the calibration set
+  (I-7; A1.12; 0039);
 - integrity result of both images and update state: normal, trial boot, rolled back, or
   installer (a streaming installation of A1.8a item 3 in progress, with the number of sectors
   written) (I-3; 0028);
@@ -237,8 +244,12 @@ A1.6 **Configuration** (write needs authentication, A1.10) (0008, Functions):
   has no local input for it, so the local path is a re-install through the vendor path
   (A1.8a item 9), after which the first start uses the factory values of Table A1-4, whatever
   the configuration area holds (C-5; 0035); both restore exactly the items of Table A1-4 (0022 §60);
-- the region whose transmit ranges apply (C-6): factory default is the intersection of the
-  transmit ranges of all regions in [G7250-MAN]; a change MUST be refused with status 57
+- the region whose transmit ranges apply (C-6): [G7250-MAN] gives one list of transmit ranges
+  and says that the ranges of a unit "will be set according to local regulatory
+  requirements"; this version therefore has one region, 0, with the ranges of Table A3-0,
+  which is also the factory default; a region other than 0 MUST be refused with status 48
+  (0039). An owner whose licence allows less narrows it with the C-3 power limit per band
+  (0 W closes a band). A change MUST be refused with status 57
   while a P2 session runs, so that the record stays constant within a session (0020 §23;
   B4.7), and with status 50 while TX is armed or keyed on any level; on level 2, unarmed, it
   applies at once (0022 §9);
@@ -267,12 +278,13 @@ Table A1-4 — What a factory reset restores (0022 §60)
 | C-2 default level at power-on | level 1 | 0011 point 4 |
 | C-3 persistent limits | kept; an authenticated C-3 write may return them toward the built-in values (A1.6) | 0022 §31 |
 | C-5 management secret | cleared; a new first-secret window opens (A1.10) | 0008 C-5, S3 |
-| C-6 region | factory default, the intersection of the transmit ranges of all regions | 0020 §23 |
+| C-6 region | region 0, the transmit ranges of Table A3-0 | 0020 §23; 0039 |
 | C-7 TCI allow-list | empty (any address in the radio's own subnet) | 0020 §31 |
 | TCI port (part C C2.4) | 50001 | 0021 §2 |
 | Log (A1.7) | kept | 0008 L-2 |
 | Fault entry counters, reset counters, `TRIP_COUNT` (A3.5) | kept; cleared only at power-on | 0022 §27 |
 | Firmware images and update state (A1.8) | unchanged | 0008 U-5 |
+| Calibration set (A1.12) | kept | 0039 |
 | Write session, challenges, stored replies (A1.4, A1.10) | discarded, as at every reset | 0022 §11 |
 
 A1.7 **Logs** (read without authentication; clearing needs authentication) (0008, Functions):
@@ -504,7 +516,9 @@ MUST be carried out in this order:
    this is the bound of A3.9a item 1a, which applies to every wait for RF gone (0022 §68);
 3. send the reply (status 0) and store it (A1.4); a repeat of the accepted request (A1.4) that
    arrives during steps 1–2 is answered with status 1, and one that arrives after this step
-   with the stored reply (0022 §87 item 3);
+   with the stored reply until the reset (0022 §87 item 3). After the reset the stored replies
+   and challenges are gone, so a retransmission gets status 33; a host confirms the reset from
+   `IDENTIFY` (uptime, last reset cause; Annex M) (0039);
 4. relays to the state of A3.6 (A3.9a item 5);
 5. the reset.
 
@@ -632,6 +646,28 @@ is gone (A3.9a item 1), which delays the change by at most `t_reset_wait` (A1.9)
 it is part C C5.5.5 row 14. A renewal that keeps the address and netmask changes nothing. What
 the radio does next with its address (a new DHCP exchange, or the fall-back of C-4) is HIS-14.
 
+
+A1.12 **Calibration set** (0039; Annex P). The values of Table P-1 that are measured on a unit
+form its calibration set. It is written over this channel only.
+
+1. `SET_CALIBRATION` (authenticated) replaces the stored set as a whole; `CLEAR_CALIBRATION`
+   removes it; `GET_CALIBRATION` reads it (payloads: Annex M, Table M-5). Both writes MUST be
+   refused with status 57 while a P2 session runs, so that record `tx` bit 4 stays constant
+   within a session (B4.7), with status 50 while TX is armed or keyed on any level, and with
+   status 58 during a firmware update. A set is validated as a whole: an unknown parameter id,
+   a value that does not decode, or a value beyond the hardware rating gets status 48 and
+   changes nothing.
+2. The set is stored in this firmware's own flash with a check value (A1.6 C-4); it is kept by
+   `FACTORY_RESET` (Table A1-4) and by updates of this firmware, and lost by a return to stock
+   (A1.8a item 3), so a host SHOULD read and keep it before one. Every write is logged with its
+   id, date and source (A1.7).
+3. Record `tx` bit 4 is 1 exactly when the stored set holds every parameter that the freeze
+   rule of Annex P names, and the firmware accepts them; then the arm is no longer refused with
+   `NOT_CALIBRATED`. A host whose write would set bit 4 sees it from the next session on.
+4. Values that need the set are refused until the set holds them: a management write with
+   status 62 (Table M-3), a P2 register write with write reject reason `NOT_CALIBRATED` (B8.4).
+5. Who measures the values, and how, is outside this spec (Annex P, HIS 90); the encoding of
+   each value is fixed in Table P-1 when it is set.
 ### A2 Ownership and level selection
 
 A2.1 **Single owner.** Only one level controls the RF chain at a time, and only that level's
@@ -761,9 +797,9 @@ budget; Annex X1, D23).
 
 A2.5a **Level switch procedure.** `SWITCH_LEVEL` MUST be carried out in this order (0022 §9):
 
-1. Validate: unknown target, status 48; level 2 not in this firmware (before G6), status 56;
-   target already active, status 0 and no change; firmware update in progress, status 58
-   (Table A1-3; 0022 §51).
+1. Validate, in the precedence of Table A1-3: firmware update in progress, status 58; unknown
+   target, status 48; level 2 not in this firmware (before G6), status 56; target already
+   active, status 0 and no change (0022 §51; 0039).
 2. If TX is armed or keyed: unkey, disarm (`LEVEL_CHANGE`), new token, push `TX_ARM_STATE`
    to the owner (level 1: from port 7250, before it closes; level 2: part C).
 3. Reply with status 1 (accepted, in progress); the unkey comes first, as for every command
@@ -969,11 +1005,30 @@ Rules (0007, Decision 4, rules 1–5):
    (0022 §53).
 6. Per-session limit registers, their units and codes are in B8 (0020 §8, §10).
 
+Table A3-0 — Transmit ranges of region 0 ([G7250-MAN], "Parameters": Transmit; 0039)
+
+| Range | From (MHz) | To (MHz) |
+|---|---|---|
+| 1 | 1.8 | 2.0 |
+| 2 | 3.5 | 3.9 |
+| 3 | 7.0 | 7.2 |
+| 4 | 10.1 | 10.15 |
+| 5 | 14.0 | 14.35 |
+| 6 | 18.068 | 18.168 |
+| 7 | 21.0 | 21.45 |
+| 8 | 24.89 | 24.99 |
+| 9 | 28.0 | 29.7 |
+| 10 | 50.0 | 54.0 |
+
+Each range is one `tx_band` entry of the record, in this order (B4.8). Both edges belong to the
+range. The maximum power per range is 100 W for SSB, CW and NFM and 25 W for AM [G7250-MAN];
+range 10 is pending hardware (P-PWR-2).
+
 Table A3-2 — TX limits (0007, Decision 4; open thresholds carry their HIS id; timing values from 0020 §29; reaction times 0022 §80)
 
 | Limit | Measured by | Threshold(s) | Action | Maximum time from threshold to action | Recovery |
 |-------|-------------|--------------|--------|---------------------------------------|----------|
-| TX frequency | DUC0 frequency ([P2] High Priority bytes 329–332); carrier only (A3.4b) | outside the transmit ranges of [G7250-MAN] for the configured region (A1.6 C-6; 0020 §23) | not keyed: TX request ignored (no key); keyed: `UNKEY` before the new frequency applies (A3.9; 0022 §1) | checked at every key before RF (no RF outside a range); keyed: the unkey comes before the new frequency applies, so 0 | inside a range again; next TX request |
+| TX frequency | DUC0 frequency ([P2] High Priority bytes 329–332); carrier only (A3.4b) | outside the transmit ranges of the configured region, Table A3-0 (A1.6 C-6; 0020 §23; 0039) | not keyed: TX request ignored (no key); keyed: `UNKEY` before the new frequency applies (A3.9; 0022 §1) | checked at every key before RF (no RF outside a range); keyed: the unkey comes before the new frequency applies, so 0 | inside a range again; next TX request |
 | SWR | forward and reflected power (HIS-11) | above S1: `REDUCE` (cap `P_swr`, A3.4a); above S2: `UNKEY`; both evaluated only above the minimum forward power `P_min`; S1, S2, `P_min` pending hardware (P-PWR-2; HIS-11, HIS-12) | as listed | `REDUCE` ≤ 10 ms; `UNKEY` ≤ 10 ms (design value; end-to-end with the detector response, pending hardware P-SEN-2; HIS-11, HIS-12) | cap held to the end of the continuous transmission (A3.4a, A3.4d); `UNKEY`: next TX request; 3 `UNKEY` trips within 10 s → `FAULT` `SWR_REPEATED`, class 1 (0020 §29; 0022 §5) |
 | PA temperature | PA sensor (HIS-11), filtered (A3.4a) | T1 `WARN`, T2 `REDUCE` (cap `P_temp`, A3.4a), T3 `UNKEY` with inhibit, T4 `FAULT` `PA_OVERTEMP`; all pending hardware (P-PWR-2; HIS-11, HIS-12) | as listed | ≤ 100 ms after the filtered value crosses the threshold (filter time constant pending hardware P-SEN-4; HIS-11, HIS-12) | cap lifts below T2 minus hysteresis; inhibit lifts below T3 minus hysteresis; hysteresis pending hardware (P-PWR-2; HIS-11, HIS-12) |
 | Forward power | forward power (HIS-11): PEP and 100 ms mean (A3.4c), vs band and TX mode class; without a PEP detector, the PEP estimate from the digital crest factor of the DUC samples (A3.4c) | 100 W PEP SSB/CW/NFM; AM 25 W carrier (carrier estimate, A3.4c) and 100 W PEP [G7250-MAN]; every tier (built-in, persistent, session; P2 and TCI) is enforced through the bounds of Table A3-3: with a PEP detector on the measured PEP, without one on the PEP estimate for every class, the class-based mean bounds acting in addition, never instead (0022 §43, §52, §62); 50 MHz pending hardware (P-PWR-2; 90 W in [G7250-PUDX], [G7250-RIGPIX]; HIS-12); margin pending hardware (P-PWR-3; HIS-12) | `REDUCE`; if still over 200 ms after `REDUCE` started, `UNKEY` (0020 §29) | `REDUCE` ≤ 10 ms after the bound of Table A3-3 is exceeded in the 100 ms window; `UNKEY` 200–210 ms after `REDUCE` started | next TX request |
@@ -1857,7 +1912,7 @@ Table B4-1 — Capability record, version 1.1 (0003 §3; 0020 §26)
 | 0x54 | `link` | [15:0] minimum link speed in Mbit/s for a session | 100 (0004 point 9; [CH394]) |
 | 0x55 | `wb_format` | wideband: [31:16] samples per packet, [15:8] bits per sample, [7:0] update rate in ms; 0 when `streams` bit 4 = 0 | from M2: 0x02001032 (512, 16, 50 ms; 0004 point 4) |
 | 0x56 | `wb_frame` | wideband: [7:0] packets per frame; 0 when `streams` bit 4 = 0 | from M2: 8 (0004 point 4) |
-| 0x57 | `cal_info` | bit 0 power constants per band (set *i* applies to `tx_band[i]`; else set 0 applies to all bands); bits 1–4 forward power, reverse power, exciter power, supply volts filled; [15:8] number of power constant sets (1, or `tx_band_count`); [31:16] ADC full-scale divisor *N* | 0006; per unit and per band HIS-11; *N* = 4095 in [P2] Appendix A |
+| 0x57 | `cal_info` | bit 0 power constants per band (set *i* applies to `tx_band[i]`; else set 0 applies to all bands); bits 1–4 forward power, reverse power, exciter power, supply volts filled; [15:8] number of power constant sets (1, or `tx_band_count`); [31:16] ADC full-scale divisor *N* | 0006; per unit and per band HIS-11; *N* = 4095 in [P2] Appendix A; until the calibration set holds P-SEN-1, bits 0–4 = 0 (no constants) while the raw status words are still filled (B9.3), and the engineering-unit registers stay invalid in `SENSOR_VALID` (0039) |
 | 0x58 | `cal_supply_c` | supply constant *c* in units of 10⁻⁶, for `V = x / N × c` | this unit's calibration (0006; HIS-11) |
 | 0x59–0xB8 | `cal_power[0..15]` | 6 registers per set, units of 10⁻⁶: forward *c1*, *c2*; reverse *c1*, *c2*; exciter *c1*, *c2*, for `W = (x / N × c1)² / c2` | this unit's calibration (0006; HIS-11); unused sets 0 |
 | 0xB9 | `status_fill` | High Priority status fields filled: bit 0 byte 4 [0]; bit 1 byte 4 [1]–[2]; bit 2 byte 4 [4]; bit 3 byte 5; bit 4 bytes 6–7; bit 5 bytes 14–15; bit 6 bytes 22–23; bit 7 byte 30; bit 8 bytes 31–36; bit 9 bytes 39–40; bit 10 bytes 49–50 | per Table B9-1 (0006; 0020 §26); HIS-11, HIS-17 |
@@ -2333,6 +2388,7 @@ B8.4 **Write confirmation, rejection and ordering** (0020 §11; 0005, Consequenc
   5 ms of receipt. For `TX_ARM` the answer is `TX_ARM_STATE`; keying needs a TX-request edge
   after it (B10.2; 0007 rule 2).
 - A rejected write MUST leave the value unchanged. The answer MUST carry the value in force
+  (for `UNKNOWN_ADDRESS`, which has none: the address with the value 0x00000000; 0039)
   and a `WRITE_STATUS` pair: [31:16] the address, [15:8] a rejection counter (wraps at 255),
   [7:0] the reason: 1 `UNKNOWN_ADDRESS` (including an address of an absent group),
   2 `READ_ONLY`, 3 `NOT_OWNER`, 4 `BAD_VALUE`, 5 `LOOSER_LIMIT`, 6 `BUSY` (update in
@@ -2349,7 +2405,7 @@ B8.4 **Write confirmation, rejection and ordering** (0020 §11; 0005, Consequenc
   host that needs a write in force before a High Priority action MUST wait for the answer
   (0020 §11; 0007 rule 2). A host MAY repeat a write after 100 ms without an answer; repeated
   writes are harmless: a correct `TX_ARM` while armed with the same token is a no-op, a
-  `FAULT_CLEAR` without a fault is rejected, and an `ATU_TUNE` start while tuning or within
+  `FAULT_CLEAR` without a fault is rejected (with `FAULT_FLAGS` = 0 a write of 0 gets `NOT_CLEARABLE`, any other value `BAD_VALUE`; 0039), and an `ATU_TUNE` start while tuning or within
   2 s after the end of the previous cycle is a no-op (A3.9b item 1), so a retry never starts a
   second tune carrier (0020 §7, §11; 0022 §39).
 - Writes to the capability record and to other read-only registers are answered with the
@@ -2397,7 +2453,7 @@ echoed with the value in force, B8.4)
 | `TX_STATE` | 0x0203 | RO | bit 0 keyed (PA actually keyed); bit 1 `WARN` active; bit 2 `REDUCE` active; bit 3 last TX request outside the TX ranges; bit 4 PA disabled by the host (General byte 58 bit [0]); bit 5 inhibit active; [11:8] TX source 0 none, 1 PTT, 2 CWX, 3 KEY, 4 ATU; [23:16] last unkey reason 0 none, 1 TX request released, 2 keyed timeout, 3 TX IQ underrun, 4 limit, 5 arm dropped, 6 retune needs RF-path change, ATU memory recall included (A3.9), 7 PA disabled by the host while keyed (B10.10), 8 keying client lost (TCI only, part C C8.2; never set by the radio over P2), 9 CW key-down longer than 1 s (B10.5a; TCI `KEYER`), 10 TX mode class changed while keyed (A3.9c); [31:24] limit id when reason 4 | on every change (event) | 0007 Decisions 1, 2, 4; 0006; 0020 §8, §22; 0022 §1, §14, §25, §26, §28, §32 |
 | `TX_MODE_CLASS` | 0x0204 | W, owner | 0 none declared (not writable); 1 SSB (including data modes sent as SSB), 2 CW, 3 AM, 4 FM; other values `BAD_VALUE`; power class 100 W PEP for 1, 2, 4 and 25 W carrier for 3 [G7250-MAN] (A3.4c); back to 0 at session end and at a takeover; a change to another value while keyed unkeys first (`TX_STATE` unkey reason 10, arm kept), then applies; the value in force is a no-op (A3.9c) | answer | 0007 Decision 4 rule 3; 0020 §9; 0022 §3, §17, §26 |
 | `KEYED_TIMEOUT` | 0x0205 | W, owner | ms; default 500; 100–500 accepted, other values `BAD_VALUE`; back to 500 at session end | answer | 0007 Decision 2; Resolved 2; 0020 §17 |
-| `WATCHDOG_STATE` | 0x0206 | RO | bit 0 General byte 38 bit [0] as last written; bit 1 effective state; bit 2 no General packet yet (counts as enabled) | on change | 0007 Decision 2.3; 0020 §8 |
+| `WATCHDOG_STATE` | 0x0206 | RO | bit 0 General byte 38 bit [0] as last written, 0 while bit 2 is set; bit 1 effective state (1 while bit 2 is set); bit 2 no General packet yet (counts as enabled) (0039) | on change | 0007 Decision 2.3; 0020 §8 |
 | `SAFETY_STATE` | 0x0210 | RO | 0 normal, 1 fault | event | 0007 Decision 5; 0020 §8 |
 | `FAULT_CODE` | 0x0211 | RO | first cause, Table B8-3; 0 = none | event | 0007 Decision 5; 0006; 0020 §8 |
 | `FAULT_FLAGS` | 0x0212 | RO | bit *c* set for every fault code *c* (1–31) since the last clear | event | 0007 Decision 5; 0020 §8 |
@@ -2445,11 +2501,11 @@ Table B8-3 — Reason and fault codes (0020 §8; 0022 §5, §19)
 
 | Set | Codes |
 |-----|-------|
-| Arm reject reason (`TX_ARM_STATE` [15:8]) | 0 none; 1 `NOT_OWNER` (reserved, not set since 0022 §13; a non-owner gets `WRITE_STATUS`); 2 `NOT_RUNNING`; 3 `WATCHDOG_DISABLED`; 4 `IN_FAULT`; 5 `INHIBITED`; 6 `PTT_ACTIVE`; 7 `LEVEL_NOT_ACTIVE`; 8 `MAINTENANCE`; 9 `NO_MODE_CLASS`; 10 `BAD_TOKEN`; 11 `TX_NOT_IMPLEMENTED`; 12 `NOT_CALIBRATED` (transmit parameters of Annex P not set; 0035) |
+| Arm reject reason (`TX_ARM_STATE` [15:8]) | 0 none; 1 `NOT_OWNER` (reserved, not set since 0022 §13; a non-owner gets `WRITE_STATUS`); 2 `NOT_RUNNING` (not set over P2: without RUN there is no session and every write is `NOT_OWNER`, B8.5; set on TCI, part C C5.5.6 item 1); 3 `WATCHDOG_DISABLED`; 4 `IN_FAULT`; 5 `INHIBITED`; 6 `PTT_ACTIVE`; 7 `LEVEL_NOT_ACTIVE`; 8 `MAINTENANCE`; 9 `NO_MODE_CLASS`; 10 `BAD_TOKEN`; 11 `TX_NOT_IMPLEMENTED`; 12 `NOT_CALIBRATED` (transmit parameters of Annex P not set; 0035) |
 | Drop reason (`TX_ARM_STATE` [23:16]; Table A3-1) | 0 none; 1 `HOST_DISARM`; 2 `RUN_CLEARED`; 3 `WATCHDOG`; 4 `TAKEOVER`; 5 `RESET`; 6 `FAULT` (events 6 and 13); 8 `LINK_DOWN`; 9 `SESSION_CHANGED`; 10 `LEVEL_CHANGE`; 11 `MAINTENANCE`; 12 `REDISCOVERY`; 13 `STOP` (TCI only: `STOP` command, part C C5.5.5 row 2); 14 `HOLDER_LOST` (TCI only: arm holder's connection closed, part C C5.5.5 row 3); 7 unused; 13 and 14 are never set over P2; 0x40 + limit id `LIMIT_<name>` (event 7: action `DISARM` only; a trip with action `FAULT` gives 6 `FAULT`, the cause in `FAULT_CODE`; 0022 §41) (0022 §30) |
 | Limit id (`TX_STATE` [31:24]; `LIMIT_STATUS` bit *n*; drop reason 0x40 + id) | 1 `LIMIT_TX_FREQ` (TX frequency); 2 `LIMIT_SWR` (SWR; host-tunable); 3 `LIMIT_PA_TEMP` (PA temperature; host-tunable); 4 `LIMIT_FWD_POWER` (forward power; host-tunable); 5 `LIMIT_SUPPLY_VOLTAGE` (supply voltage); 6 `LIMIT_CURRENT` (supply or PA current); 7 `LIMIT_TX_TIME` (maximum continuous TX time; host-tunable); 8 `LIMIT_ATU_TIME` (ATU tune time); 9 `LIMIT_SENSOR` (sensor plausibility); 10 `LIMIT_RF_NOT_KEYED` (RF while not keyed) |
 | Fault code (`FAULT_CODE`, `FAULT_FLAGS` bit) and class | 0 none; 2 `SWR_REPEATED` (3 SWR trips in 10 s), class 1; 3 `PA_OVERTEMP` (PA temperature above T4), class 1; 9 `SENSOR_IMPLAUSIBLE` (sensor missing, stuck or out of range), class 2; 10 `RF_NOT_KEYED` (RF while not keyed), class 2; 16 `TX_PATH_NOT_BLOCKED` (drop event 13), class 2; 17 `WDT_RESET_AT_START` (processor watchdog reset seen at start-up, HIS-13), class 1; 18 `SELFTEST_FAILED` (start-up self-test failed), class 2; 19 `INTERNAL_ERROR` (internal consistency error), class 2; codes 1 and 4–8 reserved (those limits have no `FAULT` action) |
-| Stream reason (`STREAM_STATUS` [6:0] per byte) | 0 none or running; 1 not enabled by the host; 2 not offered by this firmware; 3 sample rate not offered; 4 sample size not offered; 5 data format not offered (General byte 39); 6 time stamp or VITA-49 requested; 7 wideband parameters not offered; 8 link below 100 Mbit/s; 9 run bit clear; 10 update in progress; 11 VNA mode requested; 12 EER requested; 13 frequency encoding mismatch (General byte 37 bit [3] differs from discovery byte 21, B3.8; 0022 §73 item 12) |
+| Stream reason (`STREAM_STATUS` [6:0] per byte) | 0 none or running; 1 not enabled by the host; 2 not offered by this firmware; 3 sample rate not offered; 4 sample size not offered; 5 data format not offered (General byte 39); 6 time stamp or VITA-49 requested; 7 wideband parameters not offered; 8 link below 100 Mbit/s; 9 run bit clear; 10 update in progress; 11 VNA mode requested; 12 EER requested; 13 frequency encoding mismatch (General byte 37 bit [3] differs from discovery byte 21, B3.8; 0022 §73 item 12); 14 TX not calibrated (record `tx` bit 4 = 0, A1.12; 0039) |
 | Write reject reason (`WRITE_STATUS` [7:0]) | 1 `UNKNOWN_ADDRESS`; 2 `READ_ONLY`; 3 `NOT_OWNER`; 4 `BAD_VALUE`; 5 `LOOSER_LIMIT`; 6 `BUSY`; 7 `NOT_CLEARABLE`; 8 `KEYED` (RF-path change or ATU tune while keyed); 9 `NOT_ARMED`; 10 `NOT_KEYABLE` (ATU tune while another key condition of A3.1a fails, A3.9b); 11 `NOT_CALIBRATED` (ATU tune before the ATU parameters are set, A3.9b; 0032) (B8.4; 0022 §22, §51) |
 
 Names introduced in this part and not in the decisions 0003–0008 (`STREAM_STATUS`,
@@ -2540,7 +2596,10 @@ through the management channel, not the register map (0006, Consequences; A1).
 ### B10 Transmit (milestone M4)
 
 Transmit MUST NOT be enabled in a firmware before M3 is closed: record `tx` bit 1 = 0 (B4.8;
-design note §6; 0007, header). This section applies from M4.
+design note §6; 0007, header). Release r1.0 implements transmit (`tx` bit 1 = 1, 0036), and
+TX stays locked until the calibration set is complete (`tx` bit 4, A1.12): every arm is
+rejected with `NOT_CALIBRATED`, so no TX request (PTT, CWX, `ATU_TUNE`) keys, none is latched,
+`TX_STATE` bit 0 stays 0, and the safe state of A3.6 holds ([HIS] HIS 85; Annex P; 0035).
 
 B10.1 **Every TX request needs the arm.** TX requests are: High Priority byte 4 bit [1] (PTT),
 byte 5 bits [1] and [2] with bit [0] set (CWX dot and dash, B10.5a; Annex X2, C19), a KEY
@@ -2570,7 +2629,7 @@ B10.2 **Arm handshake** (0007, Decision 1, option 1C):
    and TX is implemented in this firmware, record `tx` bit 1 (else `TX_NOT_IMPLEMENTED`)
    (B4.8; 0020 §8); and the transmit parameters of Annex P are set, record `tx` bit 4 (else
    `NOT_CALIBRATED`; Annex P, freeze rule; 0035, 0036). Reason codes: Table B8-3. Where several reasons apply, `TX_ARM_STATE` carries the first
-   in the order of the conditions above (`NOT_RUNNING`, `WATCHDOG_DISABLED`, `IN_FAULT`,
+   in the order `BAD_TOKEN` (the written value, B10.2 item 2), then the conditions above (`NOT_RUNNING`, `WATCHDOG_DISABLED`, `IN_FAULT`,
    `INHIBITED`, `PTT_ACTIVE`, `LEVEL_NOT_ACTIVE`, `MAINTENANCE`, `NO_MODE_CLASS`,
    `TX_NOT_IMPLEMENTED`, `NOT_CALIBRATED`) (0035). The arm acceptance and `UPDATE_BEGIN` serialise:
    one of them wins atomically (A1.8; 0022 §61).
@@ -2809,7 +2868,10 @@ port are not the owner's (A2.2), or that arrives while there is no session, MUST
 whole, MUST NOT enter the DUC FIFO and MUST have no other effect; it is counted per source in
 `GET_STATS` (B11.1). A host MUST therefore send DUC I&Q from its session socket (0022 §4;
 Annex X1, D24). The G7250 MUST empty the DUC FIFO at every unkey, every session end and every
-takeover, so that a later key never sends stale I&Q (0022 §32).
+takeover, so that a later key never sends stale I&Q (0022 §32). While record `tx` bit 1 or
+bit 4 is 0, DUC I&Q from the owner MUST also be discarded whole and counted in `GET_STATS`, and
+`STREAM_STATUS` DUC0 reads not running with reason 2 (TX not implemented) or 14 (TX not
+calibrated) (0039).
 
 **DUC FIFO while unkeyed** (0022 §63). A host may stream DUC I&Q continuously, keyed or not.
 While unkeyed, the G7250 MUST keep only the owner's most recent DUC I&Q, at most 4800 samples
@@ -3050,13 +3112,124 @@ protocol 2.1 (`sources.md`, read 2026-11-19 in part). Level 2 is built only afte
 
 ---
 
+## Annex M — Management payloads
+
+This annex fixes the payload of every command of Table A1-2 (A1.4; 0039). It adopts the
+layouts the reference model used for its first tests (`product/refmodel/docs/mgmt-payloads.md`,
+testbench finding SF-08) and adds the update, configuration and calibration commands. All
+values are big-endian. TLV = tag (1 byte), length (1 byte), value; a reader MUST skip a TLV
+with an unknown tag, so that tags can be added. A field marked "u8", "u16", "u32" or "u64" is
+an unsigned integer of that size. A reply payload is given for status 0; a reply with another
+status has an empty payload unless stated.
+
+**Authentication** (A1.10). The challenge is 16 bytes from the hardware random-number
+generator ([HIS] HIS 10). The trailer of an authenticated request is
+HMAC-SHA256(secret, challenge ‖ bytes 0 … 17 + *N*) [RFC2104], [FIPS180-4]: the challenge
+first, then the header and the payload. The secret is 32 bytes.
+
+Table M-1 — Payloads of the management commands
+
+| Command | Request payload | Reply payload (status 0) |
+|---|---|---|
+| `IDENTIFY` 0x0001 | empty | TLV list of Table M-2 |
+| `GET_STATS` 0x0002 | empty | repeated: name length (u8), name (ASCII), value (u64) |
+| `GET_CHALLENGE` 0x0010 | empty | challenge, 16 bytes |
+| `SET_FIRST_SECRET` 0x0011 | secret, 32 bytes | empty |
+| `CHANGE_SECRET` 0x0012 | new secret XOR HMAC-SHA256(old secret, "G7NS" ‖ challenge), 32 bytes; the challenge is the one this request is authenticated with | empty |
+| `END_WRITE_SESSION` 0x0013 | empty | empty |
+| `GET_CONFIG` 0x0020 | empty | TLV list of Table M-3, every item |
+| `SET_CONFIG` 0x0021 | TLV list of Table M-3, the items to change; validated as a whole (A1.6 C-4) | TLV list of Table M-3, every item, after the change |
+| `FACTORY_RESET` 0x0022, `RESTART` 0x0024 | empty | empty |
+| `SWITCH_LEVEL` 0x0023 | target level (u8: 1 or 2) | empty |
+| `READ_LOG` 0x0030 | first sequence number wanted (u32); 0 = oldest | repeated, as many as fit in 1400 bytes: sequence (u32), uptime ms (u32), text length (u8), text (ASCII) |
+| `CLEAR_LOG` 0x0031 | empty | empty |
+| `UPDATE_BEGIN` 0x0040 | flags (u8: bit 0 foreign image, bit 1 downgrade), then the package header of Table M-4 | block size (u16, 512), block count (u32), one-way (u8: 1 for a foreign image, A1.8a item 3) |
+| `UPDATE_BLOCK` 0x0041 | block number (u32, from 0), CRC-32 [IEEE802.3] of the data (u32), data (512 bytes; the last block may be shorter) | block number (u32), blocks received so far (u32) |
+| `UPDATE_VERIFY` 0x0042 | empty | SHA-256 computed over the received or written image (32 bytes) |
+| `UPDATE_ACTIVATE` 0x0043 | flags (u8: bit 0 foreign image) | permanent (u8: 1 for a foreign image, no trial boot, A1.8a item 5) |
+| `UPDATE_ABORT` 0x0044 | empty | restart needed (u8: 1) |
+| `UPDATE_STATUS` 0x0045 | empty | state (u8: 0 idle, 1 receiving, 2 verified, 3 installer before the first erase, 4 installer writing), blocks received (u32), block count (u32), sectors written (u8) |
+| `ROLLBACK` 0x0046 | empty | empty |
+| `RETURN_TO_STOCK` 0x0050, `ENTER_VENDOR_RECOVERY` 0x0051 | empty | none: always status 56 (A1.8a items 2, 4) |
+| `GET_CALIBRATION` 0x0060 | empty | calibration set id (SHA-256 of the set, 32 bytes, zeros if none), date (u32, seconds since 1970-01-01 UTC), source length (u8), source (ASCII), then the entries of Table M-5 |
+| `SET_CALIBRATION` 0x0061 | date (u32), source length (u8), source (ASCII), then the entries of Table M-5; replaces the stored set as a whole (A1.12) | calibration set id (32 bytes), TX calibrated (u8) |
+| `CLEAR_CALIBRATION` 0x0062 | empty | empty |
+
+Table M-2 — `IDENTIFY` TLVs (A1.5 items I-1 to I-6)
+
+| Tag | Length | Content |
+|---|---|---|
+| 1 | var | model, ASCII "G7250" (I-1) |
+| 2 | 6 | MAC address (I-1) |
+| 3 | var | serial number, only if the hardware has one (I-1; HIS-15) |
+| 4 | 4 | running image version: major (u8), minor (u8), build (u16) (I-2) |
+| 5 | 4 | other slot version, 0 = empty (I-2) |
+| 6 | 4 | boot stage version (I-2) |
+| 7 | 4 | hardware revision, 0 = not identified (I-2; HIS-18) |
+| 8 | 1 | bit 0 stock image retained, bit 1 vendor recovery supported; both 0 in this version (I-2a) |
+| 9 | 2 | integrity of the running image and of the other slot: 0 none, 1 good, 2 bad (I-3) |
+| 10 | 1 | update state: 0 normal, 1 trial boot, 2 rolled back, 3 installer (I-3) |
+| 11 | 1 | secret set (I-3a) |
+| 12 | 3 | first-secret window open (u8), seconds left (u16) (I-3a) |
+| 13 | 1 | active level (I-4) |
+| 14 | 6 | owner IP address and UDP port, zeros if none (I-4) |
+| 15 | 4 | `TX_ARM_STATE` word (I-4) |
+| 16 | 4 | uptime in ms (I-5) |
+| 17 | 1 | last reset cause, 0 unknown (I-5; P-SYS-2) |
+| 18 | 5 | versions: management major, minor; P2 (44); record major, minor (I-5) |
+| 19 | 1 | controller state: 0 unknown, 1 not detected, 2 detected (I-6) |
+| 20 | 1 | TX calibrated: record `tx` bit 4 (I-7; A1.12) |
+| 21 | 36 | calibration set id (32 bytes, zeros if none) and date (u32) (I-7; A1.12) |
+| 22 | 1 | sectors written by the streaming installer (I-3; A1.8a item 3) |
+
+Table M-3 — Configuration items (A1.6)
+
+| Tag | Length | Item |
+|---|---|---|
+| 1 | 1 | C-1 address mode: 0 DHCP (with link-local fallback, A1.11), 1 static |
+| 2 | 4 | C-1 static address |
+| 3 | 4 | C-1 netmask |
+| 4 | 4 | C-1 gateway |
+| 5 | 1 | C-2 default level at power-on (1 or 2) |
+| 6 | 1 | C-6 region (0 in this version, Table A3-0) |
+| 7 | 4 | C-3 maximum continuous TX time, ms |
+| 8 | 3 | C-3 power limit of one band: `tx_band` index (u8), limit in 0.1 W (u16); one TLV per band |
+| 9 | 2 | C-3 SWR limit S2 × 100 |
+| 10 | 2 | C-3 PA temperature limit T3, 0.1 °C |
+| 11 | var | C-7 TCI allow-list: 0 to 8 entries of address (4 bytes) and prefix length (u8) |
+
+A `SET_CONFIG` that writes tag 9 or 10 before the calibration set holds S2 or T3 (P-PWR-2)
+is refused with status 62 (A1.12; 0039).
+
+Table M-4 — Package header (A1.8), the payload of `UPDATE_BEGIN` after the flags byte
+
+| Bytes | Field |
+|---|---|
+| 0–3 | magic 0x4737504B ("G7PK") |
+| 4 | header version, 1 |
+| 5 | component: 1 main-unit image (the only one in this version, 0028) |
+| 6–7 | target hardware id (0x00C8 for the G7250) |
+| 8–9 | lowest hardware revision supported, 0 = any |
+| 10–13 | image version: major (u8), minor (u8), build (u16); 0 for a foreign image |
+| 14–17 | image length in bytes |
+| 18–49 | SHA-256 of the image (for a foreign image: the value the owner supplies) |
+| 50–51 | signature length, 0 in this version (A1.8, U-4) |
+
+Table M-5 — Calibration entries (A1.12)
+
+| Field | Content |
+|---|---|
+| id length (u8), id (ASCII) | a parameter id of Table P-1, for example "P-RF-2" |
+| value length (u16), value | the value; its encoding is fixed in Table P-1 when the parameter is set from measurements (Annex P) |
+
 ## Annex P — Pending hardware parameters
 
 This annex lists every value that only the real radio can settle (0035; [HIS] HIS 90,
 `9d10e72`). The normative text names each value by its id ("pending hardware (P-RF-2)"). A
 value marked "pending G6" waits for the level-2 feasibility gate (0011). Until a value is set
-from measurements, the safe placeholder in the last column applies. Setting a value is a
-spec change: the row moves to the section that uses it, with its source.
+from measurements, the safe placeholder in the last column applies. The measured values of a
+unit are written as its calibration set (A1.12); fixing the encoding or a default of a value
+is a spec change, made in this table.
 
 **Freeze rule** (0035). Transmit stays disabled until every parameter of groups P-RF, P-PWR,
 P-SEN and P-TIM, and P-TX-1, P-ATU-1 and P-ANT-1, is set: the RF path in transmit is only known
@@ -3222,7 +3395,7 @@ Unless a test says otherwise, a test in which KEY or CWX keys runs with break-in
 | T-A1-14 | A repeated request (same request id, command and payload) gets the stored reply and is not executed twice; a request with the same id but another command or payload is executed and gets its own reply (A1.4). |
 | T-A1-15 | A second host gets status 35 for writes while a write session is held; the session ends after 60 s idle; `GET_STATS`, `IDENTIFY`, `GET_CHALLENGE`, other unauthenticated requests and a request with a wrong HMAC from the holder every 30 s do not keep it open, an authenticated, verified request from the holder does (A1.10). |
 | T-A1-16 | The first-secret window closes 300 s after network up; a restart inside the window reopens it for 300 s. |
-| T-A1-17 | A region change (C-6) is refused with status 57 while a P2 session runs; the factory default allows TX only in the intersection of all regions. |
+| T-A1-17 | A region change (C-6) is refused with status 57 while a P2 session runs; the factory default is region 0, the ranges of Table A3-0 (0039). |
 | T-A1-18 | With a non-empty TCI allow-list, a TCI connection from an address outside it is refused and logged; the management port stays reachable. |
 | T-A1-19 | A request with the right magic and 12–17 bytes gets status 17; one below 12 bytes gets no reply. |
 | T-A1-20 | Two hosts (same IP, different ports) each get their own challenge; a request authenticated with the other host's challenge fails with status 33; a challenge works once. |
@@ -3268,6 +3441,9 @@ Unless a test says otherwise, a test in which KEY or CWX keys runs with break-in
 | T-A1-60 | During a streaming installation (A1.8a item 3): `UPDATE_STATUS` reports the sectors written; `IDENTIFY` reports the installer state; any other management command than those listed gets 58, and discovery, P2 and TCI get no answer; the TX-side state of A3.6 is unchanged and toggling the local PTT and KEY inputs keys nothing; `UPDATE_ABORT` before the first erase restarts into this firmware with its secret and configuration unchanged, after it gets status 60; a transfer that stops for more than 10 min does not restart the main unit and resumes when blocks arrive again; sector 0 and the option bytes are never written, and no sector is written before all its blocks arrived with a good CRC (reference model; 0028). |
 | T-A1-61 | Before the F1 gate (P-SYS-5) is set, a foreign `UPDATE_BEGIN` that passes every other check gets status 56 and changes nothing (also an oversized one: 56 precedes 61); after it is set (reference model) the same request is accepted (A1.8a item 3, "Gate"; 0028). |
 | T-A1-62 | During a streaming installation, before the first sector erase, 10 min without an update command other than `UPDATE_STATUS` restart the main unit into this firmware with secret and configuration unchanged; a repeat of the accepted `UPDATE_BEGIN` is answered from the stored reply; `IDENTIFY` reports update state "installer" with the sectors written (reference model; A1.4, A1.5 I-3, A1.8a item 3). |
+| T-A1-63 | `SET_CALIBRATION` while a P2 session runs gets 57, while armed 50, during an update 58; with an unknown parameter id 48 and nothing changes; a complete set sets record `tx` bit 4 from the next session on and `IDENTIFY` tags 20 and 21 report it; `FACTORY_RESET` keeps the set; `CLEAR_CALIBRATION` clears bit 4 from the next session on (reference model; A1.12; 0039). |
+| T-A1-64 | A `SET_CONFIG` with the SWR limit (tag 9) or the PA temperature limit (tag 10) before the calibration set holds P-PWR-2 gets status 62; a P2 write of `LIMIT_SWR` or `LIMIT_PA_TEMP` gets write reject reason `NOT_CALIBRATED` (A1.12 item 4; 0039). |
+| T-A1-65 | A region other than 0 in `SET_CONFIG` (tag 6) gets status 48; with region 0 a DUC0 frequency at each edge of every range of Table A3-0 is inside, 1 Hz outside each edge is outside (reference model with a complete calibration set; A1.6 C-6; Table A3-0; 0039). |
 | T-A2-01 | Identification and record `level` report the active level and the owner (IP and port). |
 | T-A2-02 | A level change drops the arm with `LEVEL_CHANGE` (after G6). |
 | T-A2-03 | While level 2 is active, P2 C&C starts no session and no takeover (after G6). |
@@ -3546,6 +3722,7 @@ Unless a test says otherwise, a test in which KEY or CWX keys runs with break-in
 | T-B10-39 | With break-in clear, CW selected and `t_settle` 20 ms (reference model): a CWX paddle bit raised during the settle and held, then the other paddle bit raised while the first is still held, forms no RF; after both bits at 0 and a new rise it forms RF; with CW not selected, a CWX paddle edge in the PTT transmission forms no RF and is not latched (B10.5b items 2.2, 2.3; 0022 §88 item 3). |
 | T-B10-40 | With break-in clear, CW selected and no element, a PTT bit held by High Priority packets every 50 ms with no DUC I&Q is not unkeyed by the underrun check and is unkeyed by the maximum continuous TX time (set stricter, 10 s), counted from the key of A3.1a, not from the end of the RF delay (B10.5, A3.4d; 0022 §88 items 2, 4). |
 | T-B10-41 | With record `tx` bit 1 = 1 and bit 4 = 0 (transmit parameters of Annex P not set), an arm that meets every other condition of B10.2 item 3 is rejected with `NOT_CALIBRATED`, and `ATU_TUNE` = 1 with write reject reason `NOT_CALIBRATED`; with bit 4 = 1 (reference model, simulated values) the arm is accepted (Annex P; 0035, 0036). |
+| T-B10-42 | With record `tx` bit 4 = 0, DUC I&Q from the owner is discarded and counted, `STREAM_STATUS` DUC0 reads not running with reason 14, and PTT and CWX key nothing and are not latched (B10, B10.7; 0039). |
 
 ### Error handling (B11)
 

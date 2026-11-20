@@ -14,6 +14,7 @@ named.
 | **Boot stage** | The small part of this firmware at 0x08020000 that picks one of two image slots and runs the trial boot and rollback; never updated over the network. | 0028, A1.8 |
 | **Streaming installer** | The RAM-resident installer that writes an owner-supplied stock image block by block over this firmware; one-way, no staging. | 0028, A1.8a item 3 |
 | **Vendor path** | The manufacturer's documented update path through the controller (USB drive and update menu); the first install and the recovery path. | 0028, [G7250-UPD], [HIS] HIS 15 |
+| **Calibration set** | The measured values of Annex P for one unit, written with `SET_CALIBRATION`; when complete, record `tx` bit 4 = 1 and TX can be armed. | 0039, A1.12 |
 | **Quiet idle** | The state while no session runs: RF safe state, no streams, management, discovery and TCI listening. | 0029 |
 | **Level 1** | The SDR level: G7250-P2, raw IQ, DSP on the host. | 0011, 0016 |
 | **Level 2** | The radio level: TCI server in the radio with DSP on board; only after gate G6. | 0011 |
