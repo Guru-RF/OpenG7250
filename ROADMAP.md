@@ -12,8 +12,8 @@
 
 ## Open integration steps
 
-- Gate review of `his/` done: cleared at `d0a39b0` by gate review 3
-  (`re/analysis/docs/his-gate-review-3.md`; reviews 1 and 2 in the same
+- Gate review of `his/` done: cleared at `b95f519` by gate review 4
+  (`re/analysis/docs/his-gate-review-4.md`; reviews 1–3 in the same
   folder). The product side may read `his/`. From now on every change to `his/`
   goes through the gate before the product side reads it.
 - Create `g7250-firmware` with its own remote and add it as a submodule.
