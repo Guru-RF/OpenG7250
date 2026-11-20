@@ -6,7 +6,7 @@ statements in the other sections stay as tagged there.
 
 | Question | What is known now | What is needed |
 | --- | --- | --- |
-| HIS-02: the three NCO words in the FPGA 0x01 frame | Two of the three set tuning frequencies of the receive path (MEDIUM). The role of the third word and the order of the words in the frame are unknown (`80-rf-fpga.md`). | A bus capture of 0x01 frames while changing frequency. |
+| HIS-02: the three NCO words in the FPGA 0x01 frame | The words are big-endian at byte offsets 1, 5 and 19 of the 24-byte frame (HIGH). Two of the three set tuning frequencies of the receive path (MEDIUM); which offset has which role is unknown (`80-rf-fpga.md`). | A bus capture of 0x01 frames while changing frequency. |
 | HIS-07, HIS-11, HIS-12: timing and calibration values | Not in this spec on purpose: stock timing and stock calibration are not hardware facts. | Measurement on the radio. |
 | HIS-17: power-up without the Control | Two hypotheses H1/H2 (`20-power.md`, Open). | Observation T0-P2: Main with the CTRL cable disconnected, DC on; does the Ethernet link come up? |
 | HIS-19: does the vendor bootloader start an image it did not write; is there a bootloader entry without the Control | Unknown; the bootloaders are not analysed (`15-stock-recovery.md`). | The F1 drill, after the steps below. |

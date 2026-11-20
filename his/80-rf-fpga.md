@@ -4,7 +4,9 @@
 (VERIFIED in the firmware analysis, i.e. **rests on disassembly**). Emulator
 (re/emu D2): a fused GPIOE+FPGA model of this bus, built from the same
 disassembly, is accepted by the factory image; this is consistency, not hardware
-evidence, and the real FPGA version is unknown. The NCO clock and the absolute
+evidence, and the real FPGA version is unknown. The 0x01 byte offsets are the bytes the
+factory image writes over this bus in the emulator (re/emu HIS-02 probe), which
+agree with the disassembly. The NCO clock and the absolute
 sample rate are not measured.
 
 The RF I/Q front end is an **FPGA reached over an 8-bit parallel bus on GPIOE**
@@ -22,7 +24,7 @@ The RF I/Q front end is an **FPGA reached over an 8-bit parallel bus on GPIOE**
 | Code | Function |
 | --- | --- |
 | 0x00 | loopback/test register: a written byte reads back |
-| 0x01 | 24-byte config frame: status flags, three big-endian 32-bit NCO words, per-rate calibration, rate index |
+| 0x01 | 24-byte config frame: byte 0 status flags; three big-endian 32-bit NCO words at byte offsets 1, 5 and 19 (HIGH); bytes 9–18 other fields incl. per-rate calibration (meanings unknown); byte 23 most likely the rate index (MEDIUM) |
 | 0x02 | status read (flag bits + three 16-bit values incl. ADC peak) |
 | 0x03 | TX I/Q write — two signed 24-bit values per sample |
 | 0x04 | RX I/Q read — two signed 24-bit values per sample, 8/4/2/1 per DRDY for rate index 0–3 |
@@ -42,6 +44,6 @@ The RF I/Q front end is an **FPGA reached over an 8-bit parallel bus on GPIOE**
   measured. Bus contention is a hardware risk.
 - Byte offsets of the 0x01 frame, and the meaning and safe values of its
   per-rate calibration bytes: unknown.
-- The three NCO words: two of them set tuning frequencies of the receive path
-  (MEDIUM); the role of the third word and the word order are unknown. Needs a
-  bus capture (`90-needs-hardware.md`).
+- The three NCO words (at byte offsets 1, 5 and 19): two of them set tuning
+  frequencies of the receive path (MEDIUM); which offset has which role is
+  unknown. Needs a bus capture (`90-needs-hardware.md`).
