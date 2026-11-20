@@ -1,6 +1,6 @@
 # 0025 — One installation path on the main unit, in both directions, without the controller
 
-- Status: proposed (for ON8ST review), 2026-11-20
+- Status: accepted (ON8ST, 2026-11-20, after review on the decision page)
 - Date: 2026-11-20
 - Amends: 0024 (accepted). Where this decision and 0024 differ, this decision applies once
   accepted.

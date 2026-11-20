@@ -4,6 +4,11 @@
 
 All dates 2026-11-19. Decision numbers refer to `decisions/`.
 
+## rc7 — release candidate 7 (tag `spec-rc7`)
+
+- ON8ST accepted 0025 and 0026 (2026-11-20). `product/tools/g7250ctl/` and `product/refmodel/`
+  created with READMEs.
+
 ## rc6 — release candidate 6 (tag `spec-rc6`)
 
 - 0023 note: ON8ST confirms option A; CTRL stays idle and the controller is not used as a
@@ -13,7 +18,7 @@ All dates 2026-11-19. Decision numbers refer to `decisions/`.
   first install uses the same path, pending HIS-19, with an explicit open risk (A1.8, A1.8a
   "One installation path", items 1, 4, 9; T-A1-58, T-A1-59; HIS-19). No new management
   command.
-- 0026 (proposed): firmware management lives on the host side; the part A management
+- 0026: firmware management lives on the host side; the part A management
   protocol is the only protocol; the CLI `g7250ctl` (`product/tools/g7250ctl/`) is its reference
   implementation; AetherSDR follows on the same protocol (A1.1a).
 

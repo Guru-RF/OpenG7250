@@ -59,9 +59,11 @@ All numbers 0001–0018 are now in use.
 
 Decided on 2026-11-20 (ON8ST):
 - **Review of rc4 completed** by ON8ST (2026-11-20).
-- 0025 and 0026 stay **proposed**; ON8ST asked for an artifact explaining them before he
-  decides.
-- **Go** to push the follow-up commits on `spec/draft` with tag `spec-rc6`.
+- 0025 and 0026 **accepted** (2026-11-20) after review on the decision page
+  (https://claude.ai/artifact/F9UDf2htv7qiBHUoeb5jDv); R5 of 0025 is decided when the HIS
+  answers.
+- **Go** to push the follow-up commits on `spec/draft` with tag `spec-rc6` (done), and with
+  tag `spec-rc7` for the READMEs and the acceptance of 0025/0026.
 - **Go** to create `product/tools/g7250ctl/` (0026) and `product/refmodel/` (0019); the
   openg7250 session adds them to the product-side sparse checkout.
 - 0020, 0021, 0022, 0023 and 0024 are **accepted** ("Akkoord met alles", after his review of
@@ -77,9 +79,8 @@ Still open:
    after its gate.
 2. Go for an AetherSDR RFC issue (annex Q-O1); shared P2 refactor vs. self-contained backend
    (Q-O2).
-3. The `g7250-testbench` submodule (0019); `product/refmodel/` and `product/tools/g7250ctl/`
-   are approved and wait for the sparse-checkout change.
-4. ON8ST's decision on 0025 and 0026 (artifact provided).
+3. The `g7250-testbench` submodule (0019). `product/refmodel/` and `product/tools/g7250ctl/`
+   exist with READMEs (ae85316).
 
 Watch TAPR/OpenHPSDR-Firmware#6 for a reply on board type 200.
 

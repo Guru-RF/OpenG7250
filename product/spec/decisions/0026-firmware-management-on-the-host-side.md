@@ -1,6 +1,6 @@
 # 0026 — Firmware management lives on the host side: protocol in the spec, CLI as reference, AetherSDR on the same protocol
 
-- Status: proposed (for ON8ST review), 2026-11-20
+- Status: accepted (ON8ST, 2026-11-20, after review on the decision page)
 - Date: 2026-11-20
 - Builds on: 0008 (management channel), 0024 (switching between stock and new firmware),
   0025 (one installation path on the main unit), 0019 (reference model), 0018 (licences),
