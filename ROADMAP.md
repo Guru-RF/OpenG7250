@@ -1,0 +1,21 @@
+# Roadmap
+
+| Phase | Component | Goal |
+|---|---|---|
+| 1. RE | `re/analysis` | Understand startup, hardware interfaces and protocols of the V1.0.1 images; document findings |
+| 2. Emulator | `re/emu` | Run the stock Main and Control images against platform models; hash-checked images; regression suite |
+| 3. HIS | `his` | Reviewed hardware-interface spec with hardware facts only |
+| 4. Spec | `product/spec` | Network interface spec based on the public OpenHPSDR protocols, with own board id and fields for the G7250; details in `product/spec/` |
+| 5. Test bench | `testbench` | Automated black-box tests against the specs; design of the HIL test bench |
+| 6. Firmware | `product/firmware` | New firmware, starting with a headless Main for AetherSDR, built from `his` and `product/spec` |
+| 7. Website | `website` | Possibly later |
+
+## Open integration steps
+
+- Migrate the existing local `g7250-his` into `his/` after review at the gate.
+- Create `g7250-firmware` with its own remote and add it as a submodule.
+  (`g7250-spec` is merged into `product/spec/`.)
+- Start `testbench/` in the tree. It is written from `product/spec/` and `his/`
+  only, so the product side may read it; emulator tests that rely on stock
+  behaviour stay in `re/emu/`. Decide which parts of the emulator's current
+  harness and tests move to `testbench/`.

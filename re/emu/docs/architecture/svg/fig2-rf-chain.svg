@@ -1,0 +1,96 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 400" font-family="Helvetica, Arial, sans-serif" font-size="12">
+  <defs>
+    <marker id="a2" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 Z" fill="#2b3a4a"/></marker>
+    <marker id="a2b" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 Z" fill="#4a6b8a"/></marker>
+  </defs>
+  <style>
+    .b{fill:#e3ecf3;stroke:#2b3a4a;stroke-width:1.3;}
+    .f{fill:#cfe0ee;stroke:#2b3a4a;stroke-width:1.6;}
+    .t{fill:#17222e;} .tt{fill:#17222e;font-weight:bold;}
+    .l{fill:#33506a;font-size:10px;}
+    .rx{stroke:#2b3a4a;stroke-width:2.4;fill:none;}
+    .tx{stroke:#4a6b8a;stroke-width:2.4;fill:none;stroke-dasharray:6 3;}
+    .ctl{stroke:#8a4b16;stroke-width:1.4;fill:none;stroke-dasharray:2 3;}
+    .cap{fill:#55707f;font-size:10px;}
+  </style>
+
+  <text class="tt" x="360" y="20" text-anchor="middle" font-size="14">Main Unit RF signal chain — RX (solid) and TX (dashed)</text>
+
+  <!-- antenna -->
+  <rect class="b" x="20" y="150" width="70" height="46" rx="4"/>
+  <text class="t" x="55" y="170" text-anchor="middle">ANT 1/2</text>
+  <text class="l" x="55" y="185" text-anchor="middle">SO-239</text>
+
+  <!-- filter/BPF+LPF -->
+  <rect class="b" x="120" y="150" width="90" height="46" rx="4"/>
+  <text class="t" x="165" y="168" text-anchor="middle">Filter unit</text>
+  <text class="l" x="165" y="182" text-anchor="middle">BPF + 7-LPF</text>
+
+  <!-- ADC (RX) -->
+  <rect class="f" x="250" y="90" width="90" height="46" rx="4"/>
+  <text class="t" x="295" y="108" text-anchor="middle">RF ADC</text>
+  <text class="l" x="295" y="122" text-anchor="middle">direct sampling</text>
+
+  <!-- TX DAC -->
+  <rect class="f" x="250" y="210" width="90" height="46" rx="4"/>
+  <text class="t" x="295" y="228" text-anchor="middle">TX DAC</text>
+  <text class="l" x="295" y="242" text-anchor="middle">HYPOTHESIS</text>
+
+  <!-- FPGA -->
+  <rect class="f" x="390" y="150" width="100" height="46" rx="4"/>
+  <text class="tt" x="440" y="168" text-anchor="middle">FPGA</text>
+  <text class="l" x="440" y="182" text-anchor="middle">Cyclone 10 · I/Q</text>
+
+  <!-- MCU DSP -->
+  <rect class="f" x="540" y="150" width="100" height="46" rx="4"/>
+  <text class="tt" x="590" y="168" text-anchor="middle">MCU DSP</text>
+  <text class="l" x="590" y="182" text-anchor="middle">STM32H725</text>
+
+  <!-- CH394 / LAN -->
+  <rect class="b" x="540" y="60" width="100" height="40" rx="4"/>
+  <text class="t" x="590" y="78" text-anchor="middle">CH394 → LAN</text>
+  <text class="l" x="590" y="92" text-anchor="middle">SPI6 · HPSDR/Icom</text>
+
+  <!-- PA -->
+  <rect class="b" x="390" y="300" width="100" height="44" rx="4"/>
+  <text class="t" x="440" y="320" text-anchor="middle">PA 100 W</text>
+  <text class="l" x="440" y="334" text-anchor="middle">push-pull</text>
+
+  <!-- ATU -->
+  <rect class="b" x="250" y="300" width="90" height="44" rx="4"/>
+  <text class="t" x="295" y="320" text-anchor="middle">ATU</text>
+  <text class="l" x="295" y="334" text-anchor="middle">20–150 Ω</text>
+
+  <!-- RX path -->
+  <line class="rx" x1="90" y1="168" x2="118" y2="168"/>
+  <path class="rx" d="M210,160 C230,160 235,113 248,113" marker-end="url(#a2)"/>
+  <line class="rx" x1="340" y1="113" x2="388" y2="160" marker-end="url(#a2)"/>
+  <line class="rx" x1="490" y1="173" x2="538" y2="173" marker-end="url(#a2)"/>
+  <path class="rx" d="M640,165 C660,165 665,85 642,82" marker-end="url(#a2)"/>
+  <text class="l" x="500" y="150" text-anchor="middle">I/Q 24-bit</text>
+
+  <!-- TX path -->
+  <path class="tx" d="M540,186 C520,210 360,233 342,233" marker-end="url(#a2b)"/>
+  <path class="tx" d="M295,210 C295,200 400,196 440,196" marker-end="url(#a2b)" opacity="0.9"/>
+  <path class="tx" d="M440,196 C440,240 440,260 440,298" marker-end="url(#a2b)"/>
+  <line class="tx" x1="388" y1="322" x2="342" y2="322" marker-end="url(#a2b)"/>
+  <path class="tx" d="M250,322 C150,322 120,200 95,196" marker-end="url(#a2b)"/>
+  <text class="l" x="360" y="280" text-anchor="middle">TX I/Q → PA → LPF → ATU → ANT</text>
+
+  <!-- control/metering -->
+  <rect class="b" x="540" y="300" width="100" height="44" rx="4"/>
+  <text class="t" x="590" y="318" text-anchor="middle">ADC1 metering</text>
+  <text class="l" x="590" y="332" text-anchor="middle">fwd/refl·Idd·temp</text>
+  <path class="ctl" d="M540,322 C520,322 470,322 460,322"/>
+  <path class="ctl" d="M590,300 C590,250 590,210 590,198"/>
+  <text class="l" x="640" y="300" text-anchor="end">→ MCU</text>
+
+  <!-- SPI1/SPI2 control to filter/PA/ATU -->
+  <path class="ctl" d="M590,198 C640,230 350,150 210,172"/>
+  <path class="ctl" d="M590,198 C560,270 480,300 455,300"/>
+  <path class="ctl" d="M590,198 C500,290 360,300 342,318"/>
+  <text class="l" x="200" y="125" text-anchor="middle">SPI1 latches / SPI2 bias (control, dashed brown)</text>
+
+  <text class="cap" x="360" y="378" text-anchor="middle">RX: ANT→BPF→ADC→FPGA→MCU→CH394→LAN. TX: MCU→FPGA→DAC→PA→LPF→ATU→ANT. Control: SPI1 relay latches, SPI2 bias DAC, ADC1 metering.</text>
+  <text class="cap" x="360" y="392" text-anchor="middle">Source: g7250-base main_unit/docs/peripherals.md, flow.md, docs/hardware.md §7 (teardown). ADC/DAC parts HYPOTHESIS.</text>
+</svg>

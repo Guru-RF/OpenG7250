@@ -1,0 +1,7 @@
+# Code owners. Requires write access for the listed accounts.
+# Proposal; to be agreed with the repository owner.
+*                 @Guru-RF
+/re/              @Guru-RF
+/his/             @Guru-RF @on8st
+/product/         @on8st
+/testbench/       @on8st

@@ -1,0 +1,28 @@
+:name: G7250 Main<->Control SLIP link (skeleton)
+:description: Boots both MCUs in one emulation and wires USART2<->USART2 (the
+:description: 460800-baud SLIP inter-MCU link). Full SLIP exchange also needs the
+:description: Control past its headless LTDC VSYNC wait (docs/M2-control-status.md).
+#
+# Usage (from the repo root, pinned Renode):
+#   renode --console -e "path add @<repo>" -e "include @platforms/g7250_slip_link.resc"
+# then load each image via the local image-map and `start`. This file only wires
+# the platforms + the UART hub; image loading stays in the per-unit runners so
+# the no-decryption/image-map policy is preserved.
+
+mach create "main"
+machine LoadPlatformDescription @platforms/g7250_main.repl
+machine LoadPlatformDescription @platforms/g7250_main_i2c1_mock.repl
+nvic Frequency 275000000
+
+mach create "control"
+machine LoadPlatformDescription @platforms/g7250_control.repl
+machine LoadPlatformDescription @platforms/g7250_control_i2c_mock.repl
+nvic Frequency 240000000
+
+# the SLIP inter-MCU link: Main USART2 <-> Control USART2 (460800 8N1, VERIFIED)
+emulation CreateUARTHub "slip"
+connector Connect sysbus.usart2 slip        # (Control is the current machine)
+mach set "main"
+connector Connect sysbus.usart2 slip
+
+echo "SLIP skeleton ready: load main.bin/control.bin via the runners, then start both."

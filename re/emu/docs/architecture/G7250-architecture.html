@@ -1,0 +1,206 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>G7250 — Emulation &amp; Test Solution Architecture</title>
+<style>
+  @page { size: A4 portrait; margin: 14mm 13mm 16mm 13mm; }
+  :root{ --ink:#17222e; --sub:#55707f; --rule:#2b3a4a; --accent:#33506a; --brown:#8a4b16; }
+  html{ -webkit-print-color-adjust:exact; print-color-adjust:exact; }
+  body{ font-family: Helvetica, Arial, sans-serif; color:var(--ink); font-size:10.5pt; line-height:1.42; margin:0; }
+  h1{ font-size:19pt; margin:0 0 2mm 0; line-height:1.15; }
+  h2{ font-size:14pt; margin:0 0 3mm 0; padding-bottom:1.5mm; border-bottom:2px solid var(--rule); }
+  h3{ font-size:11.5pt; margin:4mm 0 1.5mm 0; color:var(--accent); }
+  p{ margin:0 0 2.6mm 0; }
+  .sub{ color:var(--sub); font-size:10pt; }
+  .meta{ font-size:9pt; color:var(--sub); margin-top:3mm; }
+  .banner{ border:1px solid var(--brown); background:#f7efe6; color:#5c3a12; padding:2.5mm 3mm; border-radius:3px; font-size:9pt; margin:3mm 0; }
+  .lead{ font-size:10.5pt; }
+  figure{ margin:3mm 0 2mm 0; page-break-inside:avoid; }
+  figure img{ width:100%; height:auto; border:1px solid #c7d2db; border-radius:3px; }
+  figcaption{ font-size:8.6pt; color:var(--sub); margin-top:1mm; }
+  table{ border-collapse:collapse; width:100%; font-size:8.8pt; margin:2mm 0 3mm 0; }
+  th,td{ border:1px solid #c7d2db; padding:1.3mm 2mm; text-align:left; vertical-align:top; }
+  th{ background:#e3ecf3; }
+  code{ font-family:"SFMono-Regular",Consolas,monospace; font-size:8.6pt; background:#eef2f6; padding:0 1mm; border-radius:2px; }
+  .tag{ font-weight:bold; font-size:8pt; padding:0 1mm; border-radius:2px; }
+  .V{ color:#1c5c1c; } .H{ color:#2b3a4a; } .Y{ color:#8a4b16; }
+  ul{ margin:0 0 2.6mm 0; padding-left:5mm; } li{ margin:0.6mm 0; }
+  .part{ page-break-before:always; }
+  .foot{ font-size:8pt; color:var(--sub); border-top:1px solid #c7d2db; margin-top:4mm; padding-top:1.5mm; }
+</style>
+</head>
+<body>
+
+<h1>Xiegu G7250 — Architecture of the Emulation&nbsp;&amp;&nbsp;Test Solution</h1>
+<p class="sub">for a perfectly-tested, working <strong>alternative firmware platform</strong> (native OpenHPSDR&nbsp;P1&nbsp;+&nbsp;TCI)</p>
+<p class="meta">Reverse-engineering side · owner <strong>ON8ST</strong> · repo <code>g7250-emu</code> · companion to emulator/test study v0.5 · 2026-11-18</p>
+
+<div class="banner">
+<strong>Clean-room, RE side.</strong> This document describes hardware facts (from the RE docs) and the design of our own
+emulation and test tooling. It contains no stock firmware code and no image bytes. The emulator performs
+<strong>no decryption</strong>: decrypted application images are user-supplied in a local image-map outside any
+repository and are checked only by hash. Confidence tags
+(<span class="tag V">VERIFIED</span> <span class="tag H">HIGH</span> <span class="tag Y">HYPOTHESIS</span>)
+are carried over from the RE docs.
+</div>
+
+<p class="lead">The goal is an <strong>alternative firmware</strong> for the G7250 — a native OpenHPSDR&nbsp;Protocol-1 interface
+(own board id, ATU, antenna ports, 100&nbsp;W&nbsp;PA, telemetry), plus TCI and CI-V — developed with so little risk to a
+real radio that it can reach release with confidence. The means to that end is a two-layer solution: an
+<strong>emulator</strong> that runs the unmodified factory firmware perfectly as a versioned reference baseline, and an
+<strong>automated test architecture</strong> on top that scores every new clean-room build and gates it toward release.
+Part&nbsp;1 gives the hardware context; <strong>Part&nbsp;2 is the heart — the full component map of the emulation and test
+solution</strong>; Part&nbsp;3 shows how those components form a pipeline from reverse-engineering data to a tested,
+working platform with minimal brick risk.</p>
+
+<!-- ============================ PART 1 ============================ -->
+<h2 class="part">Part 1 — G7250 hardware architecture (context)</h2>
+
+<p>The G7250 is two physically separate boxes joined by a dedicated CTRL cable: a <strong>Controller unit</strong>
+(touchscreen head) and a <strong>Main unit</strong> (RF, PA, baseband). Both run an STM32H7 Cortex-M7
+(<span class="tag V">VERIFIED</span> via the decompiled SystemInit routines). DC enters at the Main unit and feeds the
+head over the CTRL cable, never the reverse.</p>
+
+<figure>
+  <!--INCLUDE:fig1-system.svg-->
+  <figcaption><strong>Figure 1.</strong> System overview — the two units, their peripherals, and the CTRL cable carrying the USART2 SLIP link plus hardware lines and power.</figcaption>
+</figure>
+
+<table>
+<tr><th>Unit</th><th>MCU</th><th>Key subsystems</th><th>Host/IO</th></tr>
+<tr>
+  <td><strong>Main</strong><br><span class="sub">RF/PA/baseband</span></td>
+  <td>STM32H725/H735xG<br>550&nbsp;MHz, VOS0, SMPS<br><span class="tag H">MEDIUM</span></td>
+  <td>FPGA Cyclone&nbsp;10 (I/Q, GPIOE bus); RF ADC + TX DAC (direct sampling, <span class="tag Y">HYP</span>); AIC3204 codec on I²S3; SPI1 relay latches (BPF/LPF/T-R + 3 ATU); SPI2 8-ch bias DAC; ADC1 metering; I2C1 EEPROM/AXP223/VersaClock&nbsp;6; 100&nbsp;W PA; ATU</td>
+  <td>LAN via <strong>CH394</strong> on SPI6 (OpenHPSDR / Icom LAN); no USB</td>
+</tr>
+<tr>
+  <td><strong>Controller</strong><br><span class="sub">head / GUI</span></td>
+  <td>STM32H743xI rev&nbsp;V<br>480&nbsp;MHz, LDO<br><span class="tag H">HIGH</span></td>
+  <td>LTDC + DMA2D + 32&nbsp;MiB SDRAM (FMC) framebuffers; GT911 touch (I2C1); AIC3204 codec on I²S2; W25Q SPI-NOR (FatFS <code>1:</code>); microSD (SDMMC1, FatFS <code>0:</code>); BT401 on USART1; USB OTG_FS as mass storage; keys/encoders; H-22 mic</td>
+  <td>PC via <strong>CH342</strong> USB-serial (CAT + sound card + FW update)</td>
+</tr>
+</table>
+
+<h3>RF signal chain and the inter-unit cable</h3>
+<p>The receiver is a direct-sampling SDR: antenna → band-pass filter → RF ADC → FPGA → MCU DSP → CH394 → LAN. The
+transmitter runs the reverse through the TX DAC, the 100&nbsp;W push-pull PA, the switched low-pass bank and the ATU. The
+MCU steers the analog path over SPI1 shift-register latches and SPI2 bias DAC, and reads forward/reflected power, PA
+current and temperature over ADC1.</p>
+
+<figure>
+  <!--INCLUDE:fig2-rf-chain.svg-->
+  <figcaption><strong>Figure 2.</strong> Main-unit RF chain — RX (solid) and TX (dashed), with the SPI1/SPI2 control and ADC1 metering paths.</figcaption>
+</figure>
+
+<figure>
+  <!--INCLUDE:fig3-ctrl-cable.svg-->
+  <figcaption><strong>Figure 3.</strong> The CTRL cable (HD-15, ≤15 conductors): the VERIFIED USART2 SLIP link and power direction, and the HYPOTHESIS hardware lines (PTT, CW, power-key, audio) still to be confirmed by tier-0 observation.</figcaption>
+</figure>
+
+<!-- ============================ PART 2 ============================ -->
+<h2 class="part">Part 2 — Emulation &amp; test solution architecture <span class="sub">(the heart)</span></h2>
+
+<p class="lead">This is the full set of components that, working together, deliver a perfectly-tested alternative firmware
+platform. Figure&nbsp;4 is the master component map; the sections below describe each layer and how control and data flow
+between them.</p>
+
+<figure>
+  <!--INCLUDE:fig4-master.svg-->
+  <figcaption><strong>Figure 4.</strong> Master component map of the emulation + test solution — image source, platform, models, harness, test suites, quality score and gates, over the Renode core and shared virtual-time spine.</figcaption>
+</figure>
+
+<h3>Foundation — Renode core and shared virtual time</h3>
+<p>The emulator is built on <strong>Renode</strong> (pinned version, MIT-licensed). A single shared virtual-time clock drives
+both machines with deterministic, serialised interleaving, so a run is reproducible to the instruction. The core also
+provides GDB, snapshots (a "booted" snapshot per vendor release from which test cases fork), and execution tracing with
+an access heatmap — the machinery that turns "does it boot" into measurable coverage. <span class="sub">(spec §2.4)</span></p>
+
+<h3>Image source — local, no decryption</h3>
+<p>Nothing is decrypted anywhere in this tooling. The user keeps decrypted application images in an <strong>image-map
+directory outside any git work tree</strong>; <code>verify.py</code> hashes them against <code>images/manifest.yaml</code>
+(hashes and vendor-package provenance only) and refuses to run on a mismatch or if the image-map resolves inside a
+repository. The emulator boots the application image directly; the bootloader/flash path belongs to the firmware project.
+<span class="sub">(spec §4; SECURITY.md)</span></p>
+
+<h3>Platform — two coupled machines, headless-Main primary</h3>
+<p>Two machine definitions, <code>g7250_main.repl</code> (H725-derived) and <code>g7250_control.repl</code> (H743), are
+wired in a <code>.resc</code> scene and joined by two system models: the <strong>LinkCable</strong> (the USART2 SLIP link,
+with byte timing and a decoder tap) and the <strong>CtrlCable</strong> (PTT, CW, power-key and audio lines plus the power
+domain). The primary target is <strong>headless Main (EH)</strong> — the Main machine alone, no head attached — because
+the alternative firmware is developed against SDR software over the network. <span class="sub">(spec §3)</span></p>
+
+<h3>Models — the fidelity layer</h3>
+<p>Three families of models, each at the fidelity its role needs (stub / register / behaviour, spec §3.2):</p>
+<ul>
+<li><strong>stm32h7 blocks</strong> — RCC, PWR, FLASH, SYSCFG/EXTI, GPIO, the DMA family, USART, I2C, SPI/I²S, ADC, DAC,
+TIM, RTC, IWDG, CRC, and (Control) LTDC, DMA2D, FMC, SDMMC, plus a DBGMCU and an OTG stub.</li>
+<li><strong>device models</strong> — CH394 (SPI6, UDP sockets, Wake-on-LAN), the FPGA fused with GPIOE, AIC3204 codec,
+EEPROM, AXP223 PMIC, VersaClock&nbsp;6, GT911 touch, W25Q flash, SD card, BT401, key matrix, quadrature encoders, H-22 mic.</li>
+<li><strong>system models</strong> — LinkCable, CtrlCable, the <strong>PowerModel</strong> (the H1/H2 power hypotheses,
+always-on, sleep/wake), the <strong>Plant</strong> (PA, detectors, NTC, relays, antenna/load so metering and TX behave),
+and the <strong>safety oracles</strong> that fire as hard faults.</li>
+</ul>
+
+<h3>Harness — how the suites drive and watch the emulator</h3>
+<p>A Python package <code>g7250emu</code> in seven layers: <strong>core</strong> (run, virtual-time clock, manifest,
+snapshots, record/replay), <strong>io</strong> (UART demux, the in-emulation VLAN, UDP offload, TAP/pcapng),
+<strong>inject</strong> (keys, encoders, touch, H-22, plant, power, fault injection), <strong>observe</strong> (traces,
+screenshots, audio, oracles, hang detector), <strong>protocols</strong> (P1 host, TCI client, CI-V, Icom-LAN, HDSDR,
+the NF-link and wake), <strong>targets</strong> (emu and the HIL adapter), and <strong>report</strong> (score,
+traceability). Stimuli flow from <em>inject</em> into the platform; <em>observe</em> reads traces and oracle results
+back; <em>protocols</em> exchange P1/TCI/CI-V traffic with the CH394 over the VLAN. <span class="sub">(spec §8, §13)</span></p>
+
+<h3>Test suites — tiers, baseline scenarios and conformance</h3>
+<p>Seven tiers run from cheap to expensive: <strong>L0</strong> static/clean-room scan, <strong>L1</strong> model unit
+tests, <strong>L2</strong> emulator integration (small clean-room test firmwares), <strong>L3</strong> baseline
+regression (the A1–A12 scenarios on stock, every release in the matrix), <strong>L4</strong> conformance of the
+alternative firmware (P1, TCI, optional CI-V-over-LAN, headless operation, power modes), <strong>L5</strong>
+property/fuzz/fault, <strong>L6</strong> performance and timing budgets, <strong>L7</strong> HIL. The A1–A12 scenarios
+define what "runs perfectly" means for stock, captured as golden traces with a three-run determinism check.</p>
+
+<figure>
+  <!--INCLUDE:fig5-configs.svg-->
+  <figcaption><strong>Figure 5.</strong> The four system configurations — SS (baseline), EH (headless Main, primary; driven by AetherSDR or other SDR software over P1/TCI), ES (robustness/safety) and EE (optional own-head track).</figcaption>
+</figure>
+
+<h3>Quality score, brick gates and targets</h3>
+<p>Every build produces one report and a verdict on a ladder:
+<strong>ROOD</strong> (a hard gate failed) → <strong>ORANJE</strong> (hard gates green, keep developing) →
+<strong>GROEN-EMU</strong> (score ≥ 75, conformance thresholds met, roll-back compatible → hand-off, gate E4) →
+<strong>GROEN-HIL</strong> (+ twin-validation and firmware-project gates F0–F2 → first RX-only flash) →
+<strong>RELEASE</strong> (+ the HIL TX steps, soak and review). Brick risk is contained by gate families
+<strong>E0–E4</strong> (emulator — e.g. E0 blocks stray writes to the flash control/option registers; roll-back and
+power-loss tests E-B1…E-B8), <strong>F0–F3</strong> (firmware project), and <strong>H-G1…H-G5</strong> (HIL). The report
+is the <em>only</em> channel from the RE side to the firmware team. <span class="sub">(spec §9, §10, §11)</span></p>
+
+<!-- ============================ PART 3 ============================ -->
+<h2 class="part">Part 3 — Pipeline to a tested, working alternative platform</h2>
+
+<p>The four repositories form a one-way pipeline with a strict clean-room boundary. <code>g7250-base</code> supplies
+reverse-engineering knowledge <em>as data</em> (pinned commit). <code>g7250-emu</code> — this tooling — turns that into a
+versioned emulator plus test suites and quality reports. <code>g7250-his</code> is the reviewed hardware-interface
+spec and is the <strong>only</strong> channel by which hardware facts reach the clean-room side. <code>g7250-fw</code> is
+the clean-room firmware (NF-Main first, headless; NF-Control optional later), which reads only the HIS, public specs and
+the emulator's quality reports — never the images, traces or models.</p>
+
+<figure>
+  <!--INCLUDE:fig6-pipeline.svg-->
+  <figcaption><strong>Figure 6.</strong> The pipeline and its clean-room boundary, and the gating ladder each firmware build climbs toward RELEASE with minimal brick risk.</figcaption>
+</figure>
+
+<p>Each clean-room firmware build is tested in <code>g7250-emu</code> in the EH configuration before anything touches
+hardware: it must clear the hard gates, reach GROEN-EMU, pass twin-validation against the stock baseline, and satisfy the
+roll-back and power-loss brick tests. Only then does it move to the HIL bench — RX-only first, then capped low-power TX
+into a dummy load — and only a build that survives the full HIL suite plus a soak and review is released. The emulator
+never removes brick risk, but by catching persistence, power and safety faults in deterministic virtual time it makes the
+first flash onto a real radio a last confirmation rather than a leap.</p>
+
+<p class="foot">Sources: <code>g7250-base</code> docs/hardware.md, docs/mcu_identification.md, docs/protocol.md,
+main_unit &amp; control_unit docs (flow.md, peripherals.md, memory_map.md); <code>g7250-emu</code> emulator/test study v0.5
+(§2, §3, §5–§10, §13, §14). Figures hand-authored (inline SVG). Confidence tags carried over from the RE docs; HYPOTHESIS
+items await tier-0 observation (no opening of the radio). Owner ON8ST. Not for distribution.</p>
+
+</body>
+</html>

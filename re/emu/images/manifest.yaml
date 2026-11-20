@@ -1,0 +1,44 @@
+# G7250 image manifest — HASHES AND PROVENANCE ONLY.
+#
+# No image bytes live in this repo. The decrypted application images sit in a
+# local image-map OUTSIDE any git work tree (see SECURITY.md). The user fills
+# in the decrypted-image SHA-256 values locally; `verify.py` checks the
+# image-map against them and refuses on a mismatch.
+#
+# "provenance" records the PUBLIC vendor package the images were derived from
+# (encrypted blobs + release zip). These hashes identify the release; they are
+# not the decrypted images.
+
+releases:
+  V1.0.1:
+    vendor_package:
+      name:   "2026-11-09_Xiegu_G7250_V1.0.1.zip"
+      source: "radioddity.com/pages/xiegu-download"
+      sha256: "70d250a1d90a0e98da35e2845eea45288b9d1dc73552293287c882fd95372af8"
+      size:   1794823
+    provenance:                      # encrypted vendor blobs (NOT the images)
+      main_bbf:
+        name:   "G7250_MainUnit_Fw_V1.0.1.bbf"
+        sha256: "66b97ad90de2711fcc88d8fb8c034fde57fa5cf1b483bfd75041b35edebb09d0"
+        size:   453152
+        state:  encrypted
+      control_ctl:
+        name:   "G7250_ControlUnit_Fw_V1.0.1.ctl"
+        sha256: "78b61101a968dc9d786e75adb11552a4cdabc6944a50aed7492e095df286ee2e"
+        size:   781328
+        state:  encrypted
+    images:                          # decrypted application images (LOCAL only)
+      main:
+        # public RE facts (g7250-base): app flashed at 0x08020000, bootloader
+        # region 0x08000000..0x0801FFFF is NOT part of the image.
+        load_base:     0x08020000
+        app_range:     [0x08020000, 0x0808EA20]
+        reset_msp:     0x24050000
+        reset_pc:      0x08024554
+        image_sha256:  ""            # never filled here: set in local.config
+      control:
+        load_base:     0x08020000
+        app_range:     [0x08020000, 0x080DEC10]
+        reset_msp:     0x24080000
+        reset_pc:      0x080235AC
+        image_sha256:  ""            # never filled here: set in local.config

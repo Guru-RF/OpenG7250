@@ -1,0 +1,73 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 360" font-family="Helvetica, Arial, sans-serif" font-size="12">
+  <defs>
+    <marker id="a3" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 Z" fill="#2b3a4a"/></marker>
+  </defs>
+  <style>
+    .u{fill:#f4f7fa;stroke:#2b3a4a;stroke-width:2;}
+    .t{fill:#17222e;} .tt{fill:#17222e;font-weight:bold;}
+    .l{fill:#33506a;font-size:10px;}
+    .grp{fill:#e3ecf3;stroke:#2b3a4a;stroke-width:1.2;}
+    .hyp{fill:#f0e6da;stroke:#8a4b16;stroke-width:1.3;stroke-dasharray:4 3;}
+    .pin{fill:#cfe0ee;stroke:#2b3a4a;stroke-width:1;}
+    .cap{fill:#55707f;font-size:10px;}
+    .hl{fill:#8a4b16;font-size:9.5px;}
+  </style>
+
+  <text class="tt" x="360" y="20" text-anchor="middle" font-size="14">CTRL cable — HD-15 connector (≤15 conductors), Main ↔ Controller</text>
+
+  <!-- Main side -->
+  <rect class="u" x="20" y="60" width="120" height="240" rx="6"/>
+  <text class="tt" x="80" y="82" text-anchor="middle">MAIN</text>
+  <text class="l" x="80" y="96" text-anchor="middle">HD-15 male</text>
+  <text class="l" x="80" y="110" text-anchor="middle">on PCB · VERIFIED</text>
+
+  <!-- Controller side -->
+  <rect class="u" x="580" y="60" width="120" height="240" rx="6"/>
+  <text class="tt" x="640" y="82" text-anchor="middle">CONTROLLER</text>
+  <text class="l" x="640" y="96" text-anchor="middle">head unit</text>
+
+  <!-- connector pin cluster -->
+  <g>
+    <text class="l" x="360" y="52" text-anchor="middle">15-pin HD D-sub (VGA style)</text>
+    <!-- 3 rows of 5 pins -->
+    <g>
+      <circle class="pin" cx="320" cy="64" r="5"/><circle class="pin" cx="340" cy="64" r="5"/><circle class="pin" cx="360" cy="64" r="5"/><circle class="pin" cx="380" cy="64" r="5"/><circle class="pin" cx="400" cy="64" r="5"/>
+      <circle class="pin" cx="330" cy="78" r="5"/><circle class="pin" cx="350" cy="78" r="5"/><circle class="pin" cx="370" cy="78" r="5"/><circle class="pin" cx="390" cy="78" r="5"/><circle class="pin" cx="410" cy="78" r="5"/>
+      <circle class="pin" cx="320" cy="92" r="5"/><circle class="pin" cx="340" cy="92" r="5"/><circle class="pin" cx="360" cy="92" r="5"/><circle class="pin" cx="380" cy="92" r="5"/><circle class="pin" cx="400" cy="92" r="5"/>
+    </g>
+  </g>
+
+  <!-- signal groups -->
+  <rect class="grp" x="250" y="120" width="220" height="34" rx="4"/>
+  <text class="t" x="360" y="135" text-anchor="middle">USART2 SLIP link — TX / RX</text>
+  <text class="l" x="360" y="149" text-anchor="middle">PD5/PD6 AF7 · 460800 8N1 · CRC-16 · VERIFIED</text>
+
+  <rect class="grp" x="250" y="160" width="220" height="30" rx="4"/>
+  <text class="t" x="360" y="175" text-anchor="middle">+13.8 V power (Main → head)</text>
+  <text class="l" x="360" y="187" text-anchor="middle">one-way; DC enters at Main · VERIFIED</text>
+
+  <rect class="grp" x="250" y="196" width="220" height="26" rx="4"/>
+  <text class="t" x="360" y="213" text-anchor="middle">GND / chassis</text>
+
+  <rect class="hyp" x="250" y="228" width="220" height="28" rx="4"/>
+  <text class="t" x="360" y="243" text-anchor="middle">PTT · CW dot/dash/common</text>
+  <text class="hl" x="360" y="254" text-anchor="middle">Main PH6 PTT · PH3/PH4 CW · HYPOTHESIS routing</text>
+
+  <rect class="hyp" x="250" y="262" width="220" height="26" rx="4"/>
+  <text class="t" x="360" y="277" text-anchor="middle">power-key sense (PH5)</text>
+  <text class="hl" x="360" y="288" text-anchor="middle">low &gt;1 s = power-off · PH9 power-hold · HYPOTHESIS</text>
+
+  <rect class="hyp" x="250" y="294" width="220" height="26" rx="4"/>
+  <text class="t" x="360" y="309" text-anchor="middle">analog mic / speaker audio</text>
+  <text class="hl" x="360" y="320" text-anchor="middle">HYPOTHESIS (not yet confirmed in RE)</text>
+
+  <!-- connecting lines -->
+  <line x1="140" y1="137" x2="250" y2="137" class="l" stroke="#2b3a4a" stroke-width="1.6" marker-end="url(#a3)"/>
+  <line x1="470" y1="137" x2="580" y2="137" class="l" stroke="#2b3a4a" stroke-width="1.6" marker-end="url(#a3)"/>
+  <line x1="140" y1="175" x2="250" y2="175" stroke="#2b3a4a" stroke-width="1.6" marker-end="url(#a3)"/>
+  <line x1="140" y1="209" x2="250" y2="209" stroke="#2b3a4a" stroke-width="1"/>
+  <line x1="470" y1="209" x2="580" y2="209" stroke="#2b3a4a" stroke-width="1"/>
+
+  <text class="cap" x="360" y="344" text-anchor="middle">Solid groups VERIFIED (SLIP link, power direction, HD-15). Dashed/brown groups HYPOTHESIS — confirmed only by tier-0 observation, never by opening the radio.</text>
+  <text class="cap" x="360" y="357" text-anchor="middle">Source: g7250-base docs/hardware.md §7, docs/protocol.md, main_unit/docs/flow.md (power), gpio_map.csv.</text>
+</svg>
