@@ -19,9 +19,9 @@ firmware, or any other implementation of G7250-P2.
   inspect the reference model or the firmware. The reference model lives in
   `product/refmodel/` (decision 0019).
 - Every test carries the test id of the spec, so that a result traces back to a requirement.
-- **Independent of the shared protocol crate** (decision 0037): the firmware, the reference
-  model and `g7250ctl` share one Rust protocol crate, so the tests here MUST NOT use it. They
-  encode and decode messages from the spec text themselves.
+- **Independent of both implementations** (decision 0037): the tests are Python 3, standard
+  library only, and use neither the firmware's protocol crate (shared with `g7250ctl`) nor the
+  reference model's code. They encode and decode messages from the spec text themselves.
 
 ## What is tested
 

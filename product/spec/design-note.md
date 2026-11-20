@@ -251,7 +251,8 @@ upstream through the RFC (0038, proposed).
 ## 8. Dependencies and open questions
 
 - **Firmware management tool.** Firmware is managed from the host: the CLI `g7250ctl`
-  (`product/tools/g7250ctl/`, Rust, sharing the protocol crate, 0037 proposed) is the reference
+  (`product/tools/g7250ctl/`, Rust, sharing the protocol crate with the firmware; the
+  reference model is an independent Rust implementation, 0037 proposed) is the reference
   implementation of the management protocol; AetherSDR's firmware page follows on the same
   protocol (0026). The first install from stock goes once through the controller (0028).
 

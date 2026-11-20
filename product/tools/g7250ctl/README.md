@@ -15,7 +15,7 @@ from the computer, without the controller and without AetherSDR.
 
 ## Language (decision 0037, proposed)
 
-Rust, sharing the protocol crate with the firmware and the reference model; one static binary
+Rust, sharing the protocol crate with the firmware (not with the reference model); one static binary
 for Linux, macOS and Windows.
 
 ## Planned commands

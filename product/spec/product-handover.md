@@ -66,7 +66,7 @@ on 2026-11-19, as recorded in `decisions/`.
 | 0034 | Every firmware image tested as a black box on the emulator before the radio (product side of project decision 0007) | proposed |
 | 0035 | v1.0 freeze without the radio: Annex P (pending hardware), `NOT_CALIBRATED`, values settled from the HIS | proposed |
 | 0036 | Transmit is part of r1.0, armable only once calibrated | accepted (2026-11-20) |
-| 0037 | `g7250ctl` in Rust, sharing the protocol crate; one static binary | proposed |
+| 0037 | `g7250ctl` in Rust, sharing the protocol crate with the firmware; reference model independent; test bench Python | proposed |
 | 0038 | AetherSDR G7250 backend in C++/Qt after firmware F2, offered through the RFC | proposed |
 | 0039 | Testbench findings SF-01..18: calibration set and commands (A1.12), transmit ranges Table A3-0, management payloads Annex M | proposed |
 

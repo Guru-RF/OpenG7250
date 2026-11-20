@@ -29,9 +29,8 @@ it tests the foreign-image path with a synthetic opaque image (spec A1.8a item 1
 
 ## Language (decisions 0033, 0037, proposed)
 
-Rust, sharing the protocol crate with the firmware and `g7250ctl` (0037). Because the three
-share that crate, the black-box tests in `testbench/`, written from the spec text, are the
-independent check (0037, "Note on independence").
+Rust, an independent implementation written from the spec only: it never uses the firmware's
+protocol crate, and the firmware never uses this code (0037).
 
 ## Licence
 
