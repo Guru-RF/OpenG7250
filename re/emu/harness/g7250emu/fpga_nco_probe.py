@@ -133,11 +133,15 @@ def main():
         # before the superloop applies 0x01 images. Keep sending the base image
         # until the console grows past the FPGA check (the superloop logs the
         # fields it applies), then start the steps.
-        mark = len(open(console, errors="replace").read())
         base = settings_frame(*STEPS[0][1:])
         limit = float(os.environ.get("NCO_LOOP_TIMEOUT", "3600"))
         t1 = time.time()
-        while len(open(console, errors="replace").read()) <= mark + 40:
+
+        def after_check():
+            txt = open(console, errors="replace").read()
+            i = txt.find("Check complete!")
+            return -1 if i < 0 else len(txt) - (i + len("Check complete!"))
+        while after_check() <= 40:
             if time.time() - t1 > limit:
                 print("nco probe: superloop not reached within %.0f s" % limit); break
             s.sendall(base); time.sleep(0.02)
