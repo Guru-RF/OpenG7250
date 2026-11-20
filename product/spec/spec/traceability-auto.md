@@ -34,4 +34,6 @@
 | 0030 | 0030 — Local PTT and key inputs on the main unit are not used in v1.0 | 2 | 6 | network-interface: A3 Safety behaviour visible on the network; network-interface: B9 Telemetry; network-interface: Management channel, ownership, safety (A1–A3); network-interface: Part A — Common to both levels; network-interface: Transmit (B10); traceability-auto: (top) |  |
 | 0031 | 0031 — No audio through the main unit's codec in v1.0 | 1 | 2 | network-interface: Part A — Common to both levels; traceability-auto: (top) |  |
 | 0032 | 0032 — Own control of the internal ATU; bypass until its parameters are measured | 2 | 6 | CHANGELOG: After rc7 (2026-11-20); network-interface: A3 Safety behaviour visible on the network; network-interface: B8 G7250 register map; part-c-tci-profile: C5.12 Write rejections: `G7250_WRITE_STATUS`; part-c-tci-profile: C5.7 ATU; traceability-auto: (top) |  |
+| 0033 | 0033 — Firmware language: Rust, no_std, on Embassy | 2 | 0 |  | firmware language |
+| 0034 | 0034 — Every firmware image is tested on the emulator, as a black box, before the radio | 2 | 0 |  | test process before the radio |
 

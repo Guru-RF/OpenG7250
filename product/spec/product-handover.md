@@ -62,8 +62,10 @@ on 2026-11-19, as recorded in `decisions/`.
 | 0030 | Local PTT and key inputs on the main unit not used in v1.0 | accepted (2026-11-20) |
 | 0031 | No audio through the main unit's codec in v1.0 | accepted (2026-11-20) |
 | 0032 | Own ATU control; bypass and `NOT_CALIBRATED` until its parameters are measured | accepted (2026-11-20) |
+| 0033 | Firmware in Rust, `no_std`, on Embassy; host-tested protocol and state code | proposed |
+| 0034 | Every firmware image tested as a black box on the emulator before the radio (product side of project decision 0007) | proposed |
 
-All numbers 0001–0032 are now in use.
+All numbers 0001–0034 are now in use.
 
 ## Open questions for ON8ST
 

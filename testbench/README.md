@@ -43,6 +43,12 @@ unkey, T-A1-51); these are marked "reference model" in the spec and run only aga
 - against the radio, only tests that are safe there: no transmit test runs until the transmit
   limits are calibrated (HIS 85: bias and detector values are established by measurement).
 
+## Emulator run before the radio
+
+The same spec-based tests are handed to the RE side, together with the firmware ELF, to run on
+the emulator before an image goes on the radio. Only pass or fail and the image's own output
+come back (decision 0034, proposed).
+
 ## Licence
 
 GPL-3.0-or-later, © 2026 ON8ST (decision 0018).

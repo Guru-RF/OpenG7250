@@ -8,6 +8,12 @@ G7250-P2 (level 1) and later TCI with on-board DSP (level 2), as specified in `p
 - Only the main unit is reflashed. The controller keeps its stock firmware, and CTRL stays idle
   (decision 0023).
 
+## Language and toolchain (decision 0033, proposed)
+
+Rust, `no_std`, on Embassy (`embassy-stm32`). Hardware drivers are written against
+`embedded-hal` traits, so that protocol and state code also builds and is tested on the host
+(`cargo test`, against `testbench/` and `product/refmodel/`).
+
 ## Inputs
 
 | Input | What it gives |
@@ -53,6 +59,10 @@ The exact flash layout is a firmware design document, to be written at the start
 phase.
 
 ## Before the first flash
+
+Every image is first tested in full on the RE side's emulator, as a black box: the product side
+delivers the ELF and the spec-based tests and gets back pass or fail and the image's own
+console and network output only (decision 0034, proposed).
 
 The rollback drill F1 on the real radio (HIS 15) must show that the vendor path through the
 controller can install both a stock image and an image of this firmware.

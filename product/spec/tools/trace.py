@@ -24,6 +24,8 @@ NOT_IN_SPEC = {
     "0018": "licences",
     "0019": "location of the reference model",
     "0027": "location of the test bench",
+    "0033": "firmware language",
+    "0034": "test process before the radio",
 }
 
 
