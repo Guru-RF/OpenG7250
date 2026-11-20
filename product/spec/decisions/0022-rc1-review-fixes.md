@@ -1,6 +1,6 @@
 # 0022 — rc1 review fixes (network interface, parts A and B)
 
-- Status: accepted (ON8ST, 2026-11-20, after his review of rc4; his two remarks, the controller and returning to the stock firmware, are handled in 0023 and 0024). Section-level "Status: proposed" lines below are superseded by this acceptance.
+- Status: under review by ON8ST (2026-11-20); review of rc4 in progress. His first two remarks, the controller and returning to the stock firmware, are handled in 0023 and 0024. Section-level status lines below are superseded by this line.
 - Date: 2026-11-19
 - Applies to: `spec/network-interface.md` draft 4 (rc1 candidate), parts A and B, and the
   annexes X1–X3.
