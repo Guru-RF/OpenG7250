@@ -1,0 +1,24 @@
+:name: M0 platform spike
+:description: Generic STM32H743 (Renode's own model) running the clean-room M0
+:  test firmware. Reference script; the measurement harness
+:  (harness/g7250emu/m0_run.py) generates the real run script in .private/m0/
+:  with absolute paths and the two measurement PC hooks.
+
+mach create "m0"
+
+# Renode 1.17.0 ships this H743 model (cortex-m7, 16 MPU regions, DWT,
+# flash @0x08000000, AXI SRAM @0x24000000). M0 evaluates whether this stock
+# model is good enough before we build the G7250-specific .repl files.
+machine LoadPlatformDescription @platforms/cpus/stm32h743.repl
+
+# Build first:  make -C firmware-tests/m0   (output in .private/m0/)
+sysbus LoadELF @.private/m0/m0_test.elf
+
+# Map one guest instruction to 1/100 us of virtual time.
+cpu PerformanceInMips 100
+
+# The harness adds one-shot PC hooks on m0_mark_loop_start / m0_mark_done to
+# timestamp the GPIO loop (host wall time + cpu.ExecutedInstructions) and read
+# the result block at 0x2407F000; the done hook pauses the CPU. Run headless:
+#   renode --disable-xwt --console -e "include @platforms/m0_probe.resc"
+start

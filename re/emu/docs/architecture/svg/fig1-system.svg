@@ -1,0 +1,155 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 620" font-family="Helvetica, Arial, sans-serif" font-size="12">
+  <defs>
+    <marker id="ah" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto">
+      <path d="M0,0 L7,3 L0,6 Z" fill="#2b3a4a"/>
+    </marker>
+    <marker id="ahb" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto">
+      <path d="M0,0 L7,3 L0,6 Z" fill="#4a6b8a"/>
+    </marker>
+  </defs>
+  <style>
+    .unit{fill:#f4f7fa;stroke:#2b3a4a;stroke-width:2;}
+    .blk{fill:#e3ecf3;stroke:#2b3a4a;stroke-width:1.2;}
+    .mcu{fill:#cfe0ee;stroke:#2b3a4a;stroke-width:1.6;}
+    .ext{fill:#fff;stroke:#2b3a4a;stroke-width:1.2;stroke-dasharray:4 3;}
+    .t{fill:#17222e;}
+    .tt{fill:#17222e;font-weight:bold;}
+    .lbl{fill:#33506a;font-size:10px;}
+    .bus{stroke:#4a6b8a;stroke-width:2;fill:none;}
+    .pwr{stroke:#2b3a4a;stroke-width:2.4;fill:none;}
+    .hyp{fill:#8a4b16;font-size:9.5px;}
+    .cap{fill:#55707f;font-size:10px;}
+  </style>
+
+  <text class="tt" x="360" y="20" text-anchor="middle" font-size="14">G7250 — system architecture (two coupled STM32H7 units)</text>
+
+  <!-- CONTROLLER UNIT -->
+  <rect class="unit" x="20" y="40" width="300" height="470" rx="6"/>
+  <text class="tt" x="170" y="60" text-anchor="middle">CONTROLLER UNIT (head)</text>
+  <text class="cap" x="170" y="74" text-anchor="middle">display + front panel · VERIFIED</text>
+
+  <rect class="mcu" x="40" y="86" width="260" height="40" rx="4"/>
+  <text class="tt" x="170" y="104" text-anchor="middle">STM32H743xI rev V · Cortex-M7</text>
+  <text class="lbl" x="170" y="118" text-anchor="middle">480 MHz · 2 MiB flash · 512 KiB AXI-SRAM · HIGH</text>
+
+  <rect class="blk" x="40" y="136" width="125" height="46" rx="4"/>
+  <text class="t" x="102" y="154" text-anchor="middle">LTDC + DMA2D</text>
+  <text class="lbl" x="102" y="170" text-anchor="middle">RGB565 TFT</text>
+  <rect class="blk" x="175" y="136" width="125" height="46" rx="4"/>
+  <text class="t" x="237" y="154" text-anchor="middle">SDRAM 32 MiB</text>
+  <text class="lbl" x="237" y="170" text-anchor="middle">FMC @0xC0000000</text>
+
+  <rect class="blk" x="40" y="190" width="125" height="40" rx="4"/>
+  <text class="t" x="102" y="208" text-anchor="middle">GT911 touch</text>
+  <text class="lbl" x="102" y="222" text-anchor="middle">I2C1 · EXTI2</text>
+  <rect class="blk" x="175" y="190" width="125" height="40" rx="4"/>
+  <text class="t" x="237" y="208" text-anchor="middle">AIC3204 codec</text>
+  <text class="lbl" x="237" y="222" text-anchor="middle">I²S2 (SPI2)</text>
+
+  <rect class="blk" x="40" y="238" width="125" height="40" rx="4"/>
+  <text class="t" x="102" y="256" text-anchor="middle">W25Q SPI-NOR</text>
+  <text class="lbl" x="102" y="270" text-anchor="middle">SPI1 · FatFS 1:</text>
+  <rect class="blk" x="175" y="238" width="125" height="40" rx="4"/>
+  <text class="t" x="237" y="256" text-anchor="middle">microSD</text>
+  <text class="lbl" x="237" y="270" text-anchor="middle">SDMMC1 · FatFS 0:</text>
+
+  <rect class="blk" x="40" y="286" width="125" height="40" rx="4"/>
+  <text class="t" x="102" y="304" text-anchor="middle">BT401 module</text>
+  <text class="lbl" x="102" y="318" text-anchor="middle">USART1 (AT)</text>
+  <rect class="blk" x="175" y="286" width="125" height="40" rx="4"/>
+  <text class="t" x="237" y="304" text-anchor="middle">USB OTG_FS</text>
+  <text class="lbl" x="237" y="318" text-anchor="middle">mass storage</text>
+
+  <rect class="blk" x="40" y="334" width="125" height="40" rx="4"/>
+  <text class="t" x="102" y="352" text-anchor="middle">keys / encoders</text>
+  <text class="lbl" x="102" y="366" text-anchor="middle">TIM2 · matrix</text>
+  <rect class="blk" x="175" y="334" width="125" height="40" rx="4"/>
+  <text class="t" x="237" y="352" text-anchor="middle">H-22 mic</text>
+  <text class="lbl" x="237" y="366" text-anchor="middle">MDATA/MSVSW · TIM8</text>
+
+  <!-- CH342 external to Controller USB -->
+  <rect class="ext" x="60" y="398" width="220" height="40" rx="4"/>
+  <text class="t" x="170" y="416" text-anchor="middle">CH342 USB-serial (to PC)</text>
+  <text class="lbl" x="170" y="430" text-anchor="middle">CAT + sound card + FW update</text>
+
+  <text class="cap" x="170" y="460" text-anchor="middle">USART2 (SLIP) on PD5/PD6 · AF7</text>
+  <text class="cap" x="170" y="474" text-anchor="middle">DMA1 S2 TX / S3 RX · IRQ38</text>
+
+  <!-- MAIN UNIT -->
+  <rect class="unit" x="400" y="40" width="300" height="470" rx="6"/>
+  <text class="tt" x="550" y="60" text-anchor="middle">MAIN UNIT (RF / PA / baseband)</text>
+  <text class="cap" x="550" y="74" text-anchor="middle">direct-sampling SDR · VERIFIED</text>
+
+  <rect class="mcu" x="420" y="86" width="260" height="40" rx="4"/>
+  <text class="tt" x="550" y="104" text-anchor="middle">STM32H725/H735xG · Cortex-M7</text>
+  <text class="lbl" x="550" y="118" text-anchor="middle">550 MHz VOS0 · SMPS · 320 KiB AXI · MEDIUM</text>
+
+  <rect class="blk" x="420" y="136" width="125" height="46" rx="4"/>
+  <text class="t" x="482" y="154" text-anchor="middle">FPGA Cyclone 10</text>
+  <text class="lbl" x="482" y="170" text-anchor="middle">I/Q · GPIOE bus</text>
+  <rect class="blk" x="555" y="136" width="125" height="46" rx="4"/>
+  <text class="t" x="617" y="154" text-anchor="middle">RF ADC / TX DAC</text>
+  <text class="lbl" x="617" y="170" text-anchor="middle">direct sampling · HYP</text>
+
+  <rect class="blk" x="420" y="190" width="125" height="40" rx="4"/>
+  <text class="t" x="482" y="208" text-anchor="middle">AIC3204 codec</text>
+  <text class="lbl" x="482" y="222" text-anchor="middle">I²S3 · 48 kHz</text>
+  <rect class="blk" x="555" y="190" width="125" height="40" rx="4"/>
+  <text class="t" x="617" y="208" text-anchor="middle">CH394 Ethernet</text>
+  <text class="lbl" x="617" y="222" text-anchor="middle">SPI6 · IRQ86 · BDMA</text>
+
+  <rect class="blk" x="420" y="238" width="125" height="40" rx="4"/>
+  <text class="t" x="482" y="256" text-anchor="middle">SPI1 latches</text>
+  <text class="lbl" x="482" y="270" text-anchor="middle">LPF/TR · BPF · ATU</text>
+  <rect class="blk" x="555" y="238" width="125" height="40" rx="4"/>
+  <text class="t" x="617" y="256" text-anchor="middle">SPI2 bias DAC</text>
+  <text class="lbl" x="617" y="270" text-anchor="middle">8ch · PA bias/drive/fan</text>
+
+  <rect class="blk" x="420" y="286" width="125" height="40" rx="4"/>
+  <text class="t" x="482" y="304" text-anchor="middle">ADC1 metering</text>
+  <text class="lbl" x="482" y="318" text-anchor="middle">fwd/refl · Idd · temp</text>
+  <rect class="blk" x="555" y="286" width="125" height="40" rx="4"/>
+  <text class="t" x="617" y="304" text-anchor="middle">I2C1</text>
+  <text class="lbl" x="617" y="318" text-anchor="middle">EEPROM·AXP223·VC6</text>
+
+  <rect class="blk" x="420" y="340" width="125" height="46" rx="4"/>
+  <text class="t" x="482" y="360" text-anchor="middle">PA 100 W</text>
+  <text class="lbl" x="482" y="376" text-anchor="middle">push-pull + 7-LPF</text>
+  <rect class="blk" x="555" y="340" width="125" height="46" rx="4"/>
+  <text class="t" x="617" y="360" text-anchor="middle">ATU (≈28 relays)</text>
+  <text class="lbl" x="617" y="376" text-anchor="middle">20–150 Ω</text>
+
+  <rect class="ext" x="440" y="402" width="110" height="36" rx="4"/>
+  <text class="t" x="495" y="424" text-anchor="middle">ANT1 / ANT2</text>
+  <rect class="ext" x="565" y="402" width="115" height="36" rx="4"/>
+  <text class="t" x="622" y="420" text-anchor="middle">DC 13.8 V in</text>
+  <text class="lbl" x="622" y="433" text-anchor="middle">AXP223 · no battery</text>
+
+  <text class="cap" x="550" y="460" text-anchor="middle">USART2 (SLIP) on PD5/PD6 · AF7</text>
+  <text class="cap" x="550" y="474" text-anchor="middle">DMA1 S4 TX / S2 RX · IRQ38</text>
+
+  <!-- CTRL cable between units -->
+  <rect x="330" y="150" width="60" height="300" rx="6" fill="#f0e6da" stroke="#8a4b16" stroke-width="1.6"/>
+  <text class="tt" x="360" y="168" text-anchor="middle" font-size="11">CTRL</text>
+  <text class="tt" x="360" y="181" text-anchor="middle" font-size="11">cable</text>
+  <text class="lbl" x="360" y="196" text-anchor="middle">HD-15</text>
+  <text class="lbl" x="360" y="208" text-anchor="middle">≤15 cond.</text>
+  <!-- SLIP link -->
+  <line class="bus" x1="300" y1="455" x2="330" y2="300" marker-end="url(#ahb)"/>
+  <line class="bus" x1="420" y1="455" x2="390" y2="300" marker-end="url(#ahb)"/>
+  <text class="lbl" x="360" y="250" text-anchor="middle">SLIP 460800</text>
+  <text class="lbl" x="360" y="262" text-anchor="middle">8N1 + CRC-16</text>
+  <!-- power Main->head -->
+  <path class="pwr" d="M420,420 C405,420 400,400 390,390" marker-end="url(#ah)"/>
+  <text class="lbl" x="360" y="360" text-anchor="middle">+13.8 V →</text>
+  <text class="lbl" x="360" y="372" text-anchor="middle">head (one-way)</text>
+  <text class="hyp" x="360" y="400" text-anchor="middle">PTT · CW · PH5</text>
+  <text class="hyp" x="360" y="412" text-anchor="middle">audio (HYP)</text>
+
+  <!-- external network/SDR -->
+  <rect class="ext" x="565" y="470" width="115" height="30" rx="4"/>
+  <text class="t" x="622" y="489" text-anchor="middle">LAN → SDR host</text>
+  <line class="bus" x1="617" y1="222" x2="622" y2="470" stroke-dasharray="0" marker-end="url(#ahb)" opacity="0.5"/>
+
+  <text class="cap" x="360" y="600" text-anchor="middle">Sources: g7250-base docs/hardware.md, docs/mcu_identification.md, per-unit peripherals.md/flow.md; emulator spec §3. Confidence tags as in those docs.</text>
+</svg>
