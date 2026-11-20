@@ -28,9 +28,10 @@ H72X_ONLY = {
 
 # Blocks with no STM32 model in this Renode build, so they cannot be registered
 # as peripherals; tag them instead. DAC1 (RM0468 0x40007400 APB1) and MDMA
-# (0x52000000 AHB). A firmware touch is then named/logged, not faulted. The
-# bias-trim *plant* logic lives in models/devices/bias_trim_plant.py; wiring the
-# DAC output into it waits for a DAC model or a Python shim. Confidence MEDIUM.
+# (0x52000000 AHB). A firmware touch is then named/logged, not faulted. The Main
+# runners register their own MDMA model (docs/MDMA-model.md) and exclude MDMA
+# here; the PA bias plant is in models/csharp/G7250PaPlant.cs
+# (docs/PA-plant-model.md). Confidence MEDIUM.
 UNMODELLED = {
     "DAC1": (0x40007400, 0x400),
     "MDMA": (0x52000000, 0x1000),
@@ -49,13 +50,15 @@ def h72x_tag_commands():
     return _tag_cmds(H72X_ONLY, "H72X_TODO")
 
 
-def unmodelled_tag_commands():
-    """Monitor commands tagging blocks with no STM32 model in this build."""
-    return _tag_cmds(UNMODELLED, "NO_MODEL_TODO")
+def unmodelled_tag_commands(exclude=()):
+    """Monitor commands tagging blocks with no STM32 model in this build.
+    `exclude` names blocks a runner models itself (e.g. MDMA with --fpga)."""
+    return _tag_cmds({k: v for k, v in UNMODELLED.items() if k not in exclude},
+                     "NO_MODEL_TODO")
 
 
-def all_tag_commands():
-    return h72x_tag_commands() + unmodelled_tag_commands()
+def all_tag_commands(exclude=()):
+    return h72x_tag_commands() + unmodelled_tag_commands(exclude)
 
 
 if __name__ == "__main__":

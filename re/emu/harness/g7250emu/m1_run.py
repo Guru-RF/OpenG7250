@@ -25,6 +25,9 @@ REPL_SPI6_CH394 = os.path.join(REPO, "platforms", "g7250_main_spi6_ch394.repl")
 REPL_FPGA = os.path.join(REPO, "platforms", "g7250_main_fpga.repl")
 CS_GPIOE = os.path.join(REPO, "models", "csharp", "G7250Gpioe.cs")
 CS_SLAVES = os.path.join(REPO, "models", "csharp", "G7250Slaves.cs")
+CS_MDMA = os.path.join(REPO, "models", "csharp", "G7250Mdma.cs")
+CS_PA = os.path.join(REPO, "models", "csharp", "G7250PaPlant.cs")
+REPL_PA = os.path.join(REPO, "platforms", "g7250_main_pa_plant.repl")
 OUT = os.path.join(REPO, ".private", "m1")
 
 sys.path.insert(0, HERE)
@@ -54,6 +57,15 @@ def build_resc(image_path, log_path, fpga=False):
         'machine LoadPlatformDescription @%s' % REPL_SPI6_CH394,
         # give the NVIC the SysTick input clock so the 1 ms HAL tick advances
         'nvic Frequency %d' % CORE_HZ,
+        # polled software-request MDMA (docs/MDMA-model.md): the DSP's MDMA
+        # copies/fills must complete, or every poll runs into its timeout.
+        'i @%s' % CS_MDMA,
+        'machine LoadPlatformDescriptionFromString "mdma: '
+        'Antmicro.Renode.Peripherals.DMA.G7250Mdma @ sysbus <0x52000000, +0x1000>"',
+        # PA bias plant on SPI2 feeding ADC1 Idd/Vext/NTC (docs/PA-plant-model.md),
+        # so the boot-time bias trim converges and the boot reaches the superloop.
+        'i @%s' % CS_PA,
+        'machine LoadPlatformDescription @%s' % REPL_PA,
     ]
     if fpga:
         # fused GPIOE+FPGA port (M3/D2): compile it, drop the base gpioPortE,
@@ -64,7 +76,7 @@ def build_resc(image_path, log_path, fpga=False):
             'machine LoadPlatformDescription @%s' % REPL_FPGA,
         ]
     # H72x-only + unmodelled (DAC1/MDMA) blocks: tag so a touch is named/logged
-    lines += platform_extras.all_tag_commands()
+    lines += platform_extras.all_tag_commands(exclude=("MDMA",))
     lines += observe.strict_logging_commands("machine", log_file=log_path)
     lines += [
         'sysbus LoadBinary @%s 0x%08X' % (image_path, LOAD_BASE),
