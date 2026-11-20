@@ -72,10 +72,12 @@ inserted is a valid real state); it does not block the GUI loop. CLOSED.
   acceptance_ae.sh reports it as KFAIL with the counts, without failing the run,
   and as XPASS if it passes. It becomes a normal check once the model delivers
   realistic RX data.
-- **USART2 RX on the Main is not delivered.** Renode 1.17's DMA keeps no circular
-  mode: DMA1 Stream 2 stays at NDTR 0x400, so the Main receives no SLIP bytes and
-  never applies a Control settings image. D1 shows transmission only. Planned: a
-  circular-DMA shim for DMA1 Stream 2, like the ADC1 metering feed.
+- **USART2 RX on the Main.** Renode 1.17's DMA keeps no circular mode: DMA1
+  Stream 2 stays at NDTR 0x400, so the Main receives no SLIP bytes. Worked around
+  for the HIS-02 probe by models/csharp/G7250Usart2RxShim.cs
+  (docs/USART2-RX-shim.md); with it the Main applies every settings image. Still
+  open: the two-machine SLIP run (D1) does not use the shim yet, so D1 shows
+  transmission only.
 
 ## Not in scope (policy)
 No decryption; no push/PR/mail without an explicit go from the repository owner
