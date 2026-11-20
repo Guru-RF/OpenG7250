@@ -14,6 +14,10 @@ PASS needs both, within the budget:
     Renode's "(N)" repeat suffix).
 Anything else is FAIL (exit 1). No image-map: exit 2.
 
+--hold S keeps the Main running S more seconds (host time) after a PASS, so the
+console also covers some superloop runtime (acceptance item D2b counts the FPGA
+runtime-health errors there).
+
 Output in .private/superloop/: renode.log, console.txt, boot.resc.
 """
 from __future__ import annotations
@@ -50,7 +54,7 @@ def build_resc(image, log_path, console_path):
     return "\n".join(lines) + "\n"
 
 
-def run(timeout):
+def run(timeout, hold=0.0):
     import imagemap
     image = imagemap.resolve("main")
     os.makedirs(OUT, exist_ok=True)
@@ -74,6 +78,8 @@ def run(timeout):
                 log_mark = os.path.getsize(log_path)   # count only refreshes after this
             if seen_console:
                 refreshes = count_refreshes(log_path, log_mark)
+        if seen_console and refreshes >= MIN_REFRESH and hold > 0:
+            time.sleep(hold)
     finally:
         try:
             proc.stdin.write("pause\nquit\n"); proc.stdin.flush()
@@ -105,7 +111,8 @@ def main():
     except Exception as e:
         print("superloop: no runnable Main image.\n  %s" % e)
         sys.exit(2)
-    c, n, t = run(timeout)
+    hold = float(sys.argv[sys.argv.index("--hold") + 1]) if "--hold" in sys.argv else 0.0
+    c, n, t = run(timeout, hold)
     print("console '%s': %s; IWDG refreshes after it: %d (need %d) (%.0f s host time)"
           % (CONSOLE_MARK, "yes" if c else "NO", n, MIN_REFRESH, t))
     ok = c and n >= MIN_REFRESH

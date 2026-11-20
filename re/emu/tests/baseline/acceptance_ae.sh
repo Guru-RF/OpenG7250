@@ -7,6 +7,8 @@ cd "$(dirname "$0")/../.." || exit 2
 REPO="$PWD"; OUT="$REPO/.private/m1"
 declare -a R
 pass(){ R+=("PASS  $1"); }; fail(){ R+=("FAIL  $1"); }
+# known failures: reported, do not fail the run; an unexpected pass is XPASS
+kfail(){ R+=("KFAIL $1"); }; xpass(){ R+=("XPASS $1"); }
 
 if ! python3 harness/g7250emu/imagemap.py main >/dev/null 2>&1; then
   echo "acceptance: SKIP (no image-map)"; exit 0; fi
@@ -20,7 +22,7 @@ C="$OUT/main_console.txt"
 [ $rc -eq 0 ] && pass "A1-A4 Main boot milestones (System started .. RX mode)" || fail "A1-A4 boot milestones"
 # A: the superloop itself. "Init Radio Server" plus >= 128 IWDG refreshes after it
 # (harness/g7250emu/superloop_run.py; needs the MDMA and PA plant models).
-python3 harness/g7250emu/superloop_run.py --timeout 240 >/dev/null 2>&1 \
+python3 harness/g7250emu/superloop_run.py --timeout 240 --hold 30 >/dev/null 2>&1 \
   && pass "A  Main reaches its superloop (IWDG refreshed after Init Radio Server)" \
   || fail "A  Main superloop not reached"
 grep -q "IP 192.168.3.199" "$C" && pass "A5 forced default IP 192.168.3.199" || fail "A5 default IP"
@@ -36,7 +38,18 @@ python3 harness/g7250emu/slip_run.py --timeout 45 >/dev/null 2>&1 && pass "D1 SL
 echo "[5/5] Control GUI loop (C/C2) + FPGA fused model (D2, --fpga, slow)"
 python3 harness/g7250emu/control_run.py --timeout 50 >/dev/null 2>&1
 grep -q "GT911 detected" "$OUT/../control/control_console.txt" 2>/dev/null && pass "C/C2 Control GUI-loop init (GT911/codec)" || fail "C/C2 Control"
-bash tests/baseline/fpga_boot.sh >/dev/null 2>&1 && pass "D2 FPGA fused model (Check complete!)" || fail "D2 FPGA"
+bash tests/baseline/fpga_boot.sh >/dev/null 2>&1 && pass "D2a FPGA boot bus check (init, version, Check complete!)" || fail "D2a FPGA boot bus check"
+# D2b KNOWN-FAIL until the FPGA model delivers realistic RX data (EMU-JOB-STATUS):
+# runtime health errors in the superloop part of the superloop run's console.
+SC="$OUT/../superloop/console.txt"
+if [ -f "$SC" ] && grep -q "Init Radio Server" "$SC"; then
+  RT=$(sed -n '/Init Radio Server/,$p' "$SC")
+  nbe=$(printf '%s' "$RT" | grep -c "FPGA bus error"); nbu=$(printf '%s' "$RT" | grep -c "FPGA buffer underrun")
+  if [ "$nbe" -eq 0 ] && [ "$nbu" -eq 0 ]; then xpass "D2b FPGA runtime health (no bus error / underrun in the superloop)"
+  else kfail "D2b FPGA runtime health: $nbe x 'FPGA bus error', $nbu x 'FPGA buffer underrun' in the superloop"; fi
+else
+  fail "D2b FPGA runtime health (no superloop console)"
+fi
 # HIS: umbrella his/ once migrated; until then the separate g7250-his checkout,
 # located via  his_dir = /abs/path  in local.config (git-ignored) or env G7250_HIS.
 HIS="${G7250_HIS:-$(sed -n 's/^[[:space:]]*his_dir[[:space:]]*=[[:space:]]*//p' local.config 2>/dev/null | head -1)}"
@@ -46,5 +59,6 @@ for h in "$REPO/../../his" "$HIS"; do
 
 echo; echo "===== A–E acceptance tally ====="
 ok=1; for r in "${R[@]}"; do echo "  $r"; [[ $r == FAIL* ]] && ok=0; done
-echo; [ $ok -eq 1 ] && echo "A–E ACCEPTANCE: ALL PASS" || echo "A–E ACCEPTANCE: FAILURES"
+nk=0; for r in "${R[@]}"; do [[ $r == KFAIL* ]] && nk=$((nk+1)); done
+echo; [ $ok -eq 1 ] && { [ $nk -eq 0 ] && echo "A–E ACCEPTANCE: ALL PASS" || echo "A–E ACCEPTANCE: ALL PASS (with $nk known failure(s))"; } || echo "A–E ACCEPTANCE: FAILURES"
 [ $ok -eq 1 ]

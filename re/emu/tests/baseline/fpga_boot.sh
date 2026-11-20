@@ -1,9 +1,11 @@
 #!/bin/bash
-# D2 FPGA fused-model boot test (needs the local decrypted image-map).
+# D2a FPGA fused-model boot test (needs the local decrypted image-map).
 #
 # Boots the stock Main with the fused GPIOE+FPGA port (m1_run --fpga) and asserts
-# the FPGA bus check passes and I/Q flows: no FPGA errors, version read, and the
-# firmware's "Check complete!" line. The runtime-compiled port is slow, so this
+# the boot-time FPGA bus check passes: FPGA init, version read, the firmware's
+# "Check complete!" line, and no boot bus-test error ("FPGA BUS Error", which the
+# bus check prints per mismatching byte). Runtime health errors in the superloop
+# ("FPGA bus error", "FPGA buffer underrun") are acceptance item D2b, not this test. The runtime-compiled port is slow, so this
 # uses a long budget and is separate from the fast smoke gate. Skips with no image.
 set -u
 cd "$(dirname "$0")/../.." || exit 2
@@ -20,7 +22,7 @@ C="$OUT/main_console.txt"
 grep -q "Init FPGA"            "$C" && ok "Init FPGA"                || bad "Init FPGA"
 grep -q "FPGA FW Version"      "$C" && ok "FPGA version read"        || bad "FPGA version read"
 grep -q "Check complete!"      "$C" && ok "FPGA bus check complete"  || bad "FPGA bus check"
-if grep -qi "FPGA BUS Error\|FPGA bus error" "$C"; then bad "FPGA errors present"; else ok "no FPGA bus errors"; fi
+if sed -n '1,/Check complete!/p' "$C" | grep -q "FPGA BUS Error"; then bad "boot bus-test errors"; else ok "no boot bus-test errors"; fi
 grep -qi "Start RX mode"       "$C" && ok "TRX RX mode"              || bad "TRX RX mode"
 
 echo

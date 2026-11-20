@@ -55,6 +55,28 @@ inserted is a valid real state); it does not block the GUI loop. CLOSED.
   SLIP interlink, RF/FPGA), behaviour-only with evidence cited. All eight HIS
   sections written (not a stub). CLOSED.
 
+## Update 2026-11-20 (after emu-v1)
+- A now means the superloop: with the MDMA model and the PA bias plant
+  (docs/MDMA-model.md, docs/PA-plant-model.md) the stock Main completes its bias
+  trim and reaches its superloop. Test: harness/g7250emu/superloop_run.py
+  ("Init Radio Server" plus >= 128 IWDG refreshes after it). The earlier A check
+  only reached "Start RX mode", which comes before the FPGA init.
+- D2 is split: D2a FPGA boot bus check (normal check) and D2b FPGA runtime health
+  (known failure, see below).
+
+## Open items (PR #3, before leaving draft)
+- **D2b FPGA runtime health — KNOWN-FAIL.** In the superloop the firmware's
+  runtime health check logs "[ERR] FPGA bus error" (first RX sample unchanged)
+  and "FPGA buffer underrun" (unconsumed RX block). Cause: the fused FPGA model
+  delivers counter data, not realistic RX I/Q at the right block rate.
+  acceptance_ae.sh reports it as KFAIL with the counts, without failing the run,
+  and as XPASS if it passes. It becomes a normal check once the model delivers
+  realistic RX data.
+- **USART2 RX on the Main is not delivered.** Renode 1.17's DMA keeps no circular
+  mode: DMA1 Stream 2 stays at NDTR 0x400, so the Main receives no SLIP bytes and
+  never applies a Control settings image. D1 shows transmission only. Planned: a
+  circular-DMA shim for DMA1 Stream 2, like the ADC1 metering feed.
+
 ## Not in scope (policy)
 No decryption; no push/PR/mail without an explicit go from the repository owner
 (umbrella AGENTS.md rule 4). Decrypted images stay outside any repo; the
