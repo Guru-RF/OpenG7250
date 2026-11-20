@@ -13,7 +13,7 @@ import re
 import sys
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
-SPEC = sorted((ROOT / "spec").glob("*.md"))
+SPEC = sorted(p for p in (ROOT / "spec").glob("*.md") if p.name not in ("traceability-auto.md", "CHANGELOG.md"))
 
 # decisions whose consequences are about process or documents, not about the interface
 NOT_IN_SPEC = {
@@ -26,6 +26,7 @@ NOT_IN_SPEC = {
     "0027": "location of the test bench",
     "0033": "firmware language",
     "0034": "test process before the radio",
+    "0037": "language of the management CLI",
 }
 
 

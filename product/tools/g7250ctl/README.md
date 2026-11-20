@@ -13,6 +13,11 @@ from the computer, without the controller and without AetherSDR.
 - AetherSDR's firmware page follows on the same protocol (`product/spec/spec/annex-aethersdr.md`,
   Q-O4).
 
+## Language (decision 0037, proposed)
+
+Rust, sharing the protocol crate with the firmware and the reference model; one static binary
+for Linux, macOS and Windows.
+
 ## Planned commands
 
 | Command | What it does | Spec |

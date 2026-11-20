@@ -19,6 +19,17 @@ All dates 2026-11-19. Decision numbers refer to `decisions/`.
   own ATU control with bypass and write reject reason 11 `NOT_CALIBRATED` until calibrated.
   Tests T-A3-07, T-A3-42, T-B10-15, T-B10-37 marked "not in v1.0".
 
+- 0035 (v1.0 freeze): no open hardware value left unnamed. New Annex P, Table P-1 (pending hardware parameters with
+  safe placeholders); freeze rule: arm reject reason 12 `NOT_CALIBRATED` and record `tx` bit 4
+  until the transmit parameters are set (B10.2, part C C5.5.6 item 7; T-B10-41). Settled from
+  the HIS: C-1 default DHCP with link-local fallback [RFC3927]; A1.11 final; TRNG; MAC from the
+  CH394; link-status register; socket split as 0004; 192 ksps maximum until P-NET-1; one ADC;
+  Alex words and step attenuator ignored; sidetone and mic bytes ignored; local factory reset
+  through the vendor path. Lint L9.
+- 0036: transmit in r1.0, armable once calibrated. 0037 (proposed): `g7250ctl` in Rust.
+  0038 (proposed): AetherSDR backend after F2; annex AetherSDR G-08, G-10, G-12, Q-O1 and the RFC
+  draft updated.
+
 ## rc7 — release candidate 7 (tag `spec-rc7`)
 
 - ON8ST accepted 0025 and 0026 (2026-11-20). `product/tools/g7250ctl/` and `product/refmodel/`

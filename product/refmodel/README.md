@@ -27,9 +27,11 @@ The model simulates hardware behaviour only where the spec needs it (for example
 that decays after an unkey, for T-A1-51). It never models how the stock firmware behaves, and
 it tests the foreign-image path with a synthetic opaque image (spec A1.8a item 10).
 
-## Planned choices (to confirm at the start of the build phase)
+## Language (decisions 0033, 0037, proposed)
 
-- Python 3, standard library only, like the tools in `product/spec/tools/`.
+Rust, sharing the protocol crate with the firmware and `g7250ctl` (0037). Because the three
+share that crate, the black-box tests in `testbench/`, written from the spec text, are the
+independent check (0037, "Note on independence").
 
 ## Licence
 
