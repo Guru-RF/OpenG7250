@@ -4,6 +4,17 @@
 
 All dates 2026-11-19. Decision numbers refer to `decisions/`.
 
+## After rc7 (2026-11-20)
+
+- HIS cleared (gate review 2) and read at `2a38b7f`; answer status per question in
+  `open-questions-his.md`; impact in `analysis/his-2a38b7f-impact.md`; source key [HIS].
+- 0027: the test bench is `testbench/` in the umbrella repository.
+- 0028: first install once through the vendor path on the controller; return to stock by a
+  one-way streaming installer over the network (status 60 added); no retained stock image,
+  `RETURN_TO_STOCK` and `ENTER_VENDOR_RECOVERY` reserved (status 56); own updates in two slots
+  behind a boot stage of our own; FPGA never touched. A1.1a, A1.5, A1.8, A1.8a, Tables A1-2 and
+  A1-3, T-A1-08, T-A1-52 to T-A1-59 rewritten, T-A1-60 added.
+
 ## rc7 — release candidate 7 (tag `spec-rc7`)
 
 - ON8ST accepted 0025 and 0026 (2026-11-20). `product/tools/g7250ctl/` and `product/refmodel/`

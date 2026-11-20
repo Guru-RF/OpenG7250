@@ -57,8 +57,9 @@ on 2026-11-19, as recorded in `decisions/`.
 | 0025 | One installation path on the main unit, both directions, no controller step; open risk R5 (HIS-19) | accepted (2026-11-20) |
 | 0026 | Firmware management on the host: spec protocol, CLI `g7250ctl` as reference, AetherSDR on the same protocol | accepted (2026-11-20) |
 | 0027 | Test bench is the `testbench/` folder of the umbrella repository, not a submodule | accepted |
+| 0028 | After the HIS: first install once via the controller; return to stock by streaming installer; A/B with own boot stage; no code in the spec phase | accepted (2026-11-20) |
 
-All numbers 0001–0027 are now in use.
+All numbers 0001–0028 are now in use.
 
 ## Open questions for ON8ST
 
@@ -86,8 +87,10 @@ Decided on 2026-11-20 (ON8ST):
 - **Go** (2026-11-20) to push the follow-up commits on `spec/draft` with tag `spec-rc5`. The spec PR to Guru-RF follows after PR #1, with a separate go.
 
 Still open:
-1. Answers that ON8ST gathers with the RE-side sessions enter the spec only through the HIS
-   after its gate.
+1. The HIS is cleared and read at `2a38b7f` (read-only worktree `g7250-product-his`). Its
+   answers are processed in `analysis/his-2a38b7f-impact.md` and 0028. Open points of that
+   analysis (§4: power key, local PTT/key, audio, ATU) wait for ON8ST; §5 lists the questions
+   back to the HIS.
 2. Go for an AetherSDR RFC issue (annex Q-O1); shared P2 refactor vs. self-contained backend
    (Q-O2).
 3. The test bench as the `testbench/` folder of the umbrella repository (0019, 0027). `product/refmodel/` and `product/tools/g7250ctl/`

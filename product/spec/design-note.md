@@ -115,8 +115,8 @@ PTT paths, what the CTRL cable carries.
 - **Management channel.** Its own UDP port on the eighth socket at both levels;
   identification is read-only and open, writes need the radio's secret (challenge-response,
   first secret claimed over the network in a short window after first start). Firmware
-  updates with integrity checks (no signatures yet), staging and rollback; downgrade needs a
-  flag. P2 Set IP is accepted as in P2; P2 Erase/Program are ignored. It never keys the radio.
+  updates with integrity checks (no signatures yet), staging in the other slot and rollback,
+  behind a boot stage of our own; downgrade needs a flag (0028). P2 Set IP is accepted as in P2; P2 Erase/Program are ignored. It never keys the radio.
   (0008)
 
 ### 4.2 Transmit safety
@@ -219,32 +219,36 @@ AetherSDR work runs alongside: the G7250 backend receives from M1 and transmits 
 - The controller (head) firmware: the controller keeps its stock firmware and is not
   modified, reflashed or replaced; whether it works with the new main-unit firmware is open
   (0023; HIS-17). The new firmware leaves CTRL idle and does not use the controller as a
-  front panel, on either level (0023, note of 2026-11-20). The FPGA image is replaced only if the main-unit firmware loads it
-  (HIS-18).
+  front panel, on either level (0023, note of 2026-11-20). The FPGA configures itself from
+  its own flash and is never touched ([HIS] HIS 15; 0028).
 - Distributing vendor (stock) firmware images: the owner supplies any stock image (0024,
   0018).
-- Any installation step on the controller (TF card, USB, display, button): both directions
-  use one installation path on the main unit (0025). The first install (stock to new) is no
-  longer outside the spec; it uses that same path, pending HIS-19 (spec A1.8a item 9).
+- Any installation step on the controller, except the first install: that one goes once
+  through the vendor's documented path (USB drive and the controller's update menu), because
+  no other path exists under the stock firmware ([HIS] HIS 15; 0028; spec A1.8a item 9).
 
 ## 8. Dependencies and open questions
 
 - **Firmware management tool.** Firmware is managed from the host: the CLI `g7250ctl`
   (`product/tools/g7250ctl/`) is the reference implementation of the management protocol,
   AetherSDR's firmware page follows on the same protocol (0026). The first install from stock
-  depends on HIS-19.
+  goes once through the controller (0028). No code in the spec phase: the folders hold
+  READMEs and documentation only (0028 Decision 4).
 
-- **HIS.** All hardware questions are in `open-questions-his.md` (HIS-01 to HIS-19). M1 needs
-  at least HIS-01, -02, -04, -14, -15, and part of -18.
-- **Reversibility.** Installing the new firmware is reversible: the vendor's own update and
-  recovery path is left intact, and from the new firmware the owner installs a stock image in
-  the same way as a new image, through one installation path on the main unit with no
-  controller step, and, if the flash has room, can return to a retained one (0024, 0025; spec
-  A1.8a; HIS-18, HIS-19). Open risk: if the only stock update path needs the controller, the
-  first install cannot use that path and ON8ST decides (0025 R5).
+- **HIS.** Cleared on 2026-11-20 and read at `2a38b7f`. Each question in
+  `open-questions-his.md` (HIS-01 to HIS-20) carries its answer status; the impact is in
+  `analysis/his-2a38b7f-impact.md`. Still open for M1: HIS-02 (in part), HIS-15, HIS-20.
+- **Reversibility.** Installing the new firmware is reversible. The vendor bootloader and its
+  update path through the controller are never touched and are the recovery path. From the new
+  firmware the owner installs a stock image over the network, without the controller, through
+  a one-way streaming installer: the same commands and checks as an update, but no staging and
+  no way back once it starts. A retained stock image does not fit ([HIS] HIS 15; 0024, 0028;
+  spec A1.8a). Own updates use two slots behind a boot stage of the new firmware, with trial
+  boot and rollback. The vendor path accepting our image is to be shown by the drill F1.
 - **AetherSDR.** A G7250 backend on P2, including transmit (0016). Upstream contributions
   need a go from ON8ST.
-- **g7250-testbench.** Reference model and conformance tests per spec section (0001).
+- **Test bench.** `testbench/` in the umbrella repository (0027); reference model in
+  `product/refmodel/`; conformance tests per spec section (0001, 0019).
 - **openHPSDR.** Board type 200 was proposed in TAPR/OpenHPSDR-Firmware#6; we use another
   value if they prefer one (0002).
 - **Sources still to read.** The TCI 2.1 PDF and its terms of use (before part C), the

@@ -1,6 +1,7 @@
 # 0024 — Switching between the stock firmware and the new firmware
 
 - Status: accepted (ON8ST, 2026-11-20: "Akkoord met alles", after his review of rc4). Section-level status lines below are superseded by this line.
+- Amended by 0028 (2026-11-20, after the HIS): see 0028 for what no longer holds.
 - Date: 2026-11-20
 - Applies to: `spec/network-interface.md` A1.5, A1.8, new A1.8a, A1.9, A1.10, Table A1-2,
   Annex X3; `design-note.md` §7, §8; `open-questions-his.md` HIS-18, HIS-19.

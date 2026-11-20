@@ -42,9 +42,10 @@ controller works with this firmware, and what the main unit does towards it over
 TBD (HIS-17); a controller in an unknown or error state is accepted (0023 item 5). The G7250
 leaves CTRL idle and does not use the controller as a front panel (no display, buttons, audio
 or PTT over CTRL), on either level, unless a later decision changes it (0023, note of
-2026-11-20). No installation step needs the controller (A1.8a; 0025). The FPGA
-image is replaced only if the main-unit firmware loads it: TBD (HIS-18). The owner can always
-return to the stock firmware (A1.8a; 0024).
+2026-11-20). Only the first install, and a re-install after a return to stock, needs the
+controller (A1.8a item 9; 0028). The FPGA configures itself from its own flash, and this
+firmware neither loads nor replaces it ([HIS] HIS 15; 0028). The owner can always return to
+the stock firmware (A1.8a; 0024, 0028).
 
 ### A1 Management channel
 
@@ -61,11 +62,11 @@ for firmware management: host software drives it over this channel, with the pro
 A1.3–A1.10 as the only protocol. Its reference implementation is a standalone command-line
 tool, `g7250ctl` (planned at `product/tools/g7250ctl/`, GPL-3.0-or-later): identify, show version
 and state, install an image (new firmware or an owner-supplied stock image, A1.8a), verify,
-activate, abort, rollback, return to stock, enter vendor recovery, read logs, set the first
-secret. It MUST pass every A1 conformance test of Annex X3 against the reference model (0019).
+activate, abort, rollback, return to stock (the streaming installation of A1.8a item 3), read
+logs, set the first secret. It MUST pass every A1 conformance test of Annex X3 against the reference model (0019).
 AetherSDR's firmware page uses the same protocol and follows the CLI (annex Q-O4). The very first
-install, on a radio still running stock firmware, cannot use this protocol; it depends on HIS-19
-(A1.8a; 0025 R4/R5).
+install, on a radio still running stock firmware, cannot use this protocol; it goes once through
+the vendor path on the controller (A1.8a item 9; 0028).
 
 A1.2 **Transport.** The management channel MUST use its own UDP port, served by the eighth
 socket of the CH394Q (0008, Decision, Transport 1; 0017). That socket is reserved at both
@@ -149,8 +150,8 @@ Table A1-2 — Management commands (0020 §27)
 | 0x0024 | `RESTART` | yes | unkey and disarm first, wait until RF is gone, reply, then reset; status 59 if RF stays (A1.9, commanded reset; 0022 §40, §59, §61); also clears class 2 faults (A3.5) |
 | 0x0030, 0x0031 | `READ_LOG`, `CLEAR_LOG` | no, yes | A1.7 |
 | 0x0040–0x0046 | `UPDATE_BEGIN`, `UPDATE_BLOCK`, `UPDATE_VERIFY`, `UPDATE_ACTIVATE`, `UPDATE_ABORT`, `UPDATE_STATUS`, `ROLLBACK` | yes (`UPDATE_STATUS` no) | A1.8; refused with status 50 while armed or keyed, `ROLLBACK` included (0022 §32); `UPDATE_STATUS` is a read and is answered at any time (0022 §51) |
-| 0x0050 | `RETURN_TO_STOCK` | yes | A1.8a item 2: activates the retained stock image; refused with status 50 while armed or keyed, 58 during an update, 56 if no stock image is retained (0024) |
-| 0x0051 | `ENTER_VENDOR_RECOVERY` | yes | A1.8a item 4: restarts into the vendor's update or recovery mode; refused as `RETURN_TO_STOCK`, 56 if not supported (0024) |
+| 0x0050 | `RETURN_TO_STOCK` | yes | Reserved (A1.8a item 2): this version retains no stock image; always status 56, after the checks for status 50 and 58 (0024, 0028) |
+| 0x0051 | `ENTER_VENDOR_RECOVERY` | yes | Reserved (A1.8a item 4): no software entry into the vendor path is known; always status 56, after the checks for status 50 and 58 (0024, 0028) |
 
 Table A1-3 — Management status codes (0020 §27)
 
@@ -168,19 +169,21 @@ Table A1-3 — Management status codes (0020 §27)
 | 35 | busy (another writer) | 57 | refused while a P2 session runs |
 | 36 | first-secret window closed or secret already set | 58 | refused while a firmware update is in progress (0022 §51) |
 | | | 59 | reset refused: RF present (A1.9; 0022 §59) |
+| | | 60 | not possible: one-way installation in progress (A1.8a item 3; 0028) |
 
 Where several codes apply, the reply carries the first of: framing and version (19 for a
 declared length above 1000 bytes, then 17, 18, 16, and 19 for any other size limit), authentication and rate (32, 33, 34, 36), 35, 58, 57, 50, then the command-specific codes
-(48, 49, 51–56, 59) (0022 §51, §59). A region change while a P2 session runs and TX is armed therefore
+(48, 49, 51–56, 59, 60) (0022 §51, §59; 0028). A region change while a P2 session runs and TX is armed therefore
 gets 57: ending the session also ends the arm on level 1 (A2.3, Table A3-1).
 
 A1.5 **Identification** (read; no authentication) (0008, Functions):
 
 - model "G7250", MAC address (HIS-15), serial number if the hardware has one (HIS-15) (I-1);
-- versions of the main-unit firmware (running image and other slot), boot loader, FPGA if
-  present, hardware (I-2; which exist: HIS-18);
-- whether a retained stock image exists, with its length and SHA-256 [FIPS180-4] (no vendor
-  version is read), and whether `ENTER_VENDOR_RECOVERY` is supported (I-2a; A1.8a; 0024);
+- versions of the main-unit firmware (running image and other slot), this firmware's boot
+  stage (A1.8), hardware (I-2; [HIS] HIS 15; 0028); the vendor bootloader's version is not
+  read;
+- that no stock image is retained and that `ENTER_VENDOR_RECOVERY` is not supported, as two
+  flags, so that a later version can set them (I-2a; A1.8a; 0024, 0028);
 - integrity result of both images and update state: normal, trial boot, rolled back (I-3);
 - whether a secret is set, and whether the first-secret window is open and for how long
   (I-3a);
@@ -299,8 +302,15 @@ A1.8 **Firmware update** (authenticated) (0008, Functions, U-1 to U-10):
   list, versions, length, SHA-256 [FIPS180-4] per component, and a signature field that is
   reserved and empty in this version. An image for other hardware MUST be refused before
   anything is written (U-2; 0008 option I1).
-- Transfer in numbered blocks with a CRC-32 each, into a staging area that is not the running
-  image; resumable; abandonable without effect on the running image (U-3).
+- Transfer in numbered blocks with a CRC-32 each, into the other image slot, which is the
+  staging area; resumable; abandonable without effect on the running image (U-3). The foreign
+  image of A1.8a item 3 is the exception: it has no staging area.
+- **Boot stage** (0028 Decision 3). The vendor bootloader starts the application at 0x08020000
+  ([HIS] HIS 10). This firmware places a boot stage of its own there, which picks one of two
+  image slots in the application area and carries out the atomic switch (U-5) and the trial
+  boot and rollback (U-6). The boot stage is part of the first install (A1.8a item 9) and is
+  not updated through this channel (U-7). It MUST NOT write the vendor bootloader region or
+  the option bytes ([HIS] HIS 15 rules 1, 2).
 - The staged image MUST be hashed and compared with the header before activation. No
   signature is checked in this version (U-4; 0008, Resolved 5).
 - Activation MUST be atomic; power loss before the switch leaves the old image running (U-5).
@@ -308,80 +318,101 @@ A1.8 **Firmware update** (authenticated) (0008, Functions, U-1 to U-10):
   the boot loader MUST return to the previous image and log the rollback (U-6; 0020 §24).
   Until the image has confirmed itself, RX works but an arm MUST be rejected with
   `MAINTENANCE` (0022 §10).
-  Feasibility of two slots and atomic boot choice: TBD (HIS-18, HIS-19) (U-10).
+  Two slots and an atomic boot choice are feasible with the boot stage above (U-10; 0028).
 - The boot loader is not updated through this channel (U-7).
 - An image older than the running one MUST be refused unless the request carries an explicit
   "downgrade" flag; a downgrade is logged; configuration the older image does not understand
   is kept but not used, and the reply says so (U-8; 0008, Resolved 3).
-- A recovery path that does not depend on this firmware MUST exist; which one: TBD (HIS-19,
-  HIS-17) (U-9). The return to the stock firmware is A1.8a (0024). An update to a new image
-  and the installation of a stock image use one installation path on the main unit, with no
-  step that needs the controller (A1.8a, "One installation path"; 0025).
+- A recovery path that does not depend on this firmware MUST exist: the vendor's documented
+  update path through the controller (USB drive and update menu), which this firmware never
+  disables (U-9; [HIS] HIS 15; 0028). The return to the stock firmware is A1.8a (0024, 0028).
 - The G7250 MUST NOT program itself through P2 Erase and Program packets (B3.9).
 
-A1.8a **Return to stock firmware** (authenticated) (0024). Installing this firmware MUST be
-reversible: the owner can always return the main unit, and the FPGA image if this firmware
-replaced it (HIS-18), to the stock firmware (0024 R1). Feasibility of each way back: TBD
-(HIS-18, HIS-19).
+A1.8a **Return to stock firmware** (authenticated) (0024, 0028). Installing this firmware
+MUST be reversible: the owner can always return the main unit to the stock firmware (0024
+R1). The FPGA is not changed by this firmware ([HIS] HIS 15), so only the main unit is
+concerned.
 
-**One installation path** (0025, proposed, amends 0024). Both directions, stock to this
-firmware and this firmware to stock, MUST use one installation path on the main unit, and no
-step of it MAY need the controller: no TF card, USB, display or button on the controller
-(0025 R1, R2). While this firmware runs, that path is the update of A1.8, and it is the same
-for an image of this firmware and for an owner-supplied stock image: the same transport, block
-transfer and staging, integrity checks (hardware id, block CRC-32, SHA-256) and commanded-reset
-order (A1.9). The only differences are the "foreign image" flag (item 3), no trial boot and no
-rollback (item 5), no downgrade check (item 3) and the erasure of the secret (item 7) (0025
-R3). How the stock-to-this-firmware direction reaches the same path is item 9. This document
-specifies only this side: the vendor image format and the stock boot loader's behaviour are
-not specified here (0025, "Clean room").
+**Installation paths** (0028, amends 0024 and 0025). There are two paths, and only the
+first install needs the controller ([HIS] HIS 15; 0028 Decisions 1, 2):
 
-1. **Vendor path left intact** (0024 R2). The G7250 MUST NOT erase, overwrite or disable the
-   vendor's own update or recovery path (vendor boot loader, the path of the vendor's update
-   tool), as far as HIS-19 shows one exists; it counts as the installation path only if it
-   needs no controller step (0025 Decision 2). An update (A1.8) writes only this firmware's
-   image slots and staging area and never the boot loader (U-7), nor a retained stock image
-   (item 2).
-2. **Retained stock image** (0024 Decision 3). If the flash has room (HIS-18), the first
-   install SHOULD keep the stock image in a slot of its own, and `RETURN_TO_STOCK` MUST then
-   make it the boot choice. The request carries the SHA-256 of the retained image as
-   identification reports it (A1.5 I-2a); a mismatch gets status 55 and changes nothing.
-   Without a retained image the command gets status 56.
-3. **Foreign image upload** (0024 Decision 1). The update of A1.8 MUST accept an
-   owner-supplied stock image when `UPDATE_BEGIN` carries the "foreign image" flag. The
-   package header then names the target hardware id, the component (main unit or FPGA), the
-   length and the SHA-256 supplied by the owner; the G7250 checks the hardware id (status
-   51), the block CRCs and the hash (status 55), and nothing of the vendor format. The
-   downgrade check (U-8) does not apply. `UPDATE_ACTIVATE` MUST repeat the flag; without it
-   the activation gets status 55. Where a stock image is written so that the radio starts it:
-   TBD (HIS-19).
-4. **Vendor recovery mode** (0024 Decision 4). If HIS-19 shows a vendor update or recovery
-   mode that software can select and that needs no controller step (0025 Decision 2), the
-   G7250 MAY offer `ENTER_VENDOR_RECOVERY`, which restarts into it; otherwise the command gets
+- **Stock to this firmware** goes once through the vendor's documented path on the controller
+  (item 9).
+- **This firmware to stock** and **this firmware to a new image of this firmware** go through
+  the main unit, over this channel, with no step that needs the controller (0025 R2). Both use
+  the same commands (`UPDATE_BEGIN`, `UPDATE_BLOCK`, `UPDATE_VERIFY`, `UPDATE_ACTIVATE`,
+  `UPDATE_STATUS`), the same block transfer with a CRC-32 per block, the same hardware-id and
+  SHA-256 checks and the same commanded-reset order before the switch (A1.9) (0025 R3). A new
+  image of this firmware is staged in the other slot (A1.8); a stock image cannot be staged and
+  is written by the streaming installer of item 3.
+
+This document specifies only this side: the vendor image format and the vendor bootloader's
+behaviour are not specified here (0025, "Clean room").
+
+1. **Vendor path left intact** (0024 R2; [HIS] HIS 15 rules 1, 2). The G7250 MUST NOT write
+   the vendor bootloader region (sector 0, 0x08000000–0x0801FFFF) or the option bytes, and
+   MUST NOT disable the vendor's update path through the controller, which is the recovery path
+   (A1.8, U-9). An update (A1.8) writes only this firmware's boot record and the other image
+   slot, never the boot stage (U-7).
+2. **No retained stock image** (0028 Decision 2; replaces 0024 Decision 3). The application area
+   has no room for a stock image beside this firmware ([HIS] HIS 15). `RETURN_TO_STOCK` is
+   reserved and gets status 56; identification reports that no stock image is retained (A1.5
+   I-2a).
+3. **Streaming installation of a stock image** (0024 Decision 1 as amended by 0028 Decision 2).
+   The update of A1.8 MUST accept an owner-supplied stock Main image when `UPDATE_BEGIN` carries
+   the "foreign image" flag. The package header names the target hardware id, the length and the
+   SHA-256 supplied by the owner; the G7250 checks the hardware id (status 51), that the image
+   fits sectors 1–7 (status 19), the block CRCs (status 53) and, at `UPDATE_VERIFY`, the hash
+   (status 55), and nothing of the vendor format. The downgrade check (U-8) does not apply.
+   - **Hand-over.** An accepted foreign `UPDATE_BEGIN` is a switch in the sense of item 6: the
+     P2 session ends, the streams stop, and steps 2–4 of the commanded reset run (A1.9). Then the
+     G7250 erases the management secret from flash (item 7), keeps the session's authentication
+     state in RAM only, and hands over to an installer that runs from RAM. From here on this
+     firmware no longer runs.
+   - **Writing.** The installer receives the blocks over this channel and writes them to the
+     application area from 0x08020000, at most one 128 KiB sector at a time, each sector only
+     after all its blocks have arrived with a good CRC ([HIS] HIS 15, installer items 1–3). It
+     answers `UPDATE_STATUS` at any time with the sectors written. It writes only sectors 1–7.
+   - **Check and switch.** At `UPDATE_VERIFY` the installer hashes the written range and compares
+     it with the header (status 55 on a mismatch; the host may send the blocks again).
+     `UPDATE_ACTIVATE` MUST repeat the "foreign image" flag (status 55 without it) and is
+     accepted only after a good `UPDATE_VERIFY`; it then resets the main unit.
+   - **No way back.** Once the first sector is erased there is no return to this firmware, and
+     `UPDATE_ABORT` is answered with status 60 (the reply says the transfer must be completed or
+     the recovery path used). If the transfer breaks off, the installer keeps waiting for blocks and
+     never restarts by itself (the 10-minute rule of A1.8 does not apply); if power is lost, the
+     main unit has no valid application and the recovery path is the vendor path through the
+     controller (U-9; 0028 Decision 2).
+   - Before the first erase, the reply to `UPDATE_BEGIN` MUST state that the installation is
+     one-way and that a broken transfer needs the vendor path through the controller.
+4. **No vendor recovery mode** (0028 Decision 2; replaces 0024 Decision 4). No software entry
+   into the vendor path is known ([HIS] HIS 15). `ENTER_VENDOR_RECOVERY` is reserved and gets
    status 56.
 5. **Permanent, not a trial** (0024, Details). A stock image is activated without trial boot
    and without rollback to this firmware (U-6 does not apply), because it cannot confirm
    itself. The reply says so.
-6. **Safety and order** (0024 R4). `RETURN_TO_STOCK`, `ENTER_VENDOR_RECOVERY` and a foreign
-   `UPDATE_ACTIVATE` MUST be refused with status 50 while armed or keyed and with status 58
-   while a firmware update is in progress (for the foreign activation: another than its own).
-   When accepted, the P2 session ends and all streams stop as from `UPDATE_BEGIN` (A1.8;
-   0022 §10), level-2 TCI connections are closed, and the reset follows steps 2–5 of the
-   commanded reset (A1.9). The switch of the boot choice, or of the restart target, and
-   item 7 are done only between steps 4 and 5, as for a factory reset (A1.6a); a refusal with
-   status 59 changes neither.
-7. **Secrets** (0024 R5). Before the switch the G7250 MUST erase the management secret
-   (A1.10), so that the stock firmware cannot read it. Other configuration of this firmware
-   MAY stay in its own storage; where HIS-18 identifies the stock firmware's own settings
-   area, the G7250 SHOULD leave it untouched.
-8. **Log** (0024, Details). The switch MUST be logged with its source and its target
-   (retained, foreign, vendor recovery) before the reset (A1.7).
-9. **Stock to this firmware** (0025 R4, replaces 0024 R6). The first install, and every
-   re-install after a return to stock, MUST use the same main-unit installation path, with no
-   controller step. Because that path must exist while the stock firmware runs, it can only be
-   the vendor's own boot or update path of the main unit or a boot-loader path of the main
-   unit: TBD (HIS-19). If HIS-19 shows that the only stock update path needs the controller,
-   the requirement cannot be met as stated and returns to ON8ST (0025 R5, open risk).
+6. **Safety and order** (0024 R4). A foreign `UPDATE_BEGIN` and `UPDATE_ACTIVATE`,
+   `RETURN_TO_STOCK` and `ENTER_VENDOR_RECOVERY` MUST be refused with status 50 while armed or
+   keyed and with status 58 while another firmware update is in progress; the last two then
+   get status 56. When a foreign `UPDATE_BEGIN` is accepted, the P2 session ends and all
+   streams stop as from `UPDATE_BEGIN` (A1.8; 0022 §10), level-2 TCI connections are closed,
+   and steps 2–4 of the commanded reset run (A1.9) before the hand-over of item 3; a refusal
+   with status 59 changes nothing.
+7. **Secrets** (0024 R5). Before the hand-over the G7250 MUST erase the management secret from
+   its storage (A1.10), so that the stock firmware cannot read it. The installer keeps what it
+   needs to authenticate the rest of the transfer in RAM only. The G7250 MUST leave the factory
+   EEPROM (I²C1 0x50) unwritten and MUST NOT use the Backup SRAM or the RTC backup registers
+   ([HIS] HIS 15 rules 3, 4).
+8. **Log** (0024, Details). The hand-over MUST be logged with its source and its target
+   (foreign image, length, SHA-256) before the installer starts (A1.7).
+9. **Stock to this firmware** (0028 Decision 1; replaces 0025 R4 and 0024 R6). The first
+   install, and every re-install after a return to stock, goes once through the vendor's
+   documented update path on the controller (USB drive and update menu) ([HIS] HIS 15), with an
+   image of this firmware (boot stage and first slot) in the form that path accepts. This is
+   the only installation step that needs the controller. That the vendor bootloader starts such
+   an image is to be shown by the rollback drill F1 on the radio before the first flash; if F1
+   finds a bootloader entry without the controller, a later decision may use it. After the
+   first install the radio has no management secret (A1.10).
 10. **No vendor images in this project** (0024 R7; 0018). The owner supplies any stock image;
     this project does not redistribute one, and the reference model (0019) tests with a
     synthetic opaque image.
@@ -3049,7 +3080,7 @@ Unless a test says otherwise, a test in which KEY or CWX keys runs with break-in
 | T-A1-05 | An update is refused while armed or transmitting. |
 | T-A1-06 | An older image is refused without the downgrade flag and accepted, logged, with it. |
 | T-A1-07 | A block with a bad CRC-32 is rejected and requested again; an image for other hardware is refused before writing. |
-| T-A1-08 | Power loss at each update step leaves a bootable image (reference model). |
+| T-A1-08 | Power loss at each step of an update to an image of this firmware leaves a bootable image (reference model). The foreign image of A1.8a item 3 is excluded; it has its own test. |
 | T-A1-09 | A trial boot without confirmation rolls back and logs it. |
 | T-A1-10 | A bad network configuration or an address conflict falls back to the previous one. |
 | T-A1-11 | A General packet that moves a P2 port onto the management port leaves the management socket in place and logs the conflict. |
@@ -3093,14 +3124,15 @@ Unless a test says otherwise, a test in which KEY or CWX keys runs with break-in
 | T-A1-49 | With forward power decaying slowly after the unkey (reference model), a `RESTART` while keyed is accepted; during its wait for RF gone a second `RESTART` from another host gets status 1 and a `FACTORY_RESET` gets status 35; exactly one reset follows (reset counter + 1, `GET_STATS`), and the secret and the configuration of Table A1-4 are unchanged (A1.9, one commanded reset at a time). |
 | T-A1-50 | Host A opens the write session with an authenticated `SET_CONFIG` at *t* = 0 and repeats the same request (same id, command and payload) at *t* = 4 s, answered from the stored reply; a write from host B gets status 35 before *t* = 60 s and is accepted after the 60 s idle time counted from *t* = 0, not from the repeat (A1.4, A1.10). |
 | T-A1-51 | With forward power decaying slowly after the unkey (reference model), host A's `RESTART` while keyed is accepted: a repeat from A during the wait for RF gone gets status 1, a repeat after the reply gets the stored status 0 reply; a `RESTART` from host B during the wait gets status 1, and B's stored reply of an earlier request is unchanged. With forward power held above `P_rf_off` for `t_reset_wait`, A gets status 59, and both A's repeat and B's retried `RESTART` are answered with status 59; no reset follows (A1.4, A1.9; 0022 §87 item 3). |
-| T-A1-52 | `RETURN_TO_STOCK`, `ENTER_VENDOR_RECOVERY` and a foreign-image `UPDATE_ACTIVATE` while armed, and while keyed, get status 50 and leave `TX_STATE` and `TX_ARM_STATE` unchanged; during another firmware update they get status 58 (A1.8a item 6). |
-| T-A1-53 | `RETURN_TO_STOCK` with a SHA-256 that differs from the one identification reports gets status 55 and changes nothing; without a retained stock image, and `ENTER_VENDOR_RECOVERY` where not supported, get status 56; identification reports both (A1.5 I-2a, A1.8a items 2, 4). |
-| T-A1-54 | An accepted `RETURN_TO_STOCK` ends the P2 session, stops the streams, logs the switch with source and target, replies after RF is gone and switches the boot choice and erases the secret only with the reset; with forward power held above `P_rf_off` it gets status 59 and the boot choice and secret are unchanged (reference model; A1.8a items 6–8). |
-| T-A1-55 | A synthetic opaque image sent with the "foreign image" flag is accepted only if the hardware id matches (else 51) and the hash equals the owner-supplied SHA-256 (else 55); `UPDATE_ACTIVATE` without the flag gets 55; with it the activation is permanent, with no trial boot and no rollback (reference model; A1.8a items 3, 5). |
+| T-A1-52 | A foreign-image `UPDATE_BEGIN` and `UPDATE_ACTIVATE`, `RETURN_TO_STOCK` and `ENTER_VENDOR_RECOVERY` while armed, and while keyed, get status 50 and leave `TX_STATE` and `TX_ARM_STATE` unchanged; during another firmware update they get status 58 (A1.8a item 6). |
+| T-A1-53 | Otherwise, `RETURN_TO_STOCK` and `ENTER_VENDOR_RECOVERY` get status 56 and change nothing; identification reports that no stock image is retained and that vendor recovery is not supported (A1.5 I-2a, A1.8a items 2, 4; 0028). |
+| T-A1-54 | An accepted foreign `UPDATE_BEGIN` ends the P2 session, stops the streams, logs the hand-over with source and target, replies after RF is gone with the one-way warning, and only then erases the secret from storage and hands over to the installer; with forward power held above `P_rf_off` it gets status 59 and nothing changes (reference model; A1.8a items 3, 6–8). |
+| T-A1-55 | A synthetic opaque image sent with the "foreign image" flag is accepted only if the hardware id matches (else 51) and it fits sectors 1–7 (else 19); a block with a bad CRC gets 53 and is not written; `UPDATE_VERIFY` with a hash that differs from the owner-supplied SHA-256 gets 55; `UPDATE_ACTIVATE` without the flag, or before a good verify, gets 55; with both, the activation is permanent, with no trial boot and no rollback (reference model; A1.8a items 3, 5). |
 | T-A1-56 | No update, foreign image included, writes the boot loader, the vendor update or recovery region or a retained stock image (reference model; A1.8a item 1). |
 | T-A1-57 | With the controller disconnected, and with a controller that does not respond, discovery, RX IQ on level 1 and the management channel work; identification reports the controller state (reference model; part A scope, A1.5 I-6; 0023). |
-| T-A1-58 | With the controller disconnected, an image of this firmware and then a synthetic opaque stock image with the "foreign image" flag are installed through the same management commands (`UPDATE_BEGIN`, `UPDATE_BLOCK`, `UPDATE_VERIFY`, `UPDATE_ACTIVATE`) and the same commanded-reset order; both succeed and no step waits for, or sends anything to, the controller (reference model; A1.8a "One installation path"; 0025 R1–R3). |
-| T-A1-59 | For an image of this firmware and for a foreign image alike, a block with a wrong CRC-32 gets status 53 and a staged image whose SHA-256 differs from the header gets status 55 at `UPDATE_VERIFY`, and an image for other hardware gets status 51 before anything is written; the running image is unchanged in each case (reference model; A1.8, A1.8a; 0025 R3). |
+| T-A1-58 | With the controller disconnected, an image of this firmware (staged in the other slot) and then a synthetic opaque stock image with the "foreign image" flag (streaming installer) are installed through the same management commands (`UPDATE_BEGIN`, `UPDATE_BLOCK`, `UPDATE_VERIFY`, `UPDATE_ACTIVATE`) and the same commanded-reset order; both succeed and no step waits for, or sends anything to, the controller (reference model; A1.8a "Installation paths"; 0025 R2, 0028). |
+| T-A1-59 | For an image of this firmware and for a foreign image alike, a block with a wrong CRC-32 gets status 53, an image whose SHA-256 differs from the header gets status 55 at `UPDATE_VERIFY`, and an image for other hardware gets status 51 before anything is written or erased (reference model; A1.8, A1.8a; 0025 R3). |
+| T-A1-60 | During a streaming installation (A1.8a item 3): `UPDATE_STATUS` reports the sectors written; `UPDATE_ABORT` after the first erase gets status 60; a transfer that stops for more than 10 min does not restart the main unit and resumes when blocks arrive again; sector 0 and the option bytes are never written, and no sector is written before all its blocks arrived with a good CRC (reference model; 0028). |
 | T-A2-01 | Identification and record `level` report the active level and the owner (IP and port). |
 | T-A2-02 | A level change drops the arm with `LEVEL_CHANGE` (after G6). |
 | T-A2-03 | While level 2 is active, P2 C&C starts no session and no takeover (after G6). |
