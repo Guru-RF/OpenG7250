@@ -73,3 +73,19 @@ Interface facts only, in `his/80-rf-fpga.md`: the frame is 24 bytes; the NCO
 words are big-endian at byte offsets 1, 5 and 19; byte 0 holds status flags;
 byte 23 most likely the rate index. The roles of the words stay open until the
 emulator reaches the superloop or a bus capture on the radio is made.
+
+## Run 4 (2026-11-20, emu/integrate c0ab490 + 1b7a473)
+
+With the MDMA model and the PA bias plant (`re/emu/docs/MDMA-model.md`,
+`PA-plant-model.md`), the stock Main now completes its bias trim and reaches its
+superloop ("Init Radio Server", IWDG refreshed). The probe then sent the seven
+steps, but **the Main still applies none of them**: it receives no byte on
+USART2. DMA1 Stream 2 (USART2 RX) stays at NDTR = 0x400 with the CIRC bit absent
+in CR (0x411). This is the same Renode 1.17 DMA gap that the metering feed works
+around. The frames stay at
+`81 1DBAAAAB 1D7AAAAB 16 04 04 00 00 00 02 00 02 12 1DBAAAAB 03` (words 1 and
+19 = 14.270000 MHz, word 5 = 14.150000 MHz, from the Main's own boot settings).
+
+So the roles of the three words are still open, and the HIS stays as cleared.
+Next step on the emulator side: deliver USART2 RX to the Main (a circular-DMA
+shim for DMA1 Stream 2, like the metering feed), then rerun the probe.
