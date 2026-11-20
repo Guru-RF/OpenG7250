@@ -40,5 +40,5 @@
 | 0036 | 0036 — Transmit is part of r1.0, armable only once calibrated | 2 | 5 | annex-aethersdr: G-13 TCI profile alignment (0014) — M, after part C; glossary: (top); network-interface: B10 Transmit (milestone M4); network-interface: Transmit (B10); part-c-tci-profile: C5.5 TX arm on TCI |  |
 | 0037 | 0037 — g7250ctl in Rust, sharing the protocol crate | 2 | 0 |  | language of the management CLI |
 | 0038 | 0038 — The AetherSDR G7250 backend: C++/Qt, after firmware milestone F2, offered through the RFC | 2 | 1 | annex-aethersdr: For ON8ST |  |
-| 0039 | 0039 — Calibration set, transmit ranges and management payloads (testbench findings SF-01 to SF-18) | 1 | 10 | network-interface: A1 Management channel; network-interface: A2 Ownership and level selection; network-interface: A3 Safety behaviour visible on the network; network-interface: Annex M — Management payloads; network-interface: B10 Transmit (milestone M4); network-interface: B4 Capability block … |  |
+| 0039 | 0039 — Calibration set, transmit ranges and management payloads (testbench findings SF-01 to SF-18) | 1 | 11 | glossary: (top); network-interface: A1 Management channel; network-interface: A2 Ownership and level selection; network-interface: A3 Safety behaviour visible on the network; network-interface: Annex M — Management payloads; network-interface: B10 Transmit (milestone M4) … |  |
 
