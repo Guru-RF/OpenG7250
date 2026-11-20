@@ -50,3 +50,20 @@ Reviewer: the gate session (as reviews 2 and 3).
 README status update when the HIS is cleared. Everything else in the diff is
 clean: interface facts only, sourced and tagged. A check of the H1 diff alone
 is enough to clear.
+
+---
+
+## Final check (diff 045f01a..b95f519, his/)
+
+| Item | Result |
+| --- | --- |
+| H1 (80 Open) | applied: the stale "byte offsets unknown" line is gone. What is open now: the meaning of bytes 9–18, safe calibration values, the meaning of the flag bits in byte 0. |
+| Advisory (spectral-inversion flag) | applied: its position in the frame is marked unknown. |
+
+The diff adds no stock behaviour and no untagged fact, and the Open list now
+agrees with the command table.
+
+### Verdict (final)
+
+**CLEARED** at b95f519 (his/next). Follow-up for the emu session: set the status
+in `his/README.md` to "cleared at b95f519 (review 4)".
