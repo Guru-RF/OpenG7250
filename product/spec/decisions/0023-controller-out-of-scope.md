@@ -107,6 +107,16 @@ Option A.
   newer controller firmware works with our main-unit firmware is not guaranteed.
 - No controller firmware, image or protocol knowledge is ever needed on the product side.
 
+## Note of 2026-11-20 (ON8ST decision, relayed by the openg7250 session)
+
+ON8ST confirms option A: the new main-unit firmware leaves the controller alone. CTRL stays
+idle (items 2 and 3 unchanged), and the controller is not used as a front panel: no display
+output, no buttons, no audio and no PTT over CTRL are designed for. This holds on both levels
+unless a later decision changes it; item 6, "Level 2: revisited at gate G6", is therefore not
+a plan to add front-panel use. The level-1 rules of spec A3.7 stay as safety rules for any
+controller input that reaches the main unit anyway (HIS-17). The same day ON8ST also required
+that installing either firmware needs no controller step (0025).
+
 ## Sources
 
 - ON8ST, review of rc4, 2026-11-20.

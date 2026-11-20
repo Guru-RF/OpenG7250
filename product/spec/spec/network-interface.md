@@ -10,7 +10,8 @@
   review of the rc3 draft, §78–§83 from the review of rc3, §84–§86 from the review of
   the rc4 draft and §87 and §88 from the reviews of rc4, and, after ON8ST's review of rc4
   (2026-11-20), the scope statement for the controller (0023) and the return to stock
-  firmware (0024, proposed). Focus: milestone M1 (discovery, capability block, RX IQ on G7250-P2); sections for M2–M5 are complete except for
+  firmware (0024), and, after rc5, one installation path on the main unit without the
+  controller (0025, proposed). Focus: milestone M1 (discovery, capability block, RX IQ on G7250-P2); sections for M2–M5 are complete except for
   values that depend on the hardware.
 - © 2026 ON8ST, CC BY 4.0 (see `LICENSE.md`).
 - Structure: decision 0001, "(2) Network-interface spec", as revised by 0016, split into parts
@@ -38,7 +39,10 @@ controller's firmware, and MUST NOT send anything over CTRL that could damage th
 or leave it unable to start with the stock main-unit firmware (0023 items 2, 3). Levels 1 and 2
 MUST work with the controller disconnected or not responding (0023 item 4). Whether the stock
 controller works with this firmware, and what the main unit does towards it over CTRL, is
-TBD (HIS-17); a controller in an unknown or error state is accepted (0023 item 5). The FPGA
+TBD (HIS-17); a controller in an unknown or error state is accepted (0023 item 5). The G7250
+leaves CTRL idle and does not use the controller as a front panel (no display, buttons, audio
+or PTT over CTRL), on either level, unless a later decision changes it (0023, note of
+2026-11-20). No installation step needs the controller (A1.8a; 0025). The FPGA
 image is replaced only if the main-unit firmware loads it: TBD (HIS-18). The owner can always
 return to the stock firmware (A1.8a; 0024).
 
@@ -299,7 +303,9 @@ A1.8 **Firmware update** (authenticated) (0008, Functions, U-1 to U-10):
   "downgrade" flag; a downgrade is logged; configuration the older image does not understand
   is kept but not used, and the reply says so (U-8; 0008, Resolved 3).
 - A recovery path that does not depend on this firmware MUST exist; which one: TBD (HIS-19,
-  HIS-17) (U-9). The return to the stock firmware is A1.8a (0024).
+  HIS-17) (U-9). The return to the stock firmware is A1.8a (0024). An update to a new image
+  and the installation of a stock image use one installation path on the main unit, with no
+  step that needs the controller (A1.8a, "One installation path"; 0025).
 - The G7250 MUST NOT program itself through P2 Erase and Program packets (B3.9).
 
 A1.8a **Return to stock firmware** (authenticated) (0024). Installing this firmware MUST be
@@ -307,9 +313,22 @@ reversible: the owner can always return the main unit, and the FPGA image if thi
 replaced it (HIS-18), to the stock firmware (0024 R1). Feasibility of each way back: TBD
 (HIS-18, HIS-19).
 
+**One installation path** (0025, proposed, amends 0024). Both directions, stock to this
+firmware and this firmware to stock, MUST use one installation path on the main unit, and no
+step of it MAY need the controller: no TF card, USB, display or button on the controller
+(0025 R1, R2). While this firmware runs, that path is the update of A1.8, and it is the same
+for an image of this firmware and for an owner-supplied stock image: the same transport, block
+transfer and staging, integrity checks (hardware id, block CRC-32, SHA-256) and commanded-reset
+order (A1.9). The only differences are the "foreign image" flag (item 3), no trial boot and no
+rollback (item 5), no downgrade check (item 3) and the erasure of the secret (item 7) (0025
+R3). How the stock-to-this-firmware direction reaches the same path is item 9. This document
+specifies only this side: the vendor image format and the stock boot loader's behaviour are
+not specified here (0025, "Clean room").
+
 1. **Vendor path left intact** (0024 R2). The G7250 MUST NOT erase, overwrite or disable the
    vendor's own update or recovery path (vendor boot loader, the path of the vendor's update
-   tool), as far as HIS-19 shows one exists. An update (A1.8) writes only this firmware's
+   tool), as far as HIS-19 shows one exists; it counts as the installation path only if it
+   needs no controller step (0025 Decision 2). An update (A1.8) writes only this firmware's
    image slots and staging area and never the boot loader (U-7), nor a retained stock image
    (item 2).
 2. **Retained stock image** (0024 Decision 3). If the flash has room (HIS-18), the first
@@ -326,8 +345,9 @@ replaced it (HIS-18), to the stock firmware (0024 R1). Feasibility of each way b
    the activation gets status 55. Where a stock image is written so that the radio starts it:
    TBD (HIS-19).
 4. **Vendor recovery mode** (0024 Decision 4). If HIS-19 shows a vendor update or recovery
-   mode that software can select, the G7250 MAY offer `ENTER_VENDOR_RECOVERY`, which restarts
-   into it; otherwise the command gets status 56.
+   mode that software can select and that needs no controller step (0025 Decision 2), the
+   G7250 MAY offer `ENTER_VENDOR_RECOVERY`, which restarts into it; otherwise the command gets
+   status 56.
 5. **Permanent, not a trial** (0024, Details). A stock image is activated without trial boot
    and without rollback to this firmware (U-6 does not apply), because it cannot confirm
    itself. The reply says so.
@@ -345,9 +365,12 @@ replaced it (HIS-18), to the stock firmware (0024 R1). Feasibility of each way b
    area, the G7250 SHOULD leave it untouched.
 8. **Log** (0024, Details). The switch MUST be logged with its source and its target
    (retained, foreign, vendor recovery) before the reset (A1.7).
-9. **Stock to this firmware** (0024 R6). The first install, and every re-install after a
-   return to stock, uses the path the owner uses for the first install. It is out of scope
-   of this document and documented separately: TBD (HIS-19).
+9. **Stock to this firmware** (0025 R4, replaces 0024 R6). The first install, and every
+   re-install after a return to stock, MUST use the same main-unit installation path, with no
+   controller step. Because that path must exist while the stock firmware runs, it can only be
+   the vendor's own boot or update path of the main unit or a boot-loader path of the main
+   unit: TBD (HIS-19). If HIS-19 shows that the only stock update path needs the controller,
+   the requirement cannot be met as stated and returns to ON8ST (0025 R5, open risk).
 10. **No vendor images in this project** (0024 R7; 0018). The owner supplies any stock image;
     this project does not redistribute one, and the reference model (0019) tests with a
     synthetic opaque image.
@@ -1116,6 +1139,9 @@ and does not block an arm (0022 §15). SEND, the TUNER trigger and internal ATU 
 under the arm (B10.9). Controller TX functions (ATU key, SWR scan) are refused while level 1
 runs unless they reach the main unit as reportable requests (HIS-17). If a path cannot be
 blocked, M4 is blocked for that path until ON8ST decides (HIS-10, HIS-17; 0007, Decision 6).
+The controller is not used as a front panel on either level (part A, "Scope of the firmware";
+0023, note of 2026-11-20); the rules above are safety rules for controller inputs that reach
+the main unit anyway.
 
 A3.8 **Management** never keys the radio, arms it or loosens a limit; it may unkey and
 disarm in the order of A3.2 (A1.9; 0022 §8).
@@ -3062,6 +3088,8 @@ Unless a test says otherwise, a test in which KEY or CWX keys runs with break-in
 | T-A1-55 | A synthetic opaque image sent with the "foreign image" flag is accepted only if the hardware id matches (else 51) and the hash equals the owner-supplied SHA-256 (else 55); `UPDATE_ACTIVATE` without the flag gets 55; with it the activation is permanent, with no trial boot and no rollback (reference model; A1.8a items 3, 5). |
 | T-A1-56 | No update, foreign image included, writes the boot loader, the vendor update or recovery region or a retained stock image (reference model; A1.8a item 1). |
 | T-A1-57 | With the controller disconnected, and with a controller that does not respond, discovery, RX IQ on level 1 and the management channel work; identification reports the controller state (reference model; part A scope, A1.5 I-6; 0023). |
+| T-A1-58 | With the controller disconnected, an image of this firmware and then a synthetic opaque stock image with the "foreign image" flag are installed through the same management commands (`UPDATE_BEGIN`, `UPDATE_BLOCK`, `UPDATE_VERIFY`, `UPDATE_ACTIVATE`) and the same commanded-reset order; both succeed and no step waits for, or sends anything to, the controller (reference model; A1.8a "One installation path"; 0025 R1–R3). |
+| T-A1-59 | For an image of this firmware and for a foreign image alike, a block with a wrong CRC-32 gets status 53 and a staged image whose SHA-256 differs from the header gets status 55 at `UPDATE_VERIFY`, and an image for other hardware gets status 51 before anything is written; the running image is unchanged in each case (reference model; A1.8, A1.8a; 0025 R3). |
 | T-A2-01 | Identification and record `level` report the active level and the owner (IP and port). |
 | T-A2-02 | A level change drops the arm with `LEVEL_CHANGE` (after G6). |
 | T-A2-03 | While level 2 is active, P2 C&C starts no session and no takeover (after G6). |

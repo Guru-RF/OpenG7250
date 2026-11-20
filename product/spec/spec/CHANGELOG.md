@@ -4,6 +4,16 @@
 
 All dates 2026-11-19. Decision numbers refer to `decisions/`.
 
+## After rc5 (2026-11-20)
+
+- 0023 note: ON8ST confirms option A; CTRL stays idle and the controller is not used as a
+  front panel on either level (part A "Scope of the firmware", A3.7).
+- 0025 (proposed, amends 0024): one installation path on the main unit for both directions,
+  with no step that needs the controller; the foreign-image upload is the main mechanism;
+  first install uses the same path, pending HIS-19, with an explicit open risk (A1.8, A1.8a
+  "One installation path", items 1, 4, 9; T-A1-58, T-A1-59; HIS-19). No new management
+  command.
+
 ## rc5 — release candidate 5 (tag `spec-rc5`)
 
 - ON8ST reviewed rc4 and accepted 0020–0024 (2026-11-20).

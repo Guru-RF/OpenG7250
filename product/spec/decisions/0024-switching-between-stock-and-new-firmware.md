@@ -159,6 +159,10 @@ Details:
 - After a return to stock, the controller works as with the factory radio, and its System
   Information page shows the stock FIRMWARE (and FPGA) version again [G7250-MAN]; the owner
   can check it there.
+- Note of 2026-11-20: amended by 0025 (proposed): one installation path on the main unit for
+  both directions, with no step that needs the controller. Option (b) becomes the main
+  mechanism; (c) and (d) count only where they need no controller step; R6 is replaced by
+  0025 R4.
 
 ## Questions for the HIS
 

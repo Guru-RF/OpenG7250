@@ -248,6 +248,11 @@ Priority: **M1** = needed for milestone M1 (discovery, capability block, RX-IQ);
   installation of our firmware? How is the first install (stock to new) done, and how the
   return (new to stock)? Can the boot choice select a stock image, and where must a stock
   image be written so that the radio starts it?
+- Added by 0025: which interface does the stock boot loader, or the vendor's update, use to
+  update the main unit? Does that path need the controller (TF card, USB, display, button)?
+  What does the main unit need in order to accept a stock image? (Asked only as that; no
+  detail of the vendor format is recorded on the product side.) Flash room for images and
+  staging is HIS-18 (already asked by 0008 and 0024).
 
 ### HIS-20 — Source of randomness (M5)
 

@@ -218,21 +218,25 @@ AetherSDR work runs alongside: the G7250 backend receives from M1 and transmits 
 - The stock firmware's network protocol (clean room).
 - The controller (head) firmware: the controller keeps its stock firmware and is not
   modified, reflashed or replaced; whether it works with the new main-unit firmware is open
-  (0023; HIS-17). The FPGA image is replaced only if the main-unit firmware loads it
+  (0023; HIS-17). The new firmware leaves CTRL idle and does not use the controller as a
+  front panel, on either level (0023, note of 2026-11-20). The FPGA image is replaced only if the main-unit firmware loads it
   (HIS-18).
 - Distributing vendor (stock) firmware images: the owner supplies any stock image (0024,
   0018).
-- The first install of the new firmware (stock to new): a separate install guide, not the
-  network spec (0024; HIS-19).
+- Any installation step on the controller (TF card, USB, display, button): both directions
+  use one installation path on the main unit (0025). The first install (stock to new) is no
+  longer outside the spec; it uses that same path, pending HIS-19 (spec A1.8a item 9).
 
 ## 8. Dependencies and open questions
 
 - **HIS.** All hardware questions are in `open-questions-his.md` (HIS-01 to HIS-19). M1 needs
   at least HIS-01, -02, -04, -14, -15, and part of -18.
 - **Reversibility.** Installing the new firmware is reversible: the vendor's own update and
-  recovery path is left intact, and from the new firmware the owner can upload a stock image
-  again and, if the flash has room, return to a retained one (0024; spec A1.8a; HIS-18,
-  HIS-19).
+  recovery path is left intact, and from the new firmware the owner installs a stock image in
+  the same way as a new image, through one installation path on the main unit with no
+  controller step, and, if the flash has room, can return to a retained one (0024, 0025; spec
+  A1.8a; HIS-18, HIS-19). Open risk: if the only stock update path needs the controller, the
+  first install cannot use that path and ON8ST decides (0025 R5).
 - **AetherSDR.** A G7250 backend on P2, including transmit (0016). Upstream contributions
   need a go from ON8ST.
 - **g7250-testbench.** Reference model and conformance tests per spec section (0001).
@@ -244,5 +248,6 @@ AetherSDR work runs alongside: the G7250 backend receives from M1 and transmits 
 - **Decisions.** 0001–0019 are accepted; 0020–0022 (rc1 details, TCI profile choices, review
   fixes) are proposed for review at rc4. 0023 (controller out of scope) has its scope
   statement accepted (ON8ST, 2026-11-20) and its details proposed; 0024 (switching between
-  stock and new firmware) is proposed. What remains are hardware values from the HIS
+  stock and new firmware) is proposed. After rc5: 0023 and 0024 accepted; 0025 (one
+  installation path on the main unit, amends 0024) is proposed. What remains are hardware values from the HIS
   (limits, clocks, filter plan, sensor details).
