@@ -25,3 +25,49 @@ New firmware:
 
 With the first product (a headless Main with the stock Control), only the Main
 is reflashed; the Control keeps its factory firmware.
+
+## Main flash
+
+**Evidence:** part STM32H725xG/H735xG (MEDIUM, **rests on disassembly**: HAL and
+clock evidence); flash organisation per the ST datasheet. Image extent: the
+factory image V1.0.1 file (VERIFIED: base plus file size).
+
+| Range | Sectors (128 KiB) | Content |
+| --- | --- | --- |
+| 0x08000000–0x0801FFFF | 0 | bootloader (never written, rule 1) |
+| 0x08020000–0x080FFFFF | 1–7 (896 KiB) | application area |
+
+- The factory Main image V1.0.1 is a flat image for 0x08020000 of 453 152 bytes
+  (sectors 1–4). Two such images do not fit in the application area.
+- RAM (320 KiB AXI SRAM) is smaller than the image.
+
+## Installing the factory firmware from the new firmware
+
+New firmware MAY include an installer that writes an owner-supplied factory
+Main image (a flat image for 0x08020000) without the Control. Such an installer:
+
+1. runs from RAM while it rewrites the application area;
+2. writes only sectors 1–7, never sector 0 and never the option bytes (rules 1
+   and 2);
+3. receives the image in parts (for example one sector at a time over
+   Ethernet), since it does not fit in RAM;
+4. leaves the vendor update path through the Control usable as the fallback if
+   a transfer breaks.
+
+Not yet known, to be proven on the radio before relying on it: whether the
+vendor bootloader starts an application it did not write itself.
+
+## The vendor update path
+
+The vendor path updates the Main only through the Control unit: files on the
+Control's USB drive, then the Control's update menu ([BL] held with [POWER])
+(vendor update guide V1.0.1, public). It depends on sector 0 of both MCUs and
+on the CTRL cable. New Main firmware MUST NOT disable it; rules 1 and 2 keep it
+intact. How the Main's bootloader is entered and fed is not known.
+
+## FPGA
+
+The FPGA configures itself from its own configuration flash; the Main firmware
+does not load it (HIGH, **rests on disassembly**). Switching Main firmware does
+not change the FPGA image. New firmware has no reason to access that flash and
+MUST NOT try.

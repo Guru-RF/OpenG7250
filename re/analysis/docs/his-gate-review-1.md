@@ -174,6 +174,24 @@ Note on D6: the USART2 pins (PD5/PD6, AF7) are wiring facts but are not in the
 HIS yet, since the headless Main does not use the link; add them if a product
 configuration needs it.
 
+## Additions after review 1 (for the second read)
+
+Added to `his/` on 2026-11-20 for the product questions HIS-17/18/19
+(decisions 0023/0024, option A, and ON8ST's requirement that the factory
+firmware is installable from the Main side without the Control). RE findings:
+`re/analysis/docs/his-17-ctrl-idle.md`, `re/analysis/docs/his-18-19-update-path.md`.
+
+- `70-interlink.md`: USART2 pins PD5/PD6 AF7 (wiring); idle-link constraints
+  (no transmission, TX held at idle level, no answer needed from the Control).
+- `20-power.md`: the Main powers the Control over CTRL; the power key reaches
+  PH5 over CTRL (HYPOTHESIS); switching off is the Main's job.
+- `15-stock-recovery.md`: Main flash layout and image size; constraints for an
+  own installer of the factory image; the vendor path runs through the Control
+  and must not be disabled; the FPGA configures from its own flash.
+
+These additions have not had a first review; the gate session reads them with
+the rest.
+
 ## Next steps
 
 1. ~~Apply the Remove and Move items, and rewrite the README (RE side).~~ Done, see "Gate review 1: changes applied".
