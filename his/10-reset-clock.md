@@ -21,6 +21,11 @@ loaded at 0x08020000 with the vector table there.
   true random-number generator, per the ST datasheet (HIGH for "present", since
   the exact part is MEDIUM; confirm with DBGMCU_IDCODE and the part marking).
 
+- **IWDG (open):** whether the independent watchdog starts from reset depends
+  on the IWDG1_SW option byte, which is not yet read. If it is hardware-started,
+  new firmware must service it from reset. Read it in step 2 of
+  `90-needs-hardware.md`.
+
 ## Image placement (platform constraint)
 - The bootloader occupies 0x08000000–0x0801FFFF and is not part of the
   application image.
