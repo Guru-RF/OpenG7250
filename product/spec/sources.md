@@ -131,6 +131,7 @@ the source has been found but not checked.
 
 ### [G7250] Public G7250 product information
 
+- **[HIS] G7250 hardware-interface specification.** `his/` in the OpenG7250 umbrella repository, cleared by gate review 2 on 2026-11-20; read at commit `2a38b7f` (content `89f5b5d`) in a read-only worktree without `re/`. Cited by section, e.g. "HIS 15". The only channel for hardware facts into the product side (AGENTS.md rule 2).
 - **[G7250-MAN] Xiegu G7250 Operation Manual, English.** Primary source. The file name says
   "rev0.1"; the title page says "Rev.1.01".
   radioddity.s3.amazonaws.com/Xiegu_G7250_Operation_Manual_EN_rev0.1_20261008.pdf

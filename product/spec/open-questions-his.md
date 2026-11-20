@@ -1,6 +1,6 @@
 # Open questions for the hardware-interface spec (HIS)
 
-Questions that only the hardware-interface spec (`g7250-his`) can answer. This repository
+Questions that only the hardware-interface spec (`g7250-his`, now `his/` in the umbrella repository) can answer. The HIS was cleared by gate review 2 on 2026-11-20 and answered at commit `2a38b7f`; each question below carries its status. This repository
 does not look for the answers itself (AGENTS.md rules 1 and 7). Each question says why we
 need it, which decision or milestone waits for it, and what public sources already say.
 
@@ -14,6 +14,7 @@ Priority: **M1** = needed for milestone M1 (discovery, capability block, RX-IQ);
 
 ### HIS-01 — ADC and sample clock (M1)
 
+- **HIS answer** ([HIS] `2a38b7f`): partly (HIS 80); see `analysis/his-2a38b7f-impact.md` §2.
 - Question: which ADC is used, at what sample clock, and which decimated IQ sample rates can
   the main unit produce?
 - Why: P2 DDC sample rates are 48/96/192/384/768/1536 ksps [P2]. The network side limits
@@ -25,6 +26,7 @@ Priority: **M1** = needed for milestone M1 (discovery, capability block, RX-IQ);
 
 ### HIS-02 — Number of receivers (M1)
 
+- **HIS answer** ([HIS] `2a38b7f`): partly (HIS 80); see `analysis/his-2a38b7f-impact.md` §2.
 - Question: how many independent receive channels (DDCs) can the main unit run at the same
   time?
 - Why: P2 reports the number of DDCs in the discovery reply [P2]. Each DDC adds one I&Q
@@ -34,6 +36,7 @@ Priority: **M1** = needed for milestone M1 (discovery, capability block, RX-IQ);
 
 ### HIS-03 — Second ADC or TX feedback path (M4)
 
+- **HIS answer** ([HIS] `2a38b7f`): partly (HIS 85); see `analysis/his-2a38b7f-impact.md` §2.
 - Question: is there a second ADC, or a path that feeds the transmitted signal back to the
   receiver?
 - Why: only then are P2 features such as synchronous DDCs and PureSignal of any use
@@ -41,6 +44,7 @@ Priority: **M1** = needed for milestone M1 (discovery, capability block, RX-IQ);
 
 ### HIS-04 — DSP clock and frequency word (M1)
 
+- **HIS answer** ([HIS] `2a38b7f`): answered (MEDIUM) (HIS 80); see `analysis/his-2a38b7f-impact.md` §2.
 - Question: what is the DSP clock from which receive and transmit frequencies are derived,
   and can the hardware take a frequency in Hz or does it need a phase word?
 - Why: P2 lets the radio declare "frequency or phase word" and its DSP clock in the
@@ -50,6 +54,7 @@ Priority: **M1** = needed for milestone M1 (discovery, capability block, RX-IQ);
 
 ### HIS-05 — Frequency reference (M2)
 
+- **HIS answer** ([HIS] `2a38b7f`): partly (HIS 30); see `analysis/his-2a38b7f-impact.md` §2.
 - Question: what is the reference oscillator, and can it be calibrated or locked to an
   external reference?
 - Why: P2 has a "10 MHz reference PLL locked" status bit and reference-source settings [P2].
@@ -59,6 +64,7 @@ Priority: **M1** = needed for milestone M1 (discovery, capability block, RX-IQ);
 
 ### HIS-06 — Antenna switching (M2)
 
+- **HIS answer** ([HIS] `2a38b7f`): open (not in the HIS); see `analysis/his-2a38b7f-impact.md` §2.
 - Question: how are ANT1 and ANT2 selected, and what is the state after power-on and after
   a fault?
 - Why: G7250 register map (0005); safe receive default state for a host that has not armed
@@ -68,6 +74,7 @@ Priority: **M1** = needed for milestone M1 (discovery, capability block, RX-IQ);
 
 ### HIS-07 — Filter switching and front end (M2)
 
+- **HIS answer** ([HIS] `2a38b7f`): partly (HIS 85); see `analysis/his-2a38b7f-impact.md` §2.
 - Question: which band-pass and low-pass filters, preamplifier and attenuator exist, how are
   they switched, and what does the main unit do automatically per frequency?
 - Why: G7250 register map (0005); which standard P2 fields (step attenuator, Alex words)
@@ -83,6 +90,7 @@ Priority: **M1** = needed for milestone M1 (discovery, capability block, RX-IQ);
 
 ### HIS-08 — Internal ATU (M2)
 
+- **HIS answer** ([HIS] `2a38b7f`): partly (HIS 85); see `analysis/his-2a38b7f-impact.md` §2.
 - Question: how is the internal tuner switched in and out, how is tuning started, what does
   it report (busy, success, failure, SWR), and where is the per-band tuning data stored?
 - Why: G7250 register map (0005); interaction with TX arm and PTT (0015, 0007).
@@ -94,6 +102,7 @@ Priority: **M1** = needed for milestone M1 (discovery, capability block, RX-IQ);
 
 ### HIS-09 — External interfaces on the main unit (M2)
 
+- **HIS answer** ([HIS] `2a38b7f`): partly (HIS 85); see `analysis/his-2a38b7f-impact.md` §2.
 - Question: can the firmware control or read the TUNER (13.8 V out, return, trigger), SEND
   (transmit control) and ALC (output) interfaces, and how?
 - Why: candidates for the G7250 register map (0005) and the safety core (0007): SEND keys
@@ -105,6 +114,7 @@ Priority: **M1** = needed for milestone M1 (discovery, capability block, RX-IQ);
 
 ### HIS-10 — PTT and TX interlock (M3, M4)
 
+- **HIS answer** ([HIS] `2a38b7f`): partly (HIS 85); see `analysis/his-2a38b7f-impact.md` §2.
 - Question: where do PTT and the TX interlock sit in hardware, which sources can key the
   transmitter (network, controller microphone PTT, KEY input, SEND), and can the firmware
   block each of them?
@@ -114,6 +124,7 @@ Priority: **M1** = needed for milestone M1 (discovery, capability block, RX-IQ);
 
 ### HIS-11 — Sensors (M2, M3)
 
+- **HIS answer** ([HIS] `2a38b7f`): partly (HIS 85); see `analysis/his-2a38b7f-impact.md` §2.
 - Question: which sensors exist and how are they read: forward and reflected power, SWR,
   PA temperature, supply voltage and current, PA current? With what resolution and update
   rate?
@@ -141,6 +152,7 @@ Priority: **M1** = needed for milestone M1 (discovery, capability block, RX-IQ);
 
 ### HIS-12 — Power control and limits (M4)
 
+- **HIS answer** ([HIS] `2a38b7f`): partly (HIS 85); see `analysis/his-2a38b7f-impact.md` §2.
 - Question: how is output power set (drive level, PA bias), what are the limits per band and
   per mode, and is there a hardware power or SWR fold-back?
 - Why: P2 drive level 0–255 [P2]; limits in the safety core (0011, 0007).
@@ -154,6 +166,7 @@ Priority: **M1** = needed for milestone M1 (discovery, capability block, RX-IQ);
 
 ### HIS-13 — Fault and reset behaviour (M3)
 
+- **HIS answer** ([HIS] `2a38b7f`): partly (HIS 85); see `analysis/his-2a38b7f-impact.md` §2.
 - Question: what does the hardware do on a processor reset, brown-out or watchdog reset:
   does the PA drop out by itself, and in which state do relays and switches come up?
 - Why: safe state after reset or fault (0001 spec section 9, 0007).
@@ -165,6 +178,7 @@ Priority: **M1** = needed for milestone M1 (discovery, capability block, RX-IQ);
 
 ### HIS-14 — Ethernet controller and its connection (M1)
 
+- **HIS answer** ([HIS] `2a38b7f`): partly (HIS 40); see `analysis/his-2a38b7f-impact.md` §2.
 - Question: please confirm the WCH CH394Q. Which interface connects it to the processor
   (SPI), at what clock, and does the existing design use the chip's sockets or MACRAW mode?
 - Why: the SPI clock caps all network throughput (at most 62 MHz [CH394]); the socket mode
@@ -178,12 +192,14 @@ Priority: **M1** = needed for milestone M1 (discovery, capability block, RX-IQ);
 
 ### HIS-15 — MAC address (M1)
 
+- **HIS answer** ([HIS] `2a38b7f`): open (not in the HIS); see `analysis/his-2a38b7f-impact.md` §2.
 - Question: where is the MAC address stored, and is it unique per unit?
 - Why: the P2 discovery reply carries the MAC address [P2].
 - Added by 0008: is there a unique serial number besides the MAC address?
 
 ### HIS-16 — Public sources on the network interface (M1)
 
+- **HIS answer** ([HIS] `2a38b7f`): open (not in the HIS); see `analysis/his-2a38b7f-impact.md` §2.
 - Question: which public sources document the network interface of the G7250? ON8ST
   mentions a video by the YouTube channel "Temporarily Offline", and [G7250-MAN] refers to a
   "G7250 HDSDR Network Reception Tutorial". Links, please.
@@ -193,6 +209,7 @@ Priority: **M1** = needed for milestone M1 (discovery, capability block, RX-IQ);
 
 ### HIS-17 — The CTRL link (M2, M4)
 
+- **HIS answer** ([HIS] `2a38b7f`): answered (HIS 20, 50, 70); see `analysis/his-2a38b7f-impact.md` §2.
 - Question: what does the 15-pin CTRL cable between main unit and controller carry? In
   particular: can the main unit send audio to the controller's speaker, and can it receive
   microphone audio, PTT and Morse key from the controller? What happens on the main unit when
@@ -219,6 +236,7 @@ Priority: **M1** = needed for milestone M1 (discovery, capability block, RX-IQ);
 
 ### HIS-18 — Processor, memory and logic (G6, M1)
 
+- **HIS answer** ([HIS] `2a38b7f`): answered (HIS 10, 15); see `analysis/his-2a38b7f-impact.md` §2.
 - Question: which processor(s), DSP or FPGA are in the main unit, at what clock, with how
   much RAM and flash?
 - Why: P2 is the heavier protocol (several ports, 24-bit TX IQ at 192 ksps [P2]); the
@@ -237,6 +255,7 @@ Priority: **M1** = needed for milestone M1 (discovery, capability block, RX-IQ);
 
 ### HIS-19 — Firmware loading and recovery (M5)
 
+- **HIS answer** ([HIS] `2a38b7f`): answered, with unknowns (HIS 15); see `analysis/his-2a38b7f-impact.md` §2.
 - Question: how is firmware loaded into the main unit, is there a boot loader that survives
   a failed update, and can an update be done over the network?
 - Why: firmware update over the management channel (0001 spec section 10, 0008); P2 also has
@@ -256,6 +275,7 @@ Priority: **M1** = needed for milestone M1 (discovery, capability block, RX-IQ);
 
 ### HIS-20 — Source of randomness (M5)
 
+- **HIS answer** ([HIS] `2a38b7f`): open (not in the HIS); see `analysis/his-2a38b7f-impact.md` §2.
 - Question: is there a hardware random-number generator or an equivalent entropy source?
 - Why: challenges for the management channel (0008) and the per-session TX arm token (0007).
 
