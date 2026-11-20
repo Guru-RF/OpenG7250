@@ -36,7 +36,11 @@ firmware.
 
 ## Update path of the Main
 
-- **Documented path (VERIFIED, vendor update guide V1.0.1, public):** the only
+- **Documented path (VERIFIED, vendor update guide V1.0.1, public):** the guide
+  is Radioddity's "Extended manual for Xiegu G7250 v1.0.1", file
+  `2026-11-09_Xiegu_G7250_update_V1.0.1.pdf` inside the release package
+  `2026-11-09_Xiegu_G7250_V1.0.1.zip`, from the Radioddity Xiegu download page
+  (https://radioddity.com/pages/xiegu-download). The only
   documented update path of the Main runs through the Control: files on the
   Control's USB drive, then the Control's update menu ([BL] held with
   [POWER]). Whether the Main bootloader has another entry is unknown (the
@@ -90,7 +94,8 @@ Main image (a flat image for 0x08020000) without the Control. Such an installer:
    valid application (unknown: the entry condition above; F1).
 
 Not yet known, to be proven on the radio before relying on it: whether the
-vendor bootloader starts an application it did not write itself.
+vendor bootloader starts an application it did not write itself. The safe
+order of the hardware steps is in `90-needs-hardware.md`.
 
 ## FPGA
 

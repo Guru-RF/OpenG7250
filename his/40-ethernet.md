@@ -18,6 +18,10 @@ not hardware evidence.
 | RST# | PB5 | active low | VERIFIED |
 | INT# | PC13 | active low, needs a pull-up | VERIFIED |
 
+- **MAC address:** the CH394 provides the MAC address in its own register set;
+  the factory firmware does not store one in the EEPROM (HIGH, firmware
+  analysis). Whether the value is unique per unit is not verified; compare two
+  units or check the CH394 datasheet.
 - Reset timing and the maximum SCK come from the CH394 datasheet (about 17 MHz
   is known to work).
 - Network behaviour (addressing, ports, protocols) is defined by the product

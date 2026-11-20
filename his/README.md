@@ -41,7 +41,8 @@ side); the product side may read `his/`.
 - `60-display-input.md` — display, SDRAM, touch, keys, encoders
 - `70-interlink.md`     — Main↔Control serial link (wiring)
 - `80-rf-fpga.md`       — FPGA bus on GPIOE
-- `85-rf-control.md`    — Main RF control: T/R, filters, PA bias DAC, metering; safe state
+- `85-rf-control.md`    — Main RF control: T/R, filters, PA bias DAC, metering, antennas; safe state
+- `90-needs-hardware.md` — open points that need the real radio; safe order of the hardware steps
 
 ## Rules
 

@@ -42,3 +42,6 @@ The RF I/Q front end is an **FPGA reached over an 8-bit parallel bus on GPIOE**
   measured. Bus contention is a hardware risk.
 - Byte offsets of the 0x01 frame, and the meaning and safe values of its
   per-rate calibration bytes: unknown.
+- The three NCO words: two follow the operating frequencies, one the main VFO
+  (including RIT) and one the other VFO (MEDIUM); the role of the third and the
+  word order are unknown. Needs a bus capture (`90-needs-hardware.md`).

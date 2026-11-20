@@ -48,6 +48,6 @@ Hardware-protection constraints for new firmware:
 - Power-up path without the Control: the key switches the supply on in
   hardware and the MCU holds it with PH9 (H1), or the MCU runs on standby power
   and waits for PH5 (H2). HYPOTHESIS, to be measured (T0-P2 in the emulator
-  spec). Decision 0025 depends on it.
+  spec). Decision 0025 depends on it. Needs hardware (`90-needs-hardware.md`).
 - The AXP223's power-on default state (which rails are on before any I²C write)
   per its datasheet/OTP: not yet stated.

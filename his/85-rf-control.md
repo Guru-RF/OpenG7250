@@ -47,6 +47,14 @@ them is of the 74HC595 kind (HYPOTHESIS).
 - **ATU latches** (8 bit each, the CS line is the latch): PD13 (network style,
   bypass/enable), PG2 and PG5 (the two reactance banks) (HIGH).
 
+## Antennas
+
+- Two antenna ports on the rear, ANT1 and ANT2 (SO-239, 50 Ω) (VERIFIED,
+  teardown video and manual).
+- The antenna selection is most likely bits 4–5 of the PD13 ATU latch
+  (MEDIUM). Like the other ATU bits, it has no known safe value; leave the latch
+  unwritten until this is confirmed.
+
 ## SPI2 — PA bias and drive DAC (VERIFIED)
 
 - Part: 8-channel 10-bit serial DAC of the BU2506FV type (family HIGH, part
