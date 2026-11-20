@@ -1,5 +1,8 @@
 # MDMA model (Main)
 
+> Sources cited as "g7250-base `<path>`" refer to the former data pin
+> (historical name; see `docs/REPO_LAYOUT.md`, "Historical names").
+
 `models/csharp/G7250Mdma.cs`, registered at 0x52000000 by `m1_run.py` for every
 Main boot (it replaces the earlier `MDMA_NO_MODEL_TODO` tag).
 

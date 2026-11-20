@@ -1,5 +1,8 @@
 # PA bias plant and metering feed (Main)
 
+> Sources cited as "g7250-base `<path>`" refer to the former data pin
+> (historical name; see `docs/REPO_LAYOUT.md`, "Historical names").
+
 `models/csharp/G7250PaPlant.cs` with `platforms/g7250_main_pa_plant.repl`,
 loaded by `m1_run.py` for every Main boot. It lets the stock boot-time PA bias
 trim converge, so the Main reaches its superloop (test A,

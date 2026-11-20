@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""M0 platform-spike runner for g7250-emu.
+"""M0 platform-spike runner for re/emu.
 
 Builds the clean-room M0 test firmware, runs it on the pinned Renode
 (tools/renode-1.17.0), and measures host throughput (MIPS and MMIO/s) plus the

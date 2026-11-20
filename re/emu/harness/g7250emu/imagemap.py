@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Local image-map loader for g7250-emu (no decryption, ever).
+"""Local image-map loader for re/emu (no decryption, ever).
 
 Resolves the already-decrypted stock images from a local image-map directory
 that lives OUTSIDE any git work tree, verifies them against images/manifest.yaml

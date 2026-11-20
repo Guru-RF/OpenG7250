@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""M1 boot runner for g7250-emu: stock Main boot to the main loop.
+"""M1 boot runner for re/emu: stock Main boot to the main loop.
 
 Builds the Main Renode script (platform + I2C1 slave shims + SysTick clock +
 observe logging + the decrypted image at its verified reset vector) and hands it

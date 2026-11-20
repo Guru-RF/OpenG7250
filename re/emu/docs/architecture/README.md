@@ -22,6 +22,6 @@ Fallback renderer if Chrome is absent: `weasyprint .private/arch/G7250-architect
 
 ## Clean-room
 
-Hardware facts come from the `g7250-base` RE docs and the emulator study v0.5;
+Hardware facts come from the `g7250-base` RE docs (historical data pin; see `../REPO_LAYOUT.md`, "Historical names") and the emulator study v0.5;
 confidence tags (VERIFIED/HIGH/HYPOTHESIS) are carried over. No stock firmware
 code, no image bytes, no decryption. Owner ON8ST. Not for distribution.

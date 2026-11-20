@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Shared boot-runner core for g7250-emu (Main and Control).
+"""Shared boot-runner core for re/emu (Main and Control).
 
 Given a Renode .resc (built by a unit-specific runner), this launches the pinned
 Renode, drives the observe layer, and classifies the result from two live

@@ -5,7 +5,9 @@ these notes describe the emulator, not the hardware. Text unchanged below;
 paths are relative to `re/emu/`. Current state: `docs/EMU-JOB-STATUS.md` (D2)
 and `docs/D2-action-plan.md`.
 
-## Emulator status (g7250-emu) — MODELLED (2026-11-19)
+## Emulator status (g7250-emu, now `re/emu/`) — MODELLED (2026-11-19)
+
+> `g7250-emu` and `g7250-base` below are historical names; see `docs/REPO_LAYOUT.md`, "Historical names".
 
 A fused GPIOE+FPGA port (g7250-emu models/csharp/G7250Gpioe.cs) now implements
 this interface: the loopback test register (0x00), the 3-byte version (0x08 ->

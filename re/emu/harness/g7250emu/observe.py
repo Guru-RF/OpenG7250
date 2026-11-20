@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""M1 observe layer for g7250-emu: strict mode, hang detector, MMIO heatmap.
+"""M1 observe layer for re/emu: strict mode, hang detector, MMIO heatmap.
 
 This is the diagnostic instrumentation the M1 milestone needs around a stock
 Main boot (spec §14 M1). It is *image-independent*: it generates the Renode

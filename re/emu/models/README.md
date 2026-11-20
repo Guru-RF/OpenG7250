@@ -2,7 +2,8 @@
 
 Clean-room models for the G7250 emulator (spec §13 `models/`). Everything here
 is written from public datasheets, the ST reference manual (RM0468, used as
-DATA), and the RE facts in `g7250-base` — never from stock firmware code. Each
+DATA), and the RE facts in `re/analysis/` and the former data pin `g7250-base`
+(historical; see `docs/REPO_LAYOUT.md`, "Historical names") — never from stock firmware code. Each
 model carries source + confidence tags that mirror the RE docs
 (VERIFIED / HIGH / MEDIUM / HYPOTHESIS).
 

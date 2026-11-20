@@ -1,7 +1,7 @@
 # M0 — platform spike: Renode go/no-go
 
 **Decision: GO.** Renode 1.17.0 (pinned, native arm64) is the emulation
-platform for g7250-emu. All Cortex-M7 features the stock G7250 firmware relies
+platform for g7250-emu (historical name of `re/emu/`). All Cortex-M7 features the stock G7250 firmware relies
 on are present in Renode's own `cortex-m7` model, and emulation speed clears the
 §2.3 no-go threshold even on a loaded host. One concrete design constraint falls
 out for M1 (the FPGA MMIO path — see below).

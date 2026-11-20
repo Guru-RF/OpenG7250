@@ -20,7 +20,8 @@ See spec §12 (`docs/G7250-emulator-test-spec-v0.5.md`) for the full rationale.
 - Decrypted stock images, disassembly, traces, heatmaps, memory dumps,
   register maps derived from the images — none of it.
 - The only channel from RE knowledge to the firmware is the reviewed
-  **hardware-interface spec** (`his/`; for now the separate `g7250-his` repo):
+  **hardware-interface spec** (`his/`, arriving with the stacked PR #4;
+  historically the separate `g7250-his` repo):
   hardware facts only, no stock implementation detail. Models in this
   component cite the HIS paragraph per feature.
 

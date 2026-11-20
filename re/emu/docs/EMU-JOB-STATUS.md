@@ -4,8 +4,9 @@ Status of the A–E action list after the C#-peripheral unlock (runtime-compiled
 custom slaves register when referenced by fully-qualified type name; inherited
 C# models can be swapped via `sysbus Unregister`). ✅ done · ◐ partial · ⏳ later.
 
-## A. Main boot to the service loop — ✅ DONE (M1)
-Boots `System started` → AXP PSU → EEPROM → VersaClock → LAN default IP
+## A. Main boot to the superloop — ✅ DONE (M1, superloop 2026-11-20)
+Test A now requires the superloop (see "Update 2026-11-20"); the milestones
+below are kept as A1–A4. Boots `System started` → AXP PSU → EEPROM → VersaClock → LAN default IP
 192.168.3.199:50001 → codec → TRX RX-mode → service loop; 60 s VT, no hang.
 A1 PWR 0x08 ready ✅ · A2 chain chased ✅ · A3 FPGA errors tolerated (→ D2) ·
 A4 60 s no hang ✅ · A5 A1.12 default IP ✅. (docs/M1-status.md,
@@ -29,7 +30,7 @@ swapped in for the headless-silent C# LTDC — PAST the display wait into its
 inserted is a valid real state); it does not block the GUI loop. CLOSED.
 (docs/M2-control-status.md.)
 
-## D. Two machines — ✅ DONE (D1 + D2)
+## D. Two machines — ✅ D1, ✅ D2a, ◐ D2b known-fail (see Open items)
 - D1 ✅ harness: harness/g7250emu/slip_run.py boots both MCUs in one emulation,
   wires USART2↔USART2 through a UART hub, and SLIP bytes (0xC0-delimited) are
   transmitted over the link. RX on the real firmware is by circular DMA1 S3 (by
@@ -49,7 +50,8 @@ inserted is a valid real state); it does not block the GUI loop. CLOSED.
 - E1 ✅ dual-signal hang verdict (MMIO poll-hang + executed-frozen WFI idle).
 - E2 ✅ PW-1 emulator confirmation (r0_confirm.py): Main matches the prediction.
 - E3 ✅ boot-milestone regression (tests/baseline/boot_milestone.sh).
-- E4 ✅ g7250-his repo started (~/Repos/on8st/g7250-his): README (role +
+- E4 ✅ HIS started, then as the separate `g7250-his` repo (historical; now
+  `his/` in the umbrella, PR #4): README (role +
   clean-room process) and HIS sections 00–80 populated from the emulator-proven
   behaviour + public RE (reset/clock, power, I2C, ethernet, audio, display/input,
   SLIP interlink, RF/FPGA), behaviour-only with evidence cited. All eight HIS
@@ -61,8 +63,18 @@ inserted is a valid real state); it does not block the GUI loop. CLOSED.
   trim and reaches its superloop. Test: harness/g7250emu/superloop_run.py
   ("Init Radio Server" plus >= 128 IWDG refreshes after it). The earlier A check
   only reached "Start RX mode", which comes before the FPGA init.
-- D2 is split: D2a FPGA boot bus check (normal check) and D2b FPGA runtime health
-  (known failure, see below).
+- D2 is split: D2a FPGA boot bus check (normal check, tests/baseline/fpga_boot.sh)
+  and D2b FPGA runtime health (known failure, see below). acceptance_ae.sh ends
+  with "ALL PASS (with 1 known failure(s))".
+- USART2 RX shim (docs/USART2-RX-shim.md): the Main receives SLIP bytes from a
+  socket terminal and applies every settings image.
+- HIS-02 probe (harness/g7250emu/fpga_nco_probe.py), run 5 with the shim: the
+  three tuning words of the FPGA 0x01 frame told apart (RE note
+  re/analysis/docs/his-02-nco-probe.md). The HIS (his/, PR #4) is cleared at
+  9d10e72 by gate review 5.
+- PR #1 scaffold merged into emu/integrate; tools/leak-check.sh passes.
+- Historical repository names marked; see docs/REPO_LAYOUT.md, "Historical
+  names".
 
 ## Open items (PR #3, before leaving draft)
 - **D2b FPGA runtime health — KNOWN-FAIL.** In the superloop the firmware's
@@ -78,6 +90,9 @@ inserted is a valid real state); it does not block the GUI loop. CLOSED.
   (docs/USART2-RX-shim.md); with it the Main applies every settings image. Still
   open: the two-machine SLIP run (D1) does not use the shim yet, so D1 shows
   transmission only.
+- **Hardware-only questions.** Real bias codes and plant values, the ADC scan
+  rate, what the FPGA does with the tuning words, TX/XIT behaviour, and the items
+  in his/90-needs-hardware.md cannot be answered in the emulator.
 
 ## Not in scope (policy)
 No decryption; no push/PR/mail without an explicit go from the repository owner

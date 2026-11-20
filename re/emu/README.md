@@ -1,20 +1,20 @@
 # re/emu — G7250 emulator
 
 Emulator and automated test environment for the Xiegu G7250, running the stock
-Main and Control firmware on Renode. Component `g7250-emu` of the
+Main and Control firmware on Renode. The `re/emu/` component of the
 [OpenG7250](../../README.md) umbrella, **RE side**: built from the umbrella's
 own RE findings in [`re/analysis/`](../analysis/) and from public sources (see
 `CLEANROOM.md` here and the umbrella [`CLEANROOM.md`](../../CLEANROOM.md)).
 
-Imported from the former stand-alone `g7250-emu` repository at tag `emu-v1`,
-with its history.
+Imported from the former stand-alone `g7250-emu` repository (historical name;
+see `docs/REPO_LAYOUT.md`, "Historical names") at tag `emu-v1`, with its history.
 
 ## Place in the umbrella
 
 | Path | Relation to the emulator |
 | --- | --- |
 | `re/analysis/` | RE findings consumed **as data**, pinned in `deps/re-analysis.lock`. New findings about the stock firmware go to `re/analysis/docs/`, never here. |
-| `his/` | Hardware-interface spec, the only channel from RE to the product side. Lives in the separate `g7250-his` repo until it migrates into `his/` after review at the gate. |
+| `his/` | Hardware-interface spec, the only channel from RE to the product side. Brought into the umbrella by the stacked PR #4 (branch `his/integrate`, cleared at the gate); historically the separate `g7250-his` repo. |
 | `product/firmware/` | Clean-room firmware (formerly `g7250-fw`). Product side: never read or touched from an RE work tree. |
 | `testbench/` | Black-box tests against the specs; tests relying on stock-firmware behaviour stay here. |
 
@@ -50,7 +50,7 @@ The A–E emulator job is complete; the consolidated gate
   image_map            = /abs/dir/outside/any/repo   # main.bin, control.bin
   image_sha256.main    = <hex>                       # user-supplied, never committed
   image_sha256.control = <hex>
-  his_dir              = /abs/path/to/g7250-his      # until his/ is in the umbrella
+  his_dir              = /abs/path/to/his            # the his/ folder of a worktree that has it (PR #4)
   ```
 - `.private/`: every generated artifact (runs, logs, heatmaps, build output).
 

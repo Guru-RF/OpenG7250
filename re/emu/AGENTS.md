@@ -27,5 +27,5 @@ Agents working in `re/emu/` MUST:
 
 Findings about the stock firmware belong in `re/analysis/docs/` as conclusions
 with addresses and sources, without code or listings, not here. Hardware facts
-meant for the product side go through the HIS (`his/`, for now the separate
-`g7250-his` repo) after review at the gate.
+meant for the product side go through the HIS (`his/`, arriving with the stacked PR #4; historically the
+separate `g7250-his` repo) after review at the gate.

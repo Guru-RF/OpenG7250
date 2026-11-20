@@ -1,5 +1,8 @@
 # USART2 RX shim (Main)
 
+> Sources cited as "g7250-base `<path>`" refer to the former data pin
+> (historical name; see `docs/REPO_LAYOUT.md`, "Historical names").
+
 `models/csharp/G7250Usart2RxShim.cs`, used by `harness/g7250emu/fpga_nco_probe.py`
 (registered at 0xA0000000, a free bus address; it has only three debug words).
 

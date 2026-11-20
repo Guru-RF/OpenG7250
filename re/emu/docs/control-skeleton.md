@@ -1,5 +1,8 @@
 # Control platform skeleton — status
 
+> Sources cited as "g7250-base `<path>`" refer to the former data pin
+> (historical name; see `docs/REPO_LAYOUT.md`, "Historical names").
+
 The Control unit is the touchscreen front panel (STM32H743-class, Cortex-M7).
 `platforms/g7250_control.repl` is its clean-room Renode platform, built the same
 way as the Main platform: start from Renode's STM32H7 base, override only the

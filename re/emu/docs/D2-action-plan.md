@@ -13,7 +13,7 @@ D2 — the fused GPIOE+FPGA model for live RF I/Q — is the one open item. This
 the concrete plan to finish it, based on what the in-session attempts established.
 
 ## What is already in place
-- Interface fully specified: `g7250-his/his/80-rf-fpga.md` (D0–7/CMD/STB/DRDY,
+- Interface fully specified: `his/80-rf-fpga.md` (then in the separate `g7250-his` repo, historical) (D0–7/CMD/STB/DRDY,
   command set, NCO/rate, 24-bit I/Q).
 - A first fused port `models/csharp/G7250Gpioe.cs` (`G7250GpioeFpga`) that
   compiles, replaces `gpioPortE`, computes IDR itself and handles the 0x00

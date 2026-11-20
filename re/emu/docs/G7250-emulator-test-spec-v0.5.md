@@ -1,5 +1,11 @@
 # G7250 emulator and automated test infrastructure — study and specification
 
+> **Historical document.** This spec predates the OpenG7250 umbrella and is kept
+> unchanged. Its repository names are historical: `g7250-emu` is now `re/emu/`,
+> `g7250-base` was the data pin (now `re/analysis/` for the umbrella's own
+> findings), `g7250-his` is now `his/`, `g7250-fw` is now `product/firmware/`.
+> See `docs/REPO_LAYOUT.md`, "Historical names".
+
 | | |
 | --- | --- |
 | Version | v0.5 (draft, desk study) |

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Control boot runner for g7250-emu: stock Control (touchscreen) boot.
+"""Control boot runner for re/emu: stock Control (touchscreen) boot.
 
 Sibling of m1_run.py for the Control unit (STM32H743-class). Builds the Control
 Renode script (platform + I2C slave shims + SysTick clock + observe + the

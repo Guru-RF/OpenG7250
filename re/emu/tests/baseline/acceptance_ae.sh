@@ -50,7 +50,8 @@ if [ -f "$SC" ] && grep -q "Init Radio Server" "$SC"; then
 else
   fail "D2b FPGA runtime health (no superloop console)"
 fi
-# HIS: umbrella his/ once migrated; until then the separate g7250-his checkout,
+# HIS: umbrella his/ (PR #4) when present; otherwise the his/ folder of another
+# worktree (historically the separate g7250-his checkout),
 # located via  his_dir = /abs/path  in local.config (git-ignored) or env G7250_HIS.
 HIS="${G7250_HIS:-$(sed -n 's/^[[:space:]]*his_dir[[:space:]]*=[[:space:]]*//p' local.config 2>/dev/null | head -1)}"
 for h in "$REPO/../../his" "$HIS"; do
