@@ -343,7 +343,7 @@ These parts of the ANAN P2 code already match the G7250 and need no change, only
   request keys, and clearing it while keyed unkeys (B10.10; Table B7-1; 0022 §14); the radio
   clears it at every session end and takeover, with every DUC-specific TX setting (A3.6a,
   Table A3-4; 0022 §64). A DUC FIFO
-  underflow longer than a hardware-dependent time (TBD, HIS-18) unkeys, arm kept (0007 §2;
+  underflow longer than a hardware-dependent time (pending hardware, part B Annex P P-TIM-2; HIS-18) unkeys, arm kept (0007 §2;
   B10.5). The underflow is timed from the key if no DUC I&Q has arrived by then, and the
   radio sends zeros while its FIFO is empty; the underrun time is at least the key latency
   plus 1.25 ms, so DUC I&Q started together with the PTT edge is in time (B10.5; 0022 §57).
@@ -489,6 +489,10 @@ These parts of the ANAN P2 code already match the G7250 and need no change, only
   lists from the record (G-02). With split, set DDC0 and DUC0 before `ATU_TUNE`: the radio
   switches the RF path to the TX state for DUC0 before the tune carrier and back to the state
   for DDC0 after the cycle (A3.9b items 2, 7; 0022 §66).
+- **v1.0** (0032, 0035). Until the ATU and antenna parameters are measured (part B Annex P,
+  P-ATU-1, P-ANT-1), `ATU_TUNE` = 1 gets write reject reason `NOT_CALIBRATED`, `ATU_STATE` reads
+  0 (bypass) and `ANT_STATE` reads 0 (unknown): show the tuner and the antenna as "not
+  available" rather than hiding them, and do not retry.
 
 #### G-11 Frequency encoding and DSP clock (B3.8) — compatible
 
@@ -510,8 +514,11 @@ These parts of the ANAN P2 code already match the G7250 and need no change, only
 - **Today.** Nothing for radio management in the P2 backend; `firmwareUpdateSource` is unset
   (`AnanBackend.cpp:555`). AetherSDR's `src/updater` updates AetherSDR itself, not radios.
 - **Change.** In AetherSDR, at most: show the `mgmt` port and protocol version from the
-  record, and the active level. The client itself is recommended as a separate tool
-  (Q-O4).
+  record, and the active level. The client itself is the separate tool `g7250ctl` (0026,
+  Q-O4); a firmware page in AetherSDR may follow on the same protocol. Such a page MUST
+  present the return to stock as one-way (spec A1.8a item 3: a streaming installation, no way
+  back once it starts, status 60 for an abort) and MUST NOT offer `RETURN_TO_STOCK` or
+  `ENTER_VENDOR_RECOVERY`, which this version always answers with status 56 (0028).
 
 #### G-13 TCI profile alignment (0014) — M, after part C
 
@@ -538,7 +545,9 @@ These parts of the ANAN P2 code already match the G7250 and need no change, only
     transmit (part C C3.2; milestone M4), not from the capability record, which is not
     available before a P2 session and a TCI client may connect before one runs; record `tx`
     bit 1 (transmit implemented) and the session go to `G7250_FEATURES` token `tx` and to
-    `TX_ENABLE`, never to `RECEIVE_ONLY`; `RECEIVE_ONLY` never follows the arm state, which
+    `TX_ENABLE`, never to `RECEIVE_ONLY`; while record `tx` bit 4 is 0 (not calibrated,
+    part B Annex P) `TX_ENABLE` stays `false` and an arm gets `NOT_CALIBRATED` (C5.5.6 item 7;
+    0035, 0036); `RECEIVE_ONLY` never follows the arm state, which
     `TX_ENABLE` carries (C5.5.6; 0021 §43 item 16);
     `modulations_list` as C3.4; `tx_enable` from the arm state and the band edges (C5.5.6);
     `hw_sensors` and `tx_sensors` from G-07.
@@ -623,7 +632,8 @@ These parts of the ANAN P2 code already match the G7250 and need no change, only
   A3-3; part C C4, C8.1; 0022 §62). Resend the General packet with PA enable and the
   DUC-specific packet in every new session, also after a takeover (A3.6a; part C C7.2.1,
   C8.5a; 0022 §64). The KEY input keys only while the DUC-specific packet of this session
-  selects hardware CW (A3.1a, B10.9; 0022 §65). An ATU tune cycle runs in the TX state of the
+  selects hardware CW (A3.1a, B10.9; 0022 §65); in v1.0 the KEY input is not used at all
+  (0030), so AetherSDR need not offer hardware CW for the G7250. An ATU tune cycle runs in the TX state of the
   DUC0 frequency and returns to the DDC0 state (G-10; part C C5.7; 0022 §66). The SWR cap and,
   with break-in, SEND, the T/R relay and the RX attenuator during TX are held across element
   gaps shorter than the hang delay; choose the hang delay knowing that an external amplifier
@@ -849,6 +859,9 @@ piHPSDR was read only for this one field; no code was copied.
 - **Q-O1 Upstream route.** A G7250 backend in AetherSDR needs an RFC issue upstream
   (`GOVERNANCE.md:99–142`). When, if at all, may we open one? Until then the work can only be
   done in a local branch or fork (and a public fork is itself an outward action).
+  **Proposed by 0038:** the backend is written in C++/Qt inside AetherSDR by a separate
+  product-side session after firmware milestone F2, and offered upstream through the RFC
+  (draft in `drafts/rfc-aethersdr-g7250-backend.md`); posting it still needs ON8ST's go.
 - **Q-O2 Shared P2 layer.** Propose the shared P2 refactor (section 4, step 2), or keep the
   G7250 backend self-contained (option C) to avoid touching ANAN code?
 - **Q-O3 Arm in the user interface.** Should arming be an explicit user action per session
