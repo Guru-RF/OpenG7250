@@ -25,9 +25,9 @@ else exists yet, that the fact rests on disassembly.
 
 ## Status
 
-Imported from the former `g7250-his` repository (tag `his-draft0`). Gate review
-1 is applied; a second, independent read is still open. **Not yet cleared:** the product side
-does not read `his/` until the review is marked cleared.
+Imported from the former `g7250-his` repository (tag `his-draft0`). **Cleared
+by gate review 2** (`re/analysis/docs/his-gate-review-2.md`, kept on the RE
+side); the product side may read `his/`.
 
 ## Sections
 
