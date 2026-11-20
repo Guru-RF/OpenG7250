@@ -30,6 +30,16 @@ All dates 2026-11-19. Decision numbers refer to `decisions/`.
   0038 (proposed): AetherSDR backend after F2; annex AetherSDR G-08, G-10, G-12, Q-O1 and the RFC
   draft updated.
 
+- Review of everything since rc7 (independent review, 4 HIGH, about 12 MEDIUM): streaming
+  installer keeps the A3.6 TX-side state, services the watchdog (P-SYS-7) and answers only the
+  listed commands; abort before the first erase returns to this firmware with the secret, which
+  is now erased with the first sector erase; the way back to stock is gated by F1 (P-SYS-5,
+  status 56, T-A1-61); status 61 (image too large) and 17 (missing foreign flag); TX gate also
+  covers P-TX-1, P-ATU-1, P-ANT-1; `ATU_STATE` 5 / TCI `unknown`; `NOT_CALIBRATED` precedence in
+  A3.9b, part C C5.7, B10.2 order of arm reasons; register groups 3–5 always present; no
+  microphone stream in v1.0 (B6.11); T-A3-58 for unused local PTT/KEY; footswitch absent in
+  v1.0; citations corrected; tools: trace.py --check, lint L9 "per HIS-nn", L10.
+
 ## rc7 — release candidate 7 (tag `spec-rc7`)
 
 - ON8ST accepted 0025 and 0026 (2026-11-20). `product/tools/g7250ctl/` and `product/refmodel/`

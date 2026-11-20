@@ -6,7 +6,8 @@ the number of Consequences bullets in the decision. Writes spec/traceability-aut
 if a decision with consequences is cited by no spec section and is not listed in
 NOT_IN_SPEC below.
 
-Run from product/spec:  python3 tools/trace.py
+Run from product/spec:  python3 tools/trace.py          (writes the file)
+                        python3 tools/trace.py --check  (exit 1 if the file is out of date)
 """
 import pathlib
 import re
@@ -60,7 +61,14 @@ def main():
            "|---|---|---|---|---|---|", *rows, ""]
     if missing:
         out.append(f"Decisions with consequences but no spec citation: {', '.join(missing)}")
-    (ROOT / "spec" / "traceability-auto.md").write_text("\n".join(out) + "\n")
+    text = "\n".join(out) + "\n"
+    target = ROOT / "spec" / "traceability-auto.md"
+    if "--check" in sys.argv:
+        if not target.exists() or target.read_text() != text:
+            print("spec/traceability-auto.md is out of date: run python3 tools/trace.py")
+            return 1
+        return 1 if missing else 0
+    target.write_text(text)
     print("\n".join(out[-3:]) if missing else "every decision with consequences is cited or explained")
     return 1 if missing else 0
 

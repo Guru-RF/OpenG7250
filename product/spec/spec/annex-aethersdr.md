@@ -491,7 +491,7 @@ These parts of the ANAN P2 code already match the G7250 and need no change, only
   for DDC0 after the cycle (A3.9b items 2, 7; 0022 §66).
 - **v1.0** (0032, 0035). Until the ATU and antenna parameters are measured (part B Annex P,
   P-ATU-1, P-ANT-1), `ATU_TUNE` = 1 gets write reject reason `NOT_CALIBRATED`, `ATU_STATE` reads
-  0 (bypass) and `ANT_STATE` reads 0 (unknown): show the tuner and the antenna as "not
+  5 (unknown) and `ANT_STATE` reads 0 (unknown): show the tuner and the antenna as "not
   available" rather than hiding them, and do not retry.
 
 #### G-11 Frequency encoding and DSP clock (B3.8) — compatible

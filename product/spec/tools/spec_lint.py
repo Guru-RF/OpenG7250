@@ -12,7 +12,9 @@ Checks over spec/*.md:
   L7  register names used in the spec exist in spec/register-map.yaml (if that file exists)
   L8  spec/register-map.yaml matches the spec tables (tools/regmap.py --check)
   L9  no "TBD" in the spec (v1.0 freeze, 0035); every pending-hardware id P-... used is defined
-      in Annex P, Table P-1, and every id defined there is used elsewhere
+      in Annex P, Table P-1, and every id defined there is used elsewhere; a value given only
+      as "per HIS-nn" (without a P-id) is flagged
+  L10 spec/traceability-auto.md is up to date (tools/trace.py --check)
 
 Run from product/spec:  python3 tools/spec_lint.py    (exit 1 on any finding)
 """
@@ -99,6 +101,8 @@ def main():
         for i, line in enumerate(path.read_text().splitlines(), 1):
             if "TBD" in line and "\"TBD\"" not in line and path.name != "CHANGELOG.md":
                 findings.append(f"L9 {path.relative_to(ROOT)}:{i}: TBD after the v1.0 freeze: {line.strip()[:80]}")
+            if re.search(r"\bper HIS-\d\d", line) and not re.search(r"\bP-[A-Z0-9]+-\d+\b", line) and path.name != "CHANGELOG.md":
+                findings.append(f"L9 {path.relative_to(ROOT)}:{i}: value 'per HIS-nn' without a P-id: {line.strip()[:80]}")
             if re.match(r"^\| P-[A-Z0-9]+-\d+ \|", line):
                 continue
             used |= set(re.findall(r"\bP-[A-Z0-9]+-\d+\b", line))
@@ -112,6 +116,10 @@ def main():
         rc = subprocess.run([sys.executable, str(ROOT / "tools" / "regmap.py"), "--check"]).returncode
         if rc:
             findings.append("L8 spec/register-map.yaml is out of date: run python3 tools/regmap.py")
+    # L10: generated traceability file up to date
+    rc = subprocess.run([sys.executable, str(ROOT / "tools" / "trace.py"), "--check"], capture_output=True).returncode
+    if rc:
+        findings.append("L10 spec/traceability-auto.md is out of date or a decision is not traced: run python3 tools/trace.py")
     for f in findings:
         print(f)
     print(f"\n{len(findings)} finding(s) in {len(SPEC)} file(s); {len(tests)} test id(s)")

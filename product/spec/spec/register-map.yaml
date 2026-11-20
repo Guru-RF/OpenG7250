@@ -187,7 +187,7 @@ registers:
   - name: ATU_STATE
     address: 0x0401
     access: "RO"
-    content: "0 off or bypassed, 1 in line, 2 tuning, 3 tuned, 4 failed (the last tune did not end tuned; the ATU is back at the stored state or bypassed; stays until the next tune or an in/out change; does not block keying, A3.9b item 7)"
+    content: "0 off or bypassed, 1 in line, 2 tuning, 3 tuned, 4 failed (the last tune did not end tuned; the ATU is back at the stored state or bypassed; stays until the next tune or an in/out change; does not block keying, A3.9b item 7), 5 unknown (latches not written because their safe values are pending hardware, P-ATU-1; 0032)"
     sent: "event"
     source: "0006; HIS-08; 0020 §8; 0022 §38"
   - name: ANT_STATE

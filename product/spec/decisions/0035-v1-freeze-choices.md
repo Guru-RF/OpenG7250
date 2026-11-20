@@ -25,7 +25,8 @@ need the real radio, which is not delivered yet (HIS 90). A v1.0 must be frozen 
    unavailable until P-ATU-1 and P-ANT-1 are set (0032).
 3. **Values settled without the radio:**
    - C-1 factory default: DHCP, with an IPv4 link-local address [RFC3927] while no lease is held;
-     A1.11 is final (the CH394 has no DHCP client, [HIS] HIS 40).
+     A1.11 is final (the CH394 has no DHCP client, 0008 and [CH394]; [HIS] HIS 40 leaves network
+     behaviour to the product spec).
    - Local factory reset: the headless product has no local input; the local path is a
      re-install through the vendor path, and the first start then uses the factory values.
    - Log: in RAM, size a firmware choice, lost at power loss; warm-reset survival pending
@@ -39,6 +40,13 @@ need the real radio, which is not delivered yet (HIS 90). A v1.0 must be frozen 
    - Alex enable and Alex words, step attenuator byte 1443: ignored (no identical meaning,
      [HIS] HIS 85).
    - Sidetone, line-in and microphone bytes: ignored (0031); hardware keyer not used (0030).
+
+## Amendment after the review of 2026-11-21
+
+- The TX gate also covers P-TX-1, P-ATU-1 and P-ANT-1; `ATU_STATE` 5 (unknown) while the ATU
+  latches are unwritten; the way back to stock is closed until the drill F1 (P-SYS-5) shows the
+  vendor path recovers an empty application area; new P-SYS-7 (watchdog) and P-SYS-8 (SEND and
+  TUNER); status 61 for an image too large.
 
 ## Consequences
 
