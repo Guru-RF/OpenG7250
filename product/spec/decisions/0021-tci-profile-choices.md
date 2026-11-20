@@ -1,6 +1,6 @@
 # 0021 — Choices in the G7250 TCI profile (spec part C)
 
-- Status: proposed (for ON8ST review at rc1; §27–§42 proposed for the rc3 draft; §43 proposed for rc3; §44 proposed for the rc4 draft; §45–§47 proposed for rc4), 2026-11-19
+- Status: accepted (ON8ST, 2026-11-20, after his review of rc4; his two remarks, the controller and returning to the stock firmware, are handled in 0023 and 0024). Section-level "Status: proposed" lines below are superseded by this acceptance.
 - Date: 2026-11-19
 - Builds on: 0003 (discovery reply byte 4), 0004 (rates, SPI target), 0007 (watchdog and
   safety), 0008 (management channel, socket budget, LAN security), 0011 (two levels), 0012
