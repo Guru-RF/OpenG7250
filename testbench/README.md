@@ -1,0 +1,57 @@
+# G7250 test bench
+
+Black-box conformance tests for the G7250 network interface. The tests take the spec as input
+and run over the network against an endpoint: the reference model, the radio with the new
+firmware, or any other implementation of G7250-P2.
+
+- Status: **planned. No code yet.** The project is in the spec phase; code starts in the build
+  phase (decision 0028, Decision 4).
+- Location: `testbench/` in the umbrella repository, an ordinary folder, not a submodule
+  (decision 0027).
+
+## Rules
+
+- **Inputs:** `product/spec/` and the cleared `his/` only. The product side may therefore read
+  this folder. The tests never depend on how the stock firmware behaves (decisions 0019, 0027).
+- Emulator tests that rely on stock behaviour stay in `re/emu/`. A test the RE side wants to add
+  here goes through the gate first.
+- **Black box:** a test knows only the spec and a network address. It does not import or
+  inspect the reference model or the firmware. The reference model lives in
+  `product/refmodel/` (decision 0019).
+- Every test carries the test id of the spec, so that a result traces back to a requirement.
+- **Independent of both implementations** (decision 0037): the tests are Python 3, standard
+  library only, and use neither the firmware's protocol crate (shared with `g7250ctl`) nor the
+  reference model's code. They encode and decode messages from the spec text themselves.
+
+## What is tested
+
+| Test ids | Spec | Subject |
+|---|---|---|
+| T-A1-* | `product/spec/spec/network-interface.md` part A, A1 | management channel: identification, configuration, logs, firmware update, return to stock |
+| T-A2-*, T-A3-* | part A, A2–A3 | sessions, TX arm and safety core |
+| T-B*-* | part B | G7250-P2: discovery, register map, streams, High Priority, TX |
+| T-C*-* | `product/spec/spec/part-c-tci-profile.md` | the TCI profile (level 2, and AetherSDR on level 1) |
+
+The full list, with procedure, expected result and source requirement, is Annex X3 of the spec
+and the tests of part C. `product/spec/spec/traceability-auto.md` maps them to
+requirements.
+
+Some tests need a simulated condition (for example forward power that decays slowly after an
+unkey, T-A1-51); these are marked "reference model" in the spec and run only against the model.
+
+## Planned structure (build phase)
+
+- one test module per spec part, named after its test ids;
+- a small runner that takes the endpoint address and reports per test id;
+- against the radio, only tests that are safe there: no transmit test runs until the transmit
+  limits are calibrated (HIS 85: bias and detector values are established by measurement).
+
+## Emulator run before the radio
+
+The same spec-based tests are handed to the RE side, together with the firmware ELF, to run on
+the emulator before an image goes on the radio. Only pass or fail and the image's own output
+come back (decision 0034, proposed).
+
+## Licence
+
+GPL-3.0-or-later, © 2026 ON8ST (decision 0018).
