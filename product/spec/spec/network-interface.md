@@ -1797,7 +1797,19 @@ B3.9 **Other port-1024 commands.**
   255.255.255.255 is accepted from any source address, because a router does not forward it,
   so it comes from the radio's own link; a host with a wrong address set-up can therefore still
   correct the radio ([P2] Set IP Address packet, "Broadcast to Port 1024"; RFC 1812 section
-  5.3.5.1: a router does not forward a limited broadcast). Risk stated in 0008 S7, as
+  5.3.5.1: a router does not forward a limited broadcast). If the Ethernet controller does not
+  report the destination address of a received datagram (whether the CH394 does is an open
+  datasheet question, F2-Q5), the G7250 MUST treat every Set IP as one to the unicast or
+  directed broadcast address: accepted only from a source inside the radio's own subnet, and
+  from any source while the radio uses an IPv4 link-local address [RFC3927], since a
+  link-local radio is reachable only on its own link (0039). A host with a wrong address
+  set-up then gives itself an address in the radio's subnet, which the discovery reply shows,
+  before it sends Set IP.
+- **Netmask and gateway after Set IP** (0039). [P2] Set IP carries no netmask. The G7250
+  MUST keep the netmask in use if the new address is a host address of that subnet, and
+  otherwise use 255.255.255.0; it MUST keep the gateway if it lies inside the resulting subnet,
+  and otherwise clear it. 0.0.0.0 selects DHCP (A1.11), which brings its own netmask and
+  gateway. The values applied are logged (A1.7). Risk stated in 0008 S7, as
   narrowed by 0022 §70: any host on the same link (limited broadcast) or in the same subnet
   that knows the MAC can change the address and so cut a running session; a host behind a
   router cannot; none can key the radio.
@@ -1904,7 +1916,7 @@ Table B4-1 — Capability record, version 1.1 (0003 §3; 0020 §26)
 | 0x1D | `atu` | bit 0 internal ATU present; bit 1 host can control it; bit 2 per-band memory; bit 3 external tuner interface present; bit 4 host can control the external tuner interface | bits 0, 2, 3 = 1 [G7250-MAN]; bit 1 = 1 (this firmware drives the ATU, [HIS] HIS 85; 0032); bit 4 = 0 in this version (SEND and TUNER interface pending hardware, P-SYS-8; HIS-09) |
 | 0x1E | `atu_range` | [31:16] minimum, [15:0] maximum load in Ω | 20, 150 [G7250-MAN] |
 | 0x1F | `telemetry` | bit 0 forward power; bit 1 reverse power; bit 2 PA temperature; bit 3 supply voltage; bit 4 supply current; bit 5 PA current; bit 6 ADC overload | bits 0, 1, 2, 3, 5 = 1 for the ADC1 inputs of [HIS] HIS 85 (forward, reflected, PA temperature, supply voltage, PA supply current Idd); bit 4 = 0 (no separate supply-current input); a value stays invalid in `SENSOR_VALID` until its calibration is set (P-SEN-1, P-SEN-2); bit 6 = 1 (ADC peak, [HIS] HIS 80); meaning in B9 (0006; HIS-11) |
-| 0x20 | `tx` | bit 0 TX hardware present; bit 1 TX implemented in this firmware (0 before M4); bit 2 TX arm required (always 1); bit 3 declared TX mode class required for arm (always 1); bit 4 transmit parameters of Annex P set (0 until calibrated, Annex P) | bit 0 = 1 [G7250-MAN]; bit 1 per milestone; bit 2 = 1 (0015); bit 3 = 1 (0007) |
+| 0x20 | `tx` | bit 0 TX hardware present; bit 1 TX implemented in this firmware; bit 2 TX arm required (always 1); bit 3 declared TX mode class required for arm (always 1); bit 4 TX calibrated: the calibration set holds every parameter of the Annex P freeze rule (A1.12) | bit 0 = 1 [G7250-MAN]; bit 1 = 1 in every r1.0 firmware (TX is part of r1.0, 0036), 0 only in a build before M4 that has no key path; bit 2 = 1 (0015); bit 3 = 1 (0007); bit 4 from the calibration set, 0 until it is complete, and always 0 while bit 1 is 0 (0039) |
 | 0x21 | `tx_band_count` | number of valid entries below (max 16) | 10 [G7250-MAN] |
 | 0x22–0x51 | `tx_band[0..15]` | 3 registers per band: start Hz; stop Hz; [31:16] maximum power SSB/CW/FM, [15:0] maximum power AM, both in 0.1 W | ranges per region [G7250-MAN]; 1000 (100 W) and 250 (25 W) [G7250-MAN]; 50 MHz pending hardware (P-PWR-2; HIS-12; 90 W in [G7250-PUDX], [G7250-RIGPIX]) |
 | 0x52 | `mgmt` | bit 0 management channel present; [31:16] its port | 0x1C530001: bit 0 = 1 (0008), port 7251 (A1.3; 0020 §2) |
@@ -2596,7 +2608,9 @@ through the management channel, not the register map (0006, Consequences; A1).
 ### B10 Transmit (milestone M4)
 
 Transmit MUST NOT be enabled in a firmware before M3 is closed: record `tx` bit 1 = 0 (B4.8;
-design note §6; 0007, header). Release r1.0 implements transmit (`tx` bit 1 = 1, 0036), and
+design note §6; 0007, header). Release r1.0 implements transmit: an r1.0 firmware MUST report
+`tx` bit 1 = 1 (0036), so an uncalibrated r1.0 radio rejects an arm with `NOT_CALIBRATED`, not
+`TX_NOT_IMPLEMENTED`; `TX_NOT_IMPLEMENTED` is reserved for a build before M4 without a key path.
 TX stays locked until the calibration set is complete (`tx` bit 4, A1.12): every arm is
 rejected with `NOT_CALIBRATED`, so no TX request (PTT, CWX, `ATU_TUNE`) keys, none is latched,
 `TX_STATE` bit 0 stays 0, and the safe state of A3.6 holds ([HIS] HIS 85; Annex P; 0035).
@@ -2644,7 +2658,9 @@ B10.2 **Arm handshake** (0007, Decision 1, option 1C):
    a boot counter in non-volatile memory, incremented once at every start, and takes part of
    every token from it, so that no token of one boot repeats the last token of the boot before;
    a random part from the source of A1.10 MAY be added where HIS-20 gives one (0022 §73 item
-   4). A correct arm write
+   4). The boot counter lives in the same non-volatile store as the configuration and the
+   calibration set (A1.6 C-4, A1.12); a firmware without that store MUST keep record `tx`
+   bit 4 = 0, so that no arm can be accepted (0039). A correct arm write
    while already armed with the same token is a no-op: it is answered and does not raise the
    generation (0020 §7).
 6. The arm is dropped by the events of Table A3-1.
@@ -3555,8 +3571,9 @@ Unless a test says otherwise, a test in which KEY or CWX keys runs with break-in
 | T-B3-29 | Set IP with the unit's MAC sent to the unicast or directed broadcast address is accepted with the same effects as a broadcast Set IP. |
 | T-B3-30 | Byte 13 equals major × 10 + minor of `fw_version`, capped at 255; byte 23 is non-zero only on a beta build. |
 | T-B3-31 | 100 discoveries per second from one source get at most 10 replies per second; the excess is counted in `GET_STATS`. |
-| T-B3-32 | Set IP with the unit's MAC to the unicast or directed broadcast address from a source outside the radio's subnet is ignored and counted; to 255.255.255.255 from the same source it is accepted (B3.9, B11.15). |
+| T-B3-32 | Set IP with the unit's MAC to the unicast or directed broadcast address from a source outside the radio's subnet is ignored and counted. To 255.255.255.255 from the same source it is accepted where the controller reports the destination; where it does not (F2-Q5), it is ignored and counted too, except while the radio uses a link-local address, when it is accepted (B3.9, B11.15; 0039). |
 | T-B3-33 | A discovery request from source port 1024 gets no reply and is counted; two G7250s on one LAN with a discovery reply injected toward one of them exchange no further datagrams (B3.2). |
+| T-B3-34 | After a Set IP to an address inside the current subnet the netmask is unchanged; to an address outside it the netmask becomes 255.255.255.0 and a gateway outside the new subnet is cleared; 0.0.0.0 starts DHCP (B3.9; 0039). |
 
 ### Capability record (B4)
 
@@ -3579,6 +3596,7 @@ Unless a test says otherwise, a test in which KEY or CWX keys runs with break-in
 | T-B4-15 | General packets from a source without a session get no record; under a takeover ping-pong between two hosts the unasked record reaches each destination at most once per second. |
 | T-B4-16 | On a 10 Mbit/s link a `CAP_REQUEST` is answered with the record and with `LINK_STATUS` and `STREAM_STATUS`; the status answers are at most one per 100 ms per source and 10 per second in total (B5.8). |
 | T-B4-17 | A `CAP_REQUEST` from a non-owner repeated 1 s after an answered one is answered again; one repeated after 200 ms is dropped by the rate limit and counted (B4.4 items 3, 4). |
+| T-B4-18 | An r1.0 firmware reports record `tx` bits 0–3 = 1 and bit 4 = 0 without a complete calibration set; an arm that meets every other condition gets `NOT_CALIBRATED` (12), not `TX_NOT_IMPLEMENTED` (11). A build with bit 1 = 0 reports bit 4 = 0 and rejects the arm with 11, which precedes 12 (B4.8, B10, B10.2 item 3; 0036, 0039). |
 
 ### Session, ownership, watchdog (B5)
 
