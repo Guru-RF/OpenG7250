@@ -1936,7 +1936,7 @@ Table B4-1 — Capability record, version 1.1 (0003 §3; 0020 §26)
 | 0x09 | `p2_version` | as discovery byte 12 | 44 ([P2]; B3.5) |
 | 0x0A | `hw_revision` | main-unit hardware revision, 0 = not identified | HIS-18 |
 | 0x0B | `level` | bit 0 level 1 present (always 1); bit 1 level 2 present in this firmware; bit 2 level 2 active; bits [7:4] active level (0 none, 1, 2) | 0011; 0003, Resolved; level 2 only after G6 |
-| 0x0C | `streams` | bit 0 RX IQ; bit 1 TX IQ (DUC); bit 2 DDC audio (always 0); bit 3 microphone data; bit 4 wideband data; bit 5 IQ time stamping | bit 0 = 1; bit 1 per `tx` bit 1; bit 2 = 0 (0017); bit 3 = 0 in this version (no audio, 0031; HIS-17); bit 4 = 0 before M2, 1 from M2 (0004 point 4; HIS-01, HIS-18); bit 5 = 0 (0004 point 1) |
+| 0x0C | `streams` | bit 0 RX IQ; bit 1 TX IQ (DUC); bit 2 DDC audio (always 0); bit 3 microphone data; bit 4 wideband data; bit 5 IQ time stamping | bit 0 = 1 once the FPGA receive parameters are set (P-RX-2), 0 until then (DDC0 not offered, B6.1; 0042); bit 1 per `tx` bit 1; bit 2 = 0 (0017); bit 3 = 0 in this version (no audio, 0031; HIS-17); bit 4 = 0 before M2, 1 from M2 (0004 point 4; HIS-01, HIS-18); bit 5 = 0 (0004 point 1) |
 | 0x0D | `num_adc` | number of RF ADCs | HIS-01, HIS-03 (assumed 1) |
 | 0x0E | `num_ddc` | number of DDCs; equals discovery byte 20; 1 in this version | 0004; HIS-02 |
 | 0x0F | `num_duc` | number of DUCs | assumed 1 [G7250-MAN]; HIS-18 |
@@ -2188,6 +2188,14 @@ B6.1 **Port and endpoint.** DDC0 I&Q MUST be sent from local port 1035 ([P2] Gen
 bytes 17–18; DDC packet, "Source Port") to the owner's source IP address and UDP port (B2.4;
 0022 §12). One DDC is
 implemented, and DDC0 takes its data from ADC0 only (0004 point 1; HIS-02, HIS-01, HIS-03).
+DDC0 needs a complete FPGA configuration frame (command 0x01), whose status byte and bytes
+9–18 have no known meaning or safe values yet, and the I/Q order and the tuning word of DDC0
+are not known ([HIS] HIS 80, `5292ba8`). Until these are set (pending hardware, P-RX-2) DDC0
+is not offered: record `streams` bit 0 = 0, a DDC0 enable gets `STREAM_STATUS` reason 2 (not
+offered by this firmware), and no DDC0 packet is sent; discovery, the register map, the
+management channel and sessions work as usual. The firmware MUST NOT write a configuration
+frame unless the RF section is in the safe state of A3.6, because its status byte may hold a
+transmit enable ([HIS] HIS 80, HIS 85) (0042).
 
 B6.2 **Packet format.** Each DDC0 packet MUST have the layout of Table B6-1 ([P2] DDC packet,
 "DDC I&Q Data (DDC0 default port 1035)"; 0004 point 1), 1444 bytes in total.
@@ -3281,7 +3289,8 @@ unit are written as its calibration set (A1.12); fixing the encoding or a defaul
 is a spec change, made in this table.
 
 **Freeze rule** (0035). Transmit stays disabled until every parameter of groups P-RF, P-PWR,
-P-SEN and P-TIM, and P-TX-1, P-ATU-1 and P-ANT-1, is set: the RF path in transmit is only known
+P-SEN and P-TIM, and P-RX-2, P-TX-1, P-ATU-1 and P-ANT-1, is set (the configuration frame of P-RX-2
+may hold a transmit enable, [HIS] HIS 80): the RF path in transmit is only known
 once the ATU and antenna latches have known safe values ([HIS] HIS 85). Until then record `tx`
 bit 4 is 0, and every arm is rejected with `NOT_CALIBRATED` (Table B8-3; B10.2 item 3; part C
 C5.5.6 item 7). The ATU latches stay unwritten and `ATU_STATE` reads 5 (unknown) until P-ATU-1
@@ -3289,10 +3298,10 @@ is set (A3.9b; 0032); the antenna is not selectable until P-ANT-1 is set. The wa
 over the network is closed until P-SYS-5 is set (A1.8a item 3, "Gate").
 
 Discovery, the register map, the management channel and level-1 sessions are fully specified
-without these values. Reception is specified too, but on the radio the receive front end
-depends on P-RF-1 and P-RF-5: until they are set, reception may be degraded or, if no chain B
-frame is known, unavailable; a host sees this as a weak or silent DDC0 stream, not as an error
-(B6).
+without these values. Reception is specified too, but DDC0 is not offered until P-RX-2 (the
+FPGA configuration frame) is set (B6.1; 0042), and once it is, the receive front end depends on
+P-RF-1 and P-RF-5: until those are set, reception may be degraded or, if no chain B frame is
+known, unavailable; a host sees this as a weak or silent DDC0 stream, not as an error (B6).
 
 Table P-1 — Pending hardware parameters
 
@@ -3329,6 +3338,7 @@ Table P-1 — Pending hardware parameters
 | P-SYS-7 | Start mode of the independent watchdog (IWDG1_SW option byte, [HIS] HIS 10, HIS 90) | A1.8a item 3 (installer), firmware | HIS-13 | the firmware and the installer service the watchdog whenever it may run |
 | P-SYS-8 | SEND and TUNER interfaces on the main unit: whether and how the firmware drives or reads them | A3.6, A3.7, B4.8 `atu` bit 4, `regmap_groups` bit 7 | HIS-09 | released (inactive) and not offered |
 | P-RX-1 | Physical receive paths behind the two receive tuning words ([HIS] HIS 80) | B2, B3, 0004 | HIS-02 | one DDC |
+| P-RX-2 | FPGA configuration frame (command 0x01, [HIS] HIS 80): meaning and safe values of the status byte 0 and of bytes 9–18 (per-rate calibration among them), position of the spectral-inversion flag; which tuning word (offset 1 or 5) is DDC0; I/Q order of the 0x04 samples; bus set-up, strobe width and turnaround | B6.1, B6.7, B4.8 `streams` | HIS-01, HIS-02 | DDC0 not offered (`streams` bit 0 = 0, `STREAM_STATUS` reason 2); no configuration frame written outside the A3.6 safe state |
 | P-TX-1 | The third tuning word as the transmit word ([HIS] HIS 80, HYPOTHESIS) | B10 (firmware) | HIS-02 | not applicable while TX is disabled |
 | P-L2-1 | Level 2: receiver bandwidth for `IF_LIMITS`, TCI `KEYER` jitter budget | part C C3, C4 | HIS-01, G6 | level 2 not offered before G6 |
 | P-L2-2 | Level 2: stream budget and socket buffer split | part C C6 | HIS-14, HIS-18, G6 | level 2 not offered before G6 |
@@ -3688,6 +3698,7 @@ Unless a test says otherwise, a test in which KEY or CWX keys runs with break-in
 | T-B6-24 | The DDC0 sequence counter does not restart on a rate change, nor on a resume after a refusal or after DDC-specific byte 7 bit [0] was cleared. |
 | T-B6-25 | Each stream comes from its local port of B2.4a. |
 | T-B6-26 | A run bit with no DDC-specific packet from that host sends High Priority status but no DDC0 I&Q, `STREAM_STATUS` DDC0 reason 1; a DDC-specific packet with byte 7 bit [0] set then starts DDC0 (B5.2). |
+| T-B6-27 | Before P-RX-2 is set: record `streams` bit 0 = 0; a session that enables DDC0 gets `STREAM_STATUS` DDC0 not running with reason 2 and no DDC0 packets; discovery, `CAP_REQUEST` and the management channel answer as usual; with P-RX-2 set (reference model) DDC0 runs (B6.1; 0042). |
 
 ### Field table and register map (B7, B8)
 
