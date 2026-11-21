@@ -1,7 +1,7 @@
 # G7250 network firmware — design note
 
 - Version: draft 5 (spec v1.0 candidate), 2026-11-21; illustrated version at
-  https://claude.ai/artifact/PpqRcsDA5pxW23TTwh5qig (version 7)
+  https://claude.ai/artifact/PpqRcsDA5pxW23TTwh5qig (version 8)
 - Status: for review by ON8ST with the v1.0 package
 - Structure: as agreed in 0001, amended by decisions 0002–0038 (status of each in
   `product-handover.md`).
