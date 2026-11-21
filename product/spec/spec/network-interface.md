@@ -633,9 +633,9 @@ change under A1.11a (0035).
 
 - **Bound on a borrow** (0041). One borrow MUST last at most 2 s, so that a host's
   retransmission of A1.4 (every 500 ms, up to 5 times) still reaches the management channel
-  after it; an exchange not finished in 2 s is abandoned and retried at the next interval.
-  Between two borrows at least 30 s MUST pass, except for the exchanges that the RFC 2131
-  timers T1 and T2 require. A request that arrives during a borrow gets no answer and is not
+  after it; an exchange not finished in 2 s is abandoned and retried at the next interval, so
+  between two borrows the channel is always free for at least the retry interval (4 s or
+  more). A request that arrives during a borrow gets no answer and is not
   counted as an error; the host's retransmission covers it.
 
 A1.11a **Address change by DHCP** (0022 §54). Each of these events during a level-1 session or

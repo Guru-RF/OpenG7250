@@ -22,8 +22,7 @@ gives up after about 2.5 s: a 3 s borrow can make a request fail outright.
 2. One borrow lasts at most 2 s; an exchange not finished then is abandoned and retried at the
    next interval.
 3. Retries while no lease is held start at 4 s and double up to at most every 64 s (RFC 2131
-   section 4.1); at least 30 s pass between two borrows, except for the exchanges the RFC 2131
-   timers T1 and T2 require.
+   section 4.1), so between two borrows the channel is free for at least 4 s.
 4. A request lost during a borrow is not an error; the host's retransmission covers it.
 
 ## Consequences
