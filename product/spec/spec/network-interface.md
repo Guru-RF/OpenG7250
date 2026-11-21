@@ -1449,7 +1449,9 @@ relay of A3.9.
 
 A3.9b **ATU tune cycle** (level-independent; 0022 §22). The firmware controls the internal
 ATU itself; there is no ATU controller ([HIS] HIS 85; 0032). Until the ATU parameters of the
-pending-hardware list are set, the ATU latches stay unwritten, so its state is not known:
+pending-hardware list are set, the ATU latches stay unwritten, their strobes held at the
+inactive level (high) and never pulsed ([HIS] HIS 85, `d199d33`, MEDIUM), so its state is not
+known:
 `ATU_STATE` reads 5 (unknown), and a start is rejected with write reject reason `NOT_CALIBRATED` (on TCI as part C
 C5.7) and is not latched (0032). Once they are set, `ATU_TUNE` (B10.9) and
 `G7250_ATU_TUNE` (part C C5.7) start a tune cycle:
@@ -1798,8 +1800,8 @@ B3.9 **Other port-1024 commands.**
   so it comes from the radio's own link; a host with a wrong address set-up can therefore still
   correct the radio ([P2] Set IP Address packet, "Broadcast to Port 1024"; RFC 1812 section
   5.3.5.1: a router does not forward a limited broadcast). If the Ethernet controller does not
-  report the destination address of a received datagram (whether the CH394 does is an open
-  datasheet question, F2-Q5), the G7250 MUST treat every Set IP as one to the unicast or
+  report the destination address of a received datagram (whether the CH394 does is not known,
+  pending hardware P-NET-3; [HIS] HIS 40, HIS 90), the G7250 MUST treat every Set IP as one to the unicast or
   directed broadcast address: accepted only from a source inside the radio's own subnet, and
   from any source while the radio uses an IPv4 link-local address [RFC3927], since a
   link-local radio is reachable only on its own link (0039). A host with a wrong address
@@ -2223,7 +2225,7 @@ B6.7 **Sample rates.**
 
 - The offered DDC0 rates are 48, 96, 192 and 384 ksps ([P2] DDC-specific bytes 18–19; 0004
   point 1, option 1B). 384 ksps is offered only if the SPI clock is about 50 MHz or more;
-  below that the maximum is 192 ksps (0004 point 6; Resolved). SPI clock: about 17 MHz is known to work ([HIS] HIS 40); the highest working clock is pending
+  below that the maximum is 192 ksps (0004 point 6; Resolved). SPI clock: about 17 MHz is seen in use on the board, which is not a datasheet limit ([HIS] HIS 40, `d199d33`, MEDIUM); the highest working clock is pending
   hardware (P-NET-1; HIS-14), and until it is shown to be 50 MHz or more the offered maximum is
   192 ksps. The
   set also depends on what the ADC chain can produce (HIS-01). The offered set MUST be stated
@@ -3271,7 +3273,7 @@ Table P-1 — Pending hardware parameters
 | P-RF-4 | RX step attenuator and preamplifier steps (chain B bits), attenuation during TX | A3.6, B7, part C C5.9 | HIS-07 | preamplifier off, attenuator at its first known position or unwritten; `G7250_ATT` absent |
 | P-RF-5 | RX default state: filters for the default receive frequency, preamplifier, attenuation | A3.6, B5.5 | HIS-07 | chain B output disabled (OE high, [HIS] HIS 85) until a known frame exists; then the P-RF-4 placeholder |
 | P-ANT-1 | Antenna selection (most likely PD13 latch bits 4–5, [HIS] HIS 85) and the default antenna after reset | A3.6, B8 `ANT_STATE`, part C C5.8 | HIS-06 | latch unwritten; `ANT_STATE` = 0 (unknown); `G7250_ANT` reports 0 and a set is answered with `READ_ONLY` |
-| P-ATU-1 | ATU latch meanings and safe values; tune power of the ATU profile; tune-time margin; where tuned states are stored | A3.4 rule 5, A3.9b, Table A3-2, B10.9, part C C5.7 | HIS-08, HIS-12 | latches unwritten, state unknown (`ATU_STATE` 5); `ATU_TUNE` rejected with `NOT_CALIBRATED` (0032) |
+| P-ATU-1 | ATU latch meanings and safe values; tune power of the ATU profile; tune-time margin; where tuned states are stored | A3.4 rule 5, A3.9b, Table A3-2, B10.9, part C C5.7 | HIS-08, HIS-12 | latches unwritten, strobes PD13, PG2, PG5 held inactive (high) and never pulsed ([HIS] HIS 85); state unknown (`ATU_STATE` 5); `ATU_TUNE` rejected with `NOT_CALIBRATED` (0032) |
 | P-PWR-1 | Mapping of P2 drive level 0–255 and TCI `DRIVE` 0–100 to forward power (DAC channel 1, [HIS] HIS 85) | A3.4 rule 4, B10.8, part C C4 | HIS-12 | not applicable while TX is disabled |
 | P-PWR-2 | Limit values: SWR S1, S2, `P_min`; temperatures T1–T4 and their hysteresis; under-voltage `REDUCE` and `UNKEY` values; fold-back caps `P_swr`, `P_temp`; `P_ssb_mean`; maximum power at 50 MHz | Table A3-2, A3.4a, A3.4c, A3.5, B4.8 `tx_band` | HIS-11, HIS-12 | not applicable while TX is disabled |
 | P-PWR-3 | Margin on the forward-power bound for the digital crest-factor PEP estimate | Table A3-2, A3.4c | HIS-11, HIS-12 | not applicable while TX is disabled |
@@ -3284,8 +3286,9 @@ Table P-1 — Pending hardware parameters
 | P-SEN-5 | Calibration of the receive signal level in dBm | part C C4 `RX_SENSORS` | HIS-11 | level reported uncalibrated, relative to full scale |
 | P-TIM-1 | Delay from the DUC input to the coupler | A3.4c, A3.9a item 6 | HIS-18 | not applicable while TX is disabled |
 | P-TIM-2 | DUC FIFO capacity while keyed; exact TX underrun time | B10.5, B10.7, Annex X1 D8, annex AetherSDR | HIS-18 | not applicable while TX is disabled |
-| P-NET-1 | Highest SPI clock to the CH394 that works on the radio (about 17 MHz known, [HIS] HIS 40) | B6, 0004 | HIS-14 | DDC0 rates 48, 96 and 192 ksps; 384 ksps offered only once ≥ 50 MHz is shown |
+| P-NET-1 | Highest SPI clock to the CH394 that works on the radio (about 17 MHz seen in use, not a datasheet limit; the datasheet maximum is still to be taken from CH394DS1, [HIS] HIS 40) | B6, 0004 | HIS-14 | DDC0 rates 48, 96 and 192 ksps; 384 ksps offered only once ≥ 50 MHz is shown |
 | P-NET-2 | Whether the CH394 MAC address is unique per unit ([HIS] HIS 40) | A1.5, B3 | HIS-15 | the CH394 value is used as it is |
+| P-NET-3 | Whether the CH394 reports the destination address (unicast, directed or limited broadcast) of a received UDP datagram ([HIS] HIS 40, HIS 90) | B3.9 (Set IP) | HIS-14 | treat every Set IP as unicast or directed broadcast: own subnet only, any source while link-local (B3.9) |
 | P-SYS-1 | Pin states between reset and the firmware's GPIO init (board pull-ups) | A3.6, A3.5 | HIS-13 | firmware sets the safe state first in its start-up ([HIS] HIS 85) |
 | P-SYS-2 | Reset cause and RAM retained across a warm reset (fault counters, log) | A1.7, A3.5, Table B8-3 `WDT_RESET_AT_START` | HIS-13, HIS-18 | counters and log are lost at every reset |
 | P-SYS-3 | Power-up path without the controller (HIS 20 H1/H2) | part A scope (0029) | HIS-17 | none; observation T0-P2 |
@@ -3571,7 +3574,7 @@ Unless a test says otherwise, a test in which KEY or CWX keys runs with break-in
 | T-B3-29 | Set IP with the unit's MAC sent to the unicast or directed broadcast address is accepted with the same effects as a broadcast Set IP. |
 | T-B3-30 | Byte 13 equals major × 10 + minor of `fw_version`, capped at 255; byte 23 is non-zero only on a beta build. |
 | T-B3-31 | 100 discoveries per second from one source get at most 10 replies per second; the excess is counted in `GET_STATS`. |
-| T-B3-32 | Set IP with the unit's MAC to the unicast or directed broadcast address from a source outside the radio's subnet is ignored and counted. To 255.255.255.255 from the same source it is accepted where the controller reports the destination; where it does not (F2-Q5), it is ignored and counted too, except while the radio uses a link-local address, when it is accepted (B3.9, B11.15; 0039). |
+| T-B3-32 | Set IP with the unit's MAC to the unicast or directed broadcast address from a source outside the radio's subnet is ignored and counted. To 255.255.255.255 from the same source it is accepted where the controller reports the destination; where it does not (P-NET-3), it is ignored and counted too, except while the radio uses a link-local address, when it is accepted (B3.9, B11.15; 0039). |
 | T-B3-33 | A discovery request from source port 1024 gets no reply and is counted; two G7250s on one LAN with a discovery reply injected toward one of them exchange no further datagrams (B3.2). |
 | T-B3-34 | After a Set IP to an address inside the current subnet the netmask is unchanged; to an address outside it the netmask becomes 255.255.255.0 and a gateway outside the new subnet is cleared; 0.0.0.0 starts DHCP (B3.9; 0039). |
 

@@ -1,6 +1,6 @@
 # Open questions for the hardware-interface spec (HIS)
 
-Questions that only the hardware-interface spec (`g7250-his`, now `his/` in the umbrella repository) can answer. The HIS was cleared by gate review 2 on 2026-11-20 and answered at commit `2a38b7f`; the answers to the follow-up questions passed gate review 3 at `d0a39b0`, the HIS-02 frame layout gate review 4 at `b95f519`, and the HIS-02 word roles gate review 5 at `9d10e72`. Each question below carries its status; "pending hardware" means only the radio can settle it (HIS 90). This repository
+Questions that only the hardware-interface spec (`g7250-his`, now `his/` in the umbrella repository) can answer. The HIS was cleared by gate review 2 on 2026-11-20 and answered at commit `2a38b7f`; the answers to the follow-up questions passed gate review 3 at `d0a39b0`, the HIS-02 frame layout gate review 4 at `b95f519`, the HIS-02 word roles gate review 5 at `9d10e72`, and the answers to the firmware's questions gate review 6 at `d199d33`. Each question below carries its status; "pending hardware" means only the radio can settle it (HIS 90). This repository
 does not look for the answers itself (AGENTS.md rules 1 and 7). Each question says why we
 need it, which decision or milestone waits for it, and what public sources already say.
 
@@ -91,6 +91,7 @@ Priority: **M1** = needed for milestone M1 (discovery, capability block, RX-IQ);
 ### HIS-08 — Internal ATU (M2)
 
 - **HIS answer** ([HIS] `2a38b7f`): partly (HIS 85); see `analysis/his-2a38b7f-impact.md` §2.
+- **Update** ([HIS] `d199d33`): ATU strobes PD13, PG2, PG5 inactive high (MEDIUM): drive to the inactive level, never pulse; board pulls unknown.
 - Question: how is the internal tuner switched in and out, how is tuning started, what does
   it report (busy, success, failure, SWR), and where is the per-band tuning data stored?
 - Why: G7250 register map (0005); interaction with TX arm and PTT (0015, 0007).
@@ -179,6 +180,7 @@ Priority: **M1** = needed for milestone M1 (discovery, capability block, RX-IQ);
 ### HIS-14 — Ethernet controller and its connection (M1)
 
 - **HIS answer** ([HIS] `2a38b7f`): partly (HIS 40); see `analysis/his-2a38b7f-impact.md` §2.
+- **Update** ([HIS] `d199d33`, gate review 6): CH394 reset window 12–19 ms after RST# high (VERIFIED, CH394DS1); minimum RST# low and maximum SCK still to be taken from the datasheet; about 17 MHz seen in use, not a datasheet limit (MEDIUM); CHIPV at 0x0039; whether the chip reports a datagram's destination address is not known (P-NET-3).
 - Question: please confirm the WCH CH394Q. Which interface connects it to the processor
   (SPI), at what clock, and does the existing design use the chip's sockets or MACRAW mode?
 - Why: the SPI clock caps all network throughput (at most 62 MHz [CH394]); the socket mode
@@ -238,6 +240,7 @@ Priority: **M1** = needed for milestone M1 (discovery, capability block, RX-IQ);
 ### HIS-18 — Processor, memory and logic (G6, M1)
 
 - **HIS answer** ([HIS] `2a38b7f`): answered (HIS 10, 15); see `analysis/his-2a38b7f-impact.md` §2.
+- **Update** ([HIS] `d199d33`): part STM32H725xG/H735xG (MEDIUM), package open; AXI SRAM 320 KiB as shipped (HIGH); core supply SMPS feeding the LDO (MEDIUM, write-once); HSE not recorded; state at application start unknown (HIS 10, 90).
 - Question: which processor(s), DSP or FPGA are in the main unit, at what clock, with how
   much RAM and flash?
 - Why: P2 is the heavier protocol (several ports, 24-bit TX IQ at 192 ksps [P2]); the

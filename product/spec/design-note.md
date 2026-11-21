@@ -108,7 +108,7 @@ PTT paths, what the CTRL cable carries.
   sample rates, antennas, ATU, TX power per band and mode, wideband parameters, link speed,
   and this unit's own conversion constants. Reading it is not a takeover. (0003)
 - **Streams.** One DDC at 48/96/192/384 ksps (384 only once an SPI clock of about 50 MHz or
-  more is shown on the radio; about 17 MHz is known to work, so 192 ksps until then; Annex P
+  more is shown on the radio; about 17 MHz is seen in use, not a datasheet limit, so 192 ksps until then; Annex P
   P-NET-1), TX IQ 24-bit at 192 ksps, no microphone stream in v1.0 (0031),
   wideband from M2 at 4096 samples × 20 frames/s. Unsupported requests are refused, not
   rounded. A 10 Mbit/s link refuses the session. Design target: at most 60 % SPI load. (0004)

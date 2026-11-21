@@ -173,3 +173,13 @@ with the streaming installer and no rollback. Recommendation: A/B, which keeps U
   decision (one more socket, 0004 "Against").
 - Pending hardware: mapping of offsets 1/5 to physical receive paths; offset 19 as the transmit
   word. TX stays disabled until measured (unchanged).
+
+## 9. Addendum: `d199d33` (gate review 6)
+
+- HIS 40: about 17 MHz SPI is the value seen in use, not a datasheet limit (MEDIUM): spec B6
+  and P-NET-1 reworded. Whether the CH394 reports a datagram's destination address is not
+  known: new P-NET-3, cited in B3.9 and T-B3-32.
+- HIS 85: ATU strobes inactive high (MEDIUM), driven inactive and never pulsed: A3.9b and the
+  P-ATU-1 placeholder say so. The latches stay unwritten.
+- HIS 10 (part, supply, AXI SRAM, HSE, state at start) and the CH394 reset window: firmware
+  detail; no spec change.
