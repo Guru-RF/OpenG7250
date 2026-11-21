@@ -1223,6 +1223,24 @@ A3.5 **Fault state** (0007, Decision 5):
   escalated code therefore stays class 2 after a `RESTART`; only a power cycle at the radio
   clears the count.
 
+A3.5a **Faults before the network** (0040). Some faults are found by the boot stage before the
+network is brought up, so no host can be told over the network. In this version this is the
+core supply check: the supply configuration of the MCU can be written only once per power-on,
+and one that does not match the board wiring can harm the part ([HIS] HIS 10, `6e2208a`).
+
+1. If the boot stage finds a supply configuration that does not match the one this firmware
+   selects ([HIS] HIS 10), or cannot confirm it within its time-out, it MUST hold the safe
+   state of A3.6 ([HIS] HIS 85), MUST NOT bring up the CH394 (RST# held low, [HIS] HIS 40) or
+   any other peripheral beyond the debug console, and MUST NOT write flash.
+2. It reports the fault only on the debug console, USART1 TX on PB6 ([HIS] HIS 90), 115200
+   bit/s, 8 data bits, no parity, 1 stop bit, once per second, as one ASCII line:
+   `G7250 FAULT SUPPLY <PWR_CR3 as 8 hex digits> <MISMATCH|TIMEOUT>` followed by CR LF.
+3. The radio stays in that state until power is removed. A host sees no discovery reply and no
+   management answer; `g7250ctl discover` finds nothing. The owner's way out is the vendor path
+   (A1.8a item 9), which does not depend on this firmware.
+4. The fault is not stored and not reported in identification: writing flash on a supply the
+   firmware believes wrong is not safe, and a network bring-up on it is not either (0040).
+
 A3.6 **State after power-on, any reset, and every session end** (0007, Decision 5): PA and
 its bias off (bias channels at 0; the transmit bias per unit is P-PWR-5), TX path disabled, SEND and TUNER trigger released (HIS-09, HIS-10, HIS-13; [HIS] HIS 85); the firmware sets this state first in its start-up, because pin states before its GPIO init are pending hardware (P-SYS-1); DUC
 FIFO emptied (0022 §32); not armed, new token, session limits back to the persistent values (A3.4; after a reset the
@@ -3541,6 +3559,7 @@ Unless a test says otherwise, a test in which KEY or CWX keys runs with break-in
 | T-A3-56 | With a DUC0 change that needs another RF-path state sent with a PTT 0→1 edge (reference model, `t_settle` 20 ms), a CWX paddle edge and an `ATU_TUNE` write 5 ms after the PTT edge are refused (the write with `KEYED`) and not latched; the PTT request keys after the settle; with the PTT request refused at the bound instead, the CWX bit still held does not key until a new edge (A3.9a item 3; 0022 §87 item 4). |
 | T-A3-57 | Level 1, a P2 host sending CW as DUC I&Q with PTT, zero samples (I = Q = 0) between elements and a gap of 300 ms, `t_blank` below the gap (reference model): RF above the "RF while not keyed" threshold injected in a gap is detected, the fault state with `RF_NOT_KEYED` entered, no later than `t_blank` + 10 ms after the last non-zero sample (or after the injection, if later), while PTT stays set; RF that decays within `t_blank` after each element gives no fault; the same with the zero samples fed during an underflow shorter than the underrun time; with non-zero noise samples in the gaps the check does not run there (known limit) (Table A3-2, A3.9a item 6; 0022 §88 item 1). |
 | T-A3-58 | v1.0 (0030): with level 1 active, armed and unarmed, with and without hardware CW selected, toggling the local PTT input (PH6) and the KEY contacts (PH3, PH4) keys nothing, and High Priority status byte 4 bits [0]–[2] stay 0 (reference model with simulated inputs; [HIS] HIS 85). |
+| T-A3-59 | With a simulated supply-configuration mismatch, and with a time-out, the boot stage keeps the A3.6 safe state, holds CH394 RST# low, writes no flash, answers no discovery or management request, and sends `G7250 FAULT SUPPLY <8 hex digits> MISMATCH` (or `TIMEOUT`) with CR LF on USART1 at 115200 8N1 once per second (emulator or reference model; A3.5a; 0040). |
 
 ### Discovery (B3)
 
