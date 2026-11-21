@@ -676,10 +676,14 @@ change under A1.11a (0035).
 - **DHCP messages while link-local** (0052). The CH394's source IP address is chip-wide
   ([CH394]), and the P2 sockets keep using the link-local address during a borrow, so the
   G7250 sends its DHCPDISCOVER and DHCPREQUEST with the link-local address as IP source while
-  it holds one; [RFC3927] section 1.9 lets a host with a link-local address go on with DHCP. To
-  stay within [RFC2131] section 4.1 in every other respect, these messages MUST carry `ciaddr`
-  = 0.0.0.0 and the BROADCAST flag set, so that the server or relay answers by broadcast and
-  never relies on the source address. Before any address is held (the first exchange at
+  it holds one. [RFC3927] section 2.11 requires the DHCP client to keep trying while a
+  link-local address is configured, and section 1.9 that the host not alter its use of DHCP
+  because of that address; [RFC2131] section 4.1 asks for source 0.0.0.0 "prior to that client
+  obtaining its IP address". Sending 0.0.0.0 would mean clearing the chip-wide address and
+  closing every socket for each retry, so this is a deliberate reading forced by the chip, kept
+  as close to [RFC2131] as it allows: these messages MUST carry `ciaddr` = 0.0.0.0 and the
+  BROADCAST flag set, so that the server or relay answers by broadcast and identifies the
+  client by `chaddr` and option 61, never by the source address. Before any address is held (the first exchange at
   power-on), the source is 0.0.0.0 as [RFC2131] section 4.1 says.
 - **Conflict on a DHCP or static address** (0049). A conflict on a leased address: the G7250
   sends DHCPDECLINE ([RFC2131] section 3.1 item 5), uses a link-local address and starts DHCP
