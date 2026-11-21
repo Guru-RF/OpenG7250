@@ -206,7 +206,7 @@ General standards cited in the decisions and the spec. Public; cited by number, 
 | [RFC2104] | RFC 2104, HMAC | challenge-response on the management channel (0008) |
 | [RFC1812] | RFC 1812, Requirements for IP Version 4 Routers | limited broadcast is not forwarded by routers (0022 §70; spec B3.9) |
 | [RFC3927] | RFC 3927, Dynamic Configuration of IPv4 Link-Local Addresses | fallback address while no DHCP lease is held (0035; spec A1.6 C-1, A1.11) |
-| [RFC2131] | RFC 2131, Dynamic Host Configuration Protocol | address changes and lease loss during a session (0022 §54; spec A1.11a) |
+| [RFC2131] | RFC 2131, Dynamic Host Configuration Protocol | address changes and lease loss during a session (0022 §54; spec A1.11a); retransmission back-off of the DHCP retries (0041; spec A1.11) |
 | [RFC1982] | RFC 1982, Serial Number Arithmetic | ordering of High Priority sequence numbers (0022 §35; spec B11.6a) |
 
 ## Discussion with ON8ST

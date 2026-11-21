@@ -79,10 +79,10 @@ the vendor path on the controller (A1.8a item 9; 0028).
 A1.2 **Transport.** The management channel MUST use its own UDP port, served by the eighth
 socket of the CH394Q (0008, Decision, Transport 1; 0017). That socket is reserved at both
 levels, MUST be open whenever the network is up, and MUST NOT be closed to make room for
-another level (0008, Transport 1; Socket budget). The one exception is the provisional DHCP
-rule of A1.11: while a lease renewal borrows the socket, for the few seconds of the exchange,
-management requests are lost and the host's retransmission (A1.4) covers the gap (0008,
-Socket budget; 0022 §73 item 17).
+another level (0008, Transport 1; Socket budget). The one exception is the DHCP rule of
+A1.11: while an exchange borrows the socket, at most 2 s at a time, management requests are
+lost and the host's retransmission (A1.4) covers the gap (0008, Socket budget; 0022 §73
+item 17; 0041).
 
 A1.3 **Port number.** The management channel uses local UDP port **7251** (0020 §2). This
 lies outside 1024–1029, outside the wideband default ports 1027–1034 and outside the DDC
@@ -624,10 +624,19 @@ A1.10 **Security on a LAN** (0008, Security):
 
 A1.11 **DHCP** (0008, Socket budget; 0035). The CH394 has no DHCP client (0008; [CH394]); network
 behaviour is defined by this spec ([HIS] HIS 40; HIS-14). The DHCP exchange at power-on runs before the
-P2 sockets are opened; lease renewals borrow the management socket for the few seconds the
-exchange takes. While no lease is held (no server, or the lease ended), the G7250 MUST use an
-IPv4 link-local address chosen as in [RFC3927] and keep trying DHCP; a lease, when it comes,
-is an address change under A1.11a (0035).
+P2 sockets are opened. Later exchanges (renewal and rebinding, and the retries while no lease
+is held) borrow the management socket, which then listens on UDP port 68 (0041). While no lease
+is held (no server, or the lease ended), the G7250 MUST use an IPv4 link-local address chosen
+as in [RFC3927] and keep trying DHCP, with retries spaced from 4 s doubling up to at most every
+64 s (RFC 2131 section 4.1 retransmission back-off); a lease, when it comes, is an address
+change under A1.11a (0035).
+
+- **Bound on a borrow** (0041). One borrow MUST last at most 2 s, so that a host's
+  retransmission of A1.4 (every 500 ms, up to 5 times) still reaches the management channel
+  after it; an exchange not finished in 2 s is abandoned and retried at the next interval.
+  Between two borrows at least 30 s MUST pass, except for the exchanges that the RFC 2131
+  timers T1 and T2 require. A request that arrives during a borrow gets no answer and is not
+  counted as an error; the host's retransmission covers it.
 
 A1.11a **Address change by DHCP** (0022 §54). Each of these events during a level-1 session or
 while level 2 is active is a change of the radio's own address, handled as a C-1 change (A1.6):
@@ -3485,6 +3494,7 @@ Unless a test says otherwise, a test in which KEY or CWX keys runs with break-in
 | T-A1-63 | `SET_CALIBRATION` while a P2 session runs gets 57, while armed 50, during an update 58; with an unknown parameter id 48 and nothing changes; a complete set sets record `tx` bit 4 from the next session on and `IDENTIFY` tags 20 and 21 report it; `FACTORY_RESET` keeps the set; `CLEAR_CALIBRATION` clears bit 4 from the next session on (reference model; A1.12; 0039). |
 | T-A1-64 | A `SET_CONFIG` with the SWR limit (tag 9) or the PA temperature limit (tag 10) before the calibration set holds P-PWR-2 gets status 62; a P2 write of `LIMIT_SWR` or `LIMIT_PA_TEMP` gets write reject reason `NOT_CALIBRATED` (A1.12 item 4; 0039). |
 | T-A1-65 | A region other than 0 in `SET_CONFIG` (tag 6) gets status 48; with region 0 a DUC0 frequency at each edge of every range of Table A3-0 is inside, 1 Hz outside each edge is outside (reference model with a complete calibration set; A1.6 C-6; Table A3-0; 0039). |
+| T-A1-66 | With no DHCP server, the radio uses a link-local address, retries DHCP from 4 s doubling up to every 64 s, and lends the management socket for at most 2 s per retry; a management request repeated every 500 ms for 2.5 s around a retry gets an answer (reference model; A1.2, A1.11; 0041). |
 | T-A2-01 | Identification and record `level` report the active level and the owner (IP and port). |
 | T-A2-02 | A level change drops the arm with `LEVEL_CHANGE` (after G6). |
 | T-A2-03 | While level 2 is active, P2 C&C starts no session and no takeover (after G6). |
