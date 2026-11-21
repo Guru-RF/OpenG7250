@@ -3289,7 +3289,7 @@ Table P-1 — Pending hardware parameters
 | P-SEN-5 | Calibration of the receive signal level in dBm | part C C4 `RX_SENSORS` | HIS-11 | level reported uncalibrated, relative to full scale |
 | P-TIM-1 | Delay from the DUC input to the coupler | A3.4c, A3.9a item 6 | HIS-18 | not applicable while TX is disabled |
 | P-TIM-2 | DUC FIFO capacity while keyed; exact TX underrun time | B10.5, B10.7, Annex X1 D8, annex AetherSDR | HIS-18 | not applicable while TX is disabled |
-| P-NET-1 | Highest SPI clock to the CH394 that works on the radio (datasheet maximum 62 MHz [CH394], manual V1.2, features list; about 17 MHz seen in use on the board, MEDIUM, [HIS] HIS 40) | B6, 0004 | HIS-14 | DDC0 rates 48, 96 and 192 ksps; 384 ksps offered only once ≥ 50 MHz is shown |
+| P-NET-1 | Highest SPI clock to the CH394 that works on the radio (datasheet maximum 62 MHz in SPI mode 0 or 3 [CH394], manual V1.2, features list, VERIFIED in [HIS] HIS 40, `6e2208a`; about 17 MHz seen in use on the board, MEDIUM, the safe bound until the board link is measured) | B6, 0004 | HIS-14 | DDC0 rates 48, 96 and 192 ksps; 384 ksps offered only once ≥ 50 MHz is shown |
 | P-NET-2 | Whether the CH394 MAC address is unique per unit ([HIS] HIS 40) | A1.5, B3 | HIS-15 | the CH394 value is used as it is |
 | P-NET-3 | Whether the CH394 reports the destination address (unicast, directed or limited broadcast) of a received UDP datagram ([HIS] HIS 40, HIS 90) | B3.9 (Set IP) | HIS-14 | treat every Set IP as unicast or directed broadcast: own subnet only, any source while link-local (B3.9) |
 | P-SYS-1 | Pin states between reset and the firmware's GPIO init (board pull-ups) | A3.6, A3.5 | HIS-13 | firmware sets the safe state first in its start-up ([HIS] HIS 85) |
